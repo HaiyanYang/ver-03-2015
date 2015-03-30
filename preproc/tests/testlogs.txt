@@ -1,0 +1,21 @@
+test5:
+- two parts, each part has one C3D8 element
+- each part definition includes *Nset and *Surface
+- assembly include *Nset and *Surface and *Tie constrant
+
+
+
+test4:
+- one C3D8 element, with *Nset in part definition
+
+
+test3:
+- one C3D8 element and one COH3D8 element
+
+
+test2:
+- single COH3D8 element
+
+
+test1: 
+- single C3D8 element
