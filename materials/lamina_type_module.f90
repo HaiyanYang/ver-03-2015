@@ -266,22 +266,26 @@ contains
     fstat  = sdv%i(1) ! generic failure status
     ffstat = sdv%i(2) ! fibre   failure status
     mfstat = sdv%i(3) ! matrix  failure status
-
-
-    ! check and update mfstat
-    if(mfstat<matrix_onset) then               
-        ! go through failure criterion and update fstat
-        call MatrixFailureCriterion(stress,this_mat%strength,mfstat)
-    end if
-    ! update sdv
-    if(mfstat>=matrix_onset) sdv%i(3)=mfstat
     
-    ! update fstat
-    fstat=max(ffstat,mfstat)
-    sdv%i(1)=fstat
-
-
-    ! if fibre already completely failed, just calculate stress and return;
+    ! fstat is always equal to ffstat, 
+    ! unless ffstat = INTACT and mfstat > INTACT, then fstat = mfstat
+    !
+    ! Possible changes of ffstat, mfstat and fstat after the failure procedure
+    !
+    ! From:  ffstat = FIBRE_FAILED; mfstat = * ; fstat = ffstat
+    ! To  :  ffstat = FIBRE_FAILED; mfstat = * ; fstat = ffstat (NO CHANGE)
+    !
+    ! From:  ffstat = FIBRE_ONSET ; mfstat = * ; fstat = ffstat
+    ! To 1:  ffstat = FIBRE_ONSET ; mfstat = * ; fstat = ffstat
+    ! To 2:  ffstat = FIBRE_FAILED; mfstat = * ; fstat = ffstat
+    !
+    ! From:  ffstat = INTACT      ; mfstat = * ; fstat = mfstat <- mfstat>INTACT
+    ! To 1:  ffstat = INTACT      ; mfstat = * ; fstat = mfstat <- mfstat>INTACT
+    ! To 2:  ffstat = FIBRE_ONSET ; mfstat = * ; fstat = ffstat
+    ! To 3:  ffstat = FIBRE_FAILED; mfstat = * ; fstat = ffstat
+    !
+    
+    ! if fibres are already FAILED, just calculate stress and return;
     ! no need to go through failure criterion, coh law and update sdvs
     fibre_failed: if (ffstat == FIBRE_FAILED) then
       
@@ -299,9 +303,9 @@ contains
       
     end if fibre_failed
     
-    ! here, fibres can be either intact or damaged (onset); 
+    ! here, fibres can be either INTACT or DAMAGED (FIBRE_ONSET); 
     
-    ! when fibres are intact, calculate stress for failure criterion check
+    ! when fibres are INTACT, calculate stress for failure criterion check
     fibre_intact: if (ffstat == INTACT) then
     
       ! calculate dee using original material properties only
@@ -312,25 +316,45 @@ contains
       
     end if fibre_intact
     
-    ! when fibres are damaged, no need to calculate stress; 
-    ! only strain is needed for subsequent cohesive law calculations
-    
+    ! when fibres are DAMAGED, no need to calculate stress; 
+    ! only strain is needed for subsequent cohesive law calculations;
+    ! so do NOTHING
       
-    ! call cohesive law, calculate damage var. (sdv%r)
+      
+    ! call fibre cohesive law, calculate fibre damage var. (sdv%r)
     call FibreCohesiveLaw(ffstat, sdv%r, stress, this_mat%strength, &
     & this_mat%fibreToughness, strain, clength, maxdm_lcl)
 
-    ! going through cohesive law, the possible outcomes are:
-    ! 1. intact -> intact : just return
-    ! 2. intact -> onset  : update sdv, D, stress
-    ! 3. onset  -> onset  : update sdv, D, stress
-    ! 4. onset  -> failed : update sdv, D, stress
+    ! going through cohesive law, the possible outcomes of ffstat are:
+    ! 1. intact -> intact : check matrix status (update fstat if mfstat changes)
+    ! 2. intact -> onset  : update fstat, sdv, D, stress
+    ! 3. onset  -> onset  : update        sdv, D, stress
+    ! 4. onset  -> failed : update fstat, sdv, D, stress
     
+    ! if fibres are STILL INTACT, check for matrix status;
+    ! if matrix failure onset, update sdv fstat and return
+    fibre_still_intact: if (ffstat == INTACT) then
+    
+      ! check and update mfstat
+      if (mfstat == INTACT) then
+               
+        ! go through failure criterion and update fstat
+        call MatrixFailureCriterion(stress,this_mat%strength,mfstat)
+        
+        ! update sdv if matrix reached failure onset
+        if(mfstat == matrix_onset) then 
+          sdv%i(3) = mfstat
+          fstat    = mfstat
+          sdv%i(1) = fstat
+        end if
+        
+      end if 
+      
+      return
+    end if fibre_still_intact
 
-    ! if fibres are still intact
-    if (ffstat == INTACT) return
-
-    ! otherwise, update sdv, deemat and stress, then return
+    ! if fibres are DAMAGED/FAILED after the cohesive law, 
+    ! update sdv, deemat and stress, then return
 
     ! update sdv
     sdv%i(2)=ffstat
