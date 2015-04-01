@@ -267,6 +267,7 @@ contains
     ffstat = sdv%i(2) ! fibre   failure status
     mfstat = sdv%i(3) ! matrix  failure status
     
+    !---------------------------------------------------------------------------
     ! fstat is always equal to ffstat, 
     ! unless ffstat = INTACT and mfstat > INTACT, then fstat = mfstat
     !
@@ -283,94 +284,102 @@ contains
     ! To 1:  ffstat = INTACT      ; mfstat = * ; fstat = mfstat <- mfstat>INTACT
     ! To 2:  ffstat = FIBRE_ONSET ; mfstat = * ; fstat = ffstat
     ! To 3:  ffstat = FIBRE_FAILED; mfstat = * ; fstat = ffstat
-    !
+    !---------------------------------------------------------------------------
     
-    ! if fibres are already FAILED, just calculate stress and return;
-    ! no need to go through failure criterion, coh law and update sdvs
-    fibre_failed: if (ffstat == FIBRE_FAILED) then
-      
-      ! extract fibre degradation factor
-      df=sdv%r(1)
-      
-      ! calculate dee; degrade both fibre and matrix stiffness properties
-      call deemat3d (dee, this_mat, df=df, dm2=df, dm3=df)
-      
-      ! calculate stress
-      stress = matmul(dee, strain)
-      
-      ! exit program
-      return
-      
-    end if fibre_failed
+    ! ffstat is the key variable, select what to do next based on ffstat
+    ffstat_bfr_cohlaw: select case (ffstat)
     
-    ! here, fibres can be either INTACT or DAMAGED (FIBRE_ONSET); 
-    
-    ! when fibres are INTACT, calculate stress for failure criterion check
-    fibre_intact: if (ffstat == INTACT) then
-    
-      ! calculate dee using original material properties only
-      call deemat3d (dee, this_mat)
-    
-      ! calculate stress
-      stress = matmul(dee, strain)
-      
-    end if fibre_intact
-    
-    ! when fibres are DAMAGED, no need to calculate stress; 
-    ! only strain is needed for subsequent cohesive law calculations;
-    ! so do NOTHING
+      ! if fibres are already FAILED, just calculate stress and return;
+      ! no need to go through failure criterion, coh law and update sdvs
+      case (FIBRE_FAILED) 
+        ! extract fibre degradation factor
+        df=sdv%r(1)
+        ! calculate dee; degrade both fibre and matrix stiffness properties
+        call deemat3d (dee, this_mat, df=df, dm2=df, dm3=df)
+        ! calculate stress
+        stress = matmul(dee, strain)
+        ! exit program
+        return
+        
+      ! when fibres are DAMAGED, no need to calculate stress; 
+      ! only strain is needed for subsequent cohesive law calculations;
+      ! so do NOTHING  
+      case (FIBRE_ONSET)
+        continue
+        
+      ! when fibres are INTACT, calculate stress for failure criterion check
+      case (INTACT)
+        ! calculate dee using original material properties only
+        call deemat3d (dee, this_mat)
+        ! calculate stress
+        stress = matmul(dee, strain)
+        
+      ! unexpected value, update istat and emsg, then return
+      case default
+        istat_lcl = STAT_FAILURE
+        emsg_lcl  = 'ffstat value is not recognized in ffstat_bfr_cohlaw, &
+        & lamina_ddsdde!'
+        if(present(istat)) istat = istat_lcl
+        if(present(emsg))  emsg  = emsg_lcl
+        return
+        
+    end select ffstat_bfr_cohlaw
       
       
     ! call fibre cohesive law, calculate fibre damage var. (sdv%r)
     call FibreCohesiveLaw(ffstat, sdv%r, stress, this_mat%strength, &
     & this_mat%fibreToughness, strain, clength, maxdm_lcl)
 
+    !---------------------------------------------------------------------------
     ! going through cohesive law, the possible outcomes of ffstat are:
     ! 1. intact -> intact : check matrix status (update fstat if mfstat changes)
     ! 2. intact -> onset  : update fstat, sdv, D, stress
     ! 3. onset  -> onset  : update        sdv, D, stress
     ! 4. onset  -> failed : update fstat, sdv, D, stress
+    !---------------------------------------------------------------------------
+  
+    ! ffstat is the key variable, select what to do next based on ffstat
+    ffstat_aft_cohlaw: select case (ffstat)
     
-    ! if fibres are STILL INTACT, check for matrix status;
-    ! if matrix failure onset, update sdv fstat and return
-    fibre_still_intact: if (ffstat == INTACT) then
-    
-      ! check and update mfstat
-      if (mfstat == INTACT) then
-               
-        ! go through failure criterion and update fstat
-        call MatrixFailureCriterion(stress,this_mat%strength,mfstat)
+      ! if fibres are DAMAGED/FAILED after the cohesive law, 
+      ! update fstat, sdv, deemat and stress
+      case (FIBRE_ONSET, FIBRE_FAILED) 
+        ! update sdv
+        sdv%i(2)=ffstat  
+        ! update fibre stiffness degradation
+        df=sdv%r(1) 
+        ! update D matrix
+        call deemat3d (dee, this_mat, df=df, dm2=df, dm3=df) 
+        ! update stress
+        stress = matmul(dee, strain) 
         
-        ! update sdv if matrix reached failure onset
-        if(mfstat == matrix_onset) then 
-          sdv%i(3) = mfstat
-          fstat    = mfstat
-          sdv%i(1) = fstat
+      ! if fibres are STILL INTACT, check for matrix status;
+      ! if matrix failure onset, update fstat
+      case (INTACT)
+        ! check and update mfstat
+        if (mfstat == INTACT) then       
+          ! go through failure criterion and update fstat
+          call MatrixFailureCriterion(stress,this_mat%strength,mfstat)
+          ! update fstat if matrix reached failure onset
+          if(mfstat == matrix_onset) then 
+            sdv%i(3) = mfstat
+            fstat    = mfstat
+            sdv%i(1) = fstat
+          end if 
         end if
         
-      end if 
-      
-      return
-    end if fibre_still_intact
-
-    ! if fibres are DAMAGED/FAILED after the cohesive law, 
-    ! update sdv, deemat and stress, then return
-
-    ! update sdv
-    sdv%i(2)=ffstat
-      
-    ! update fibre stiffness degradation
-    df=sdv%r(1) 
+      ! unexpected value, update istat and emsg, then return
+      case default
+        istat_lcl = STAT_FAILURE
+        emsg_lcl  = 'ffstat value is not recognized in ffstat_aft_cohlaw, &
+        & lamina_ddsdde!'
+        if(present(istat)) istat = istat_lcl
+        if(present(emsg))  emsg  = emsg_lcl
+        return
+ 
+    end select ffstat_aft_cohlaw
+   
     
-    ! update D matrix
-    call deemat3d (dee, this_mat, df=df, dm2=df, dm3=df)
-      
-    ! update stress
-    stress = matmul(dee, strain)
-      
-    
-    ! exit program
-    return
   end subroutine ddsdde_lamina 
 
 
