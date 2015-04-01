@@ -311,8 +311,8 @@ contains
       
       
     ! call fibre cohesive law, calculate fibre damage var.
-    call FibreCohesiveLaw(ffstat, df, u0, uf, stress, this_mat%strength, &
-    & this_mat%fibreToughness, strain, clength, maxdm_lcl)
+    call FibreCohesiveLaw(ffstat, df, u0, uf, stress, strain, &
+  & clength, this_mat%strength, this_mat%fibreToughness, maxdm_lcl) 
 
     !---------------------------------------------------------------------------
     ! going through cohesive law, the possible outcomes of ffstat are:
@@ -679,29 +679,42 @@ contains
 
 
 
-
-  pure subroutine FibreCohesiveLaw(fstat,sdvr,sigma,strength,fibretoughness,strain,clength,maxdm_lcl)
     
-    integer,                intent(inout)   :: fstat
-    real(DP), allocatable,  intent(inout)   :: sdvr(:)
-    real(DP),                 intent(in)    :: sigma(:),strain(:), clength, maxdm_lcl 
-    type(lamina_strength), intent(in)       :: strength
-    type(lamina_fibretoughness),intent(in)  :: fibretoughness
+  pure subroutine FibreCohesiveLaw(ffstat, df, u0, uf, stress, strain, &
+  & clength, strength, fibreToughness, maxdm) 
+  ! Purpose:
+  ! to update fibre failure status, stiffness degradation factor and 
+  ! cohesive law variables according to a linear cohesive softening law
+  
+    ! dummy argument list:
+    ! - ffstat          : fibre failure status                  to update
+    ! - df              : fibre stiffness degradation factor    to update
+    ! - u0              : fibre cohesive law, u0                to update
+    ! - uf              : fibre cohesive law, uf                to update
+    ! - stress          : stress vector                         passed-in
+    ! - strain          : strain vector                         passed-in
+    ! - clength         : element characteristic length         passed-in
+    ! - strength        : strength parameters of lamina         passed-in
+    ! - fibreToughness  : fibre-direction toughness parameters  passed-in
+    ! - maxdm           : maximum degradation factor            passed-in
+    integer,                      intent(inout) :: ffstat
+    real(DP),                     intent(inout) :: df, u0, uf
+    real(DP),                     intent(in)    :: stress(:), strain(:)
+    real(DP),                     intent(in)    :: clength
+    type(lamina_strength),        intent(in)    :: strength
+    type(lamina_fibreToughness),  intent(in)    :: fibreToughness
+    real(DP),                     intent(in)    :: maxdm
     
     
-    ! local variables
-    real(DP) :: GfcT, GfcC, dm, u0, uf, T0, u_eff, T_eff, findex, dm2
-    integer  :: nStrain
-    
-    
-    ! --------------------------------------------------------- !
-    ! if already failed, calculate directly Dee and Sigma and exit
-    ! --------------------------------------------------------- !
-    if(fstat==fibre_failed) then    ! already failed
-        ! exit program
-        return
-    end if
-    
+    ! local variables:
+    ! GfcT    : fibre tensile     fracture toughness
+    ! GfcC    : fibre compressive fracture toughness
+    ! findex  : failure index of the failure criterion
+    ! T0      : traction at failure onset
+    ! u_eff   : effective displacement for cohesive law
+    ! T_eff   : effective traction     for cohesive law
+    ! df_tmp  : temporary df
+    real(DP) :: GfcT, GfcC, findex, T0, u_eff, T_eff, df_tmp
     
     
     ! --------------------------------------------------------- !
@@ -717,162 +730,107 @@ contains
     !           ...
     
     ! initialize local variables
-    GfcT=ZERO; GfcC=ZERO
-    dm=ZERO; u0=ZERO; uf=ZERO; T0=ZERO; findex=ZERO; dm2=ZERO
-    u_eff=ZERO; T_eff=ZERO
-    nStrain=0
+    GfcT   = ZERO;   GfcC  = ZERO
+    findex = ZERO;   T0    = ZERO
+    u_eff  = ZERO;   T_eff = ZERO
+    df_tmp = ZERO
     
-    
-    ! extract toughness parameters
-    GfcT=fibretoughness%GfcT
-    GfcC=fibretoughness%GfcC
-
-    ! extract current values of failure status variable
-    if(.not.allocated(sdvr)) then
-        allocate(sdvr(3)); sdvr=ZERO  ! 1st iteration
-    end if
-    dm=sdvr(1)
-    u0=sdvr(2)
-    uf=sdvr(3) 
-    
-    ! extract nStrain
-    nStrain=size(strain)
-    
-    
-    ! check and update fstat and damage variables
-    
-    ! still intact
-    if(fstat==intact) then
-        
-        ! go through failure criterion and update fstat
-        call FibreFailureCriterion(sigma,strength,fstat,findex)
-        
-        ! failure onset
-        if(fstat==fibre_onset) then
-        ! calculate u0, uf and go to next control
-            
-            u_eff=abs(strain(1))*clength
-            T_eff=abs(sigma(1))
-            
-            ! effective jump and traction at failure onset, taking into acc. of overshoot
-            u0=u_eff/sqrt(findex)
-            T0=T_eff/sqrt(findex)
-            
-            ! effective jump at final failure
-            if(strain(1)>ZERO) then
-                uf=TWO*GfcT/T0
-            else
-                uf=TWO*GfcC/T0
-            end if
-            
-            ! calculate dm to prevent overshoot of stress
-            if(uf <= u0 + tiny(ONE)) then ! brittle failure
-                dm=maxdm_lcl
-                fstat=fibre_failed
-            else
-                dm=ONE-ONE/sqrt(findex)
-            end if
-            
-        else if(fstat==fibre_failed) then
-        ! this is the case where strength is close to ZERO
-            dm=maxdm_lcl
-            
-        else ! fstat==intact
-        ! fstat remains intact; dm, u0 and uf remain ZERO as initialized
-            continue
-        end if
-    !end if
-    
-    ! failure started
-    else if(fstat==fibre_onset) then
-    
-        ! calculate dm
-        if(uf <= u0 + tiny(ONE)) then ! brittle failure
-            dm=maxdm_lcl
-            fstat=fibre_failed
-        else
-            ! effective jump and traction
-            u_eff=abs(strain(1))*clength
-            ! linear cohesive softening law 
-            if(u_eff > tiny(ONE)) then
-                dm2=uf/u_eff*(u_eff-u0)/(uf-u0)
-                dm=max(dm,dm2) ! must be larger than last equilibrium dm
-            end if
-        end if
-    
-        ! check dm and update fstat
-        if (dm>=maxdm_lcl-tiny(ONE)) then
-            dm=maxdm_lcl
-            fstat=fibre_failed
-        end if
-    end if
-    
-    
-    
-    ! update sdv
-    sdvr(1)=dm
-    sdvr(2)=u0
-    sdvr(3)=uf
-    
-  end subroutine FibreCohesiveLaw
-
-
-
-
-
-  pure subroutine FibreFailureCriterion(sigma,strength,fstat,findex)
-    ! at the moment, only tensile failure is considered
-    
-    real(DP),                   intent(in) :: sigma(:)
-    type(lamina_strength),      intent(in) :: strength
-    integer,                   intent(out) :: fstat
-    real(DP), optional,        intent(out) :: findex
-    
-    
-    
-    ! local variables
-    real(DP)    :: Xt, Xc ! tensile, compressive strengths
-    real(DP)    :: findex2
-
-    
-    ! initialize variables
-    if(present(findex)) findex=ZERO                     ! intent (out)
-    Xt=ZERO; Xc=ZERO; findex2=ZERO
-    fstat=0
-    
+    ! for private procedures used in the main procedure (ddsdde_lamina),
+    ! the values of the input arguments are not checked. 
+    ! they are assumed to be of valid values.
     
     ! extract strength parameters
-    Xt=strength%Xt
-    Xc=strength%Xc
+    Xt   = strength%Xt
+    Xc   = strength%Xc
+    
+    ! extract toughness parameters
+    GfcT = fibreToughness%GfcT
+    GfcC = fibreToughness%GfcC 
     
     
-    ! --------------------------------------------------------- !
-    ! the following assumes max stress criterion
-    ! other criteria can also be used in the future
-    ! just need to put in a selection criterion and algorithm
-    ! --------------------------------------------------------- ! 
-    ! e.g.: select case (strength%FC)
-    !           case(0)
-    !               quad. stress
-    !           case(1)
-    !               max. stress
-    !           ...
+    ! check and update ffstat and damage variables
+    !
+    ! possible cases of ffstat:
+    !
+    ! INTACT -> INTACT : no change
+    !        -> ONSET  : update ffstat, calculate u0, uf and df
+    !        -> FAILED : update ffstat, calculate u0, uf and df
+    !
+    ! ONSET  -> ONSET  : update ffstat and df
+    !        -> FAILED : update ffstat and df
     
-    if(min(Xt,abs(Xc)) > tiny(ONE)) then
-        ! failure index for tensile failure; matrix crack perpendicular to shell plane, no z-dir stress components
-        findex2=max(sigma(1),ZERO)/Xt + abs(min(sigma(1),ZERO)/Xc)
+    ffstat_select: select case (ffstat)
+      
+      ! if ffstat is still INTACT, then df, u0, uf have never been updated;
+      ! failure criterion needs to be firstly applied on the stress.
+      ! if failure onset is reached, calculate the cohesive law var. u0 and uf,
+      ! then estimate df and exit;
+      ! if failure onset is not reached, do nothing, exit
+      case (INTACT) ffstat_select
+      
+        ! apply failure criterion and calculate the failure index
+        findex = max(stress(1), ZERO) / Xt + abs( min(stress(1), ZERO) / Xc )
         
-        if(findex2>=ONE) fstat=fibre_onset
-    else
-        ! strength close to ZERO == already failed
-        fstat=fibre_failed
-    end if
+        ! check to see if the fibre failure onset criterion is reached
+        findex_if: if (findex > ONE-SMALLNUM) then 
+          ! update ffstat
+          ffstat = FIBRE_ONSET
+          ! calculate effective jump and traction at failure onset
+          u_eff  = abs(strain(1)) * clength
+          T_eff  = abs(stress(1))    
+          ! calculate effective jump and traction at failure onset, 
+          ! adjusted with overshoot of failure index (ideally, findex = ONE)
+          u0     = u_eff / findex
+          T0     = T_eff / findex    
+          ! calculate effective jump at final failure
+          if (strain(1) > ZERO) then
+            uf   = TWO * GfcT / T0
+          else
+            uf   = TWO * GfcC / T0
+          end if   
+          ! calculate df
+          if(uf <= u0 + SMALLNUM) then 
+            ! GfcT/GfcC too small, brittle failure
+            ! update df and ffstat
+            df     = maxdm
+            ffstat = FIBRE_FAILED
+          else
+            ! df is calculated such that 
+            ! the updated stress(1) will be Xt or -Xc
+            df     = ONE - ONE / findex
+          end if    
+        end if findex_if
+ 
+ 
+      ! if ffstat is already FIBRE_ONSET, then cohesive law var. u0 and uf must
+      ! have already been defined. 
+      ! the only thing to do here is to update df with respect to displacement,
+      ! according to the already-defined cohesive law.
+      case (FIBRE_ONSET) ffstat_select
     
-    if(present(findex)) findex=findex2
+        ! calculate effective displacement
+        u_eff = abs(strain(1)) * clength
+        ! go to the cohesive law ONLY when u_eff is NONZERO
+        if (u_eff > SMALLNUM) then
+          ! use the defined linear cohesive softening law var. u0 and uf
+          ! to calculate df_tmp
+          df_tmp = (uf / u_eff) * (u_eff-u0) / (uf-u0)
+          ! update df only if df_tmp is larger
+          if (df_tmp > df) df = df_tmp
+        end if
     
-  end subroutine FibreFailureCriterion
+        ! check df and update ffstat if df reaches the max
+        if (df >= maxdm-SMALLNUM) then
+            df     = maxdm
+            ffstat = FIBRE_FAILED
+        end if
+      
+      case default ffstat_select
+        ! this should never be reached
+      
+    end select ffstat_select
     
-
+  end subroutine FibreCohesiveLaw
 
 
     
