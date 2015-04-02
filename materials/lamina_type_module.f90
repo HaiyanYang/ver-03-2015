@@ -154,15 +154,15 @@ contains
     ! - istat       : status variable of this procedure   to output
     ! - emsg        : error message                       to output
     ! - maxdm       : maximum degradation factor          passed-in (optional)
-    real(DP),          intent(inout) :: dee(:,:)
-    real(DP),          intent(inout) :: stress(:)
-    type(SDV_LAMINA),  intent(inout) :: sdv
-    type(lamina_type), intent(in)    :: this_mat
-    real(DP),          intent(in)    :: strain(:)    
-    real(DP),          intent(in)    :: clength
-    integer,                  intent(out) :: istat
-    character(len=MSGLENGTH), intent(out) :: emsg
-    real(DP),       optional, intent(in)  :: maxdm
+    real(DP),                 intent(inout) :: dee(:,:)
+    real(DP),                 intent(inout) :: stress(:)
+    type(SDV_LAMINA),         intent(inout) :: sdv
+    type(lamina_type),        intent(in)    :: this_mat
+    real(DP),                 intent(in)    :: strain(:)    
+    real(DP),                 intent(in)    :: clength
+    integer,                  intent(out)   :: istat
+    character(len=MSGLENGTH), intent(out)   :: emsg
+    real(DP),       optional, intent(in)    :: maxdm
     
     ! local variables list:
     ! - fstat     : generic failure status
@@ -311,8 +311,12 @@ contains
       
       
     ! call fibre cohesive law, calculate fibre damage var.
-    call FibreCohesiveLaw(ffstat, df, u0, uf, stress, strain, &
-  & clength, this_mat%strength, this_mat%fibreToughness, maxdm_lcl) 
+    call fibre_cohesive_law (ffstat, df, u0, uf, stress, strain, &
+  & clength, this_mat%strength, this_mat%fibreToughness,         &
+  & maxdm_lcl, istat, emsg)
+  
+    ! check if the cohesive law is run successfully
+    if(istat == STAT_FAILURE) return
 
     !---------------------------------------------------------------------------
     ! going through cohesive law, the possible outcomes of ffstat are:
@@ -347,9 +351,9 @@ contains
         ! check for matrix failure
         if (mfstat == INTACT) then       
           ! go through failure criterion and update fstat
-          call MatrixFailureCriterion(stress,this_mat%strength,mfstat)
+          call matrix_failure_criterion3d (mfstat, stress, this_mat%strength)
           ! update fstat if matrix reached failure onset
-          if(mfstat == matrix_onset) then
+          if(mfstat == MATRIX_ONSET) then
             fstat = mfstat 
             ! update to sdv (only fstat and mfstat)
             sdv%FSTAT  = fstat
@@ -377,6 +381,9 @@ contains
 
 ! for internal/private procedures, the checking of the validity of 
 ! intent(in) and (inout) dummy arguments can be spared
+
+! but any logical construct in complex procedures should be complete 
+! with istat and emsg. This is the case with fibre_cohesive_law
 
 
   pure subroutine check_sdv (sdv, istat, emsg)
@@ -439,6 +446,7 @@ contains
   end subroutine check_sdv
 
 
+
   pure subroutine check_mat_prop (this, istat, emsg)
   ! Purpose:
   ! to check the validity of the input material properties
@@ -452,25 +460,25 @@ contains
     emsg  = ''
     
     ! elastic moduli must be positive non-zero
-    if (this%modulus%E1 <= SMALLNUM) then
+    if (this%modulus%E1 < SMALLNUM) then
       istat = STAT_FAILURE
       emsg  = 'lamina E1 must be greater than zero, lamina_type_module'
       return
     end if
     
-    if (this%modulus%E2 <= SMALLNUM) then
+    if (this%modulus%E2 < SMALLNUM) then
       istat = STAT_FAILURE
       emsg  = 'lamina E2 must be greater than zero, lamina_type_module'
       return
     end if
     
-    if (this%modulus%G12 <= SMALLNUM) then
+    if (this%modulus%G12 < SMALLNUM) then
       istat = STAT_FAILURE
       emsg  = 'lamina G12 must be greater than zero, lamina_type_module'
       return
     end if
     
-    if (this%modulus%G23 <= SMALLNUM) then
+    if (this%modulus%G23 < SMALLNUM) then
       istat = STAT_FAILURE
       emsg  = 'lamina G23 must be greater than zero, lamina_type_module'
       return
@@ -479,37 +487,37 @@ contains
     ! check on nu12 and nu23 are omitted; they can take on both + and - values
     
     ! strengths must be positive non-zero
-    if (this%strength%Xt <= SMALLNUM) then
+    if (this%strength%Xt < SMALLNUM) then
       istat = STAT_FAILURE
       emsg  = 'lamina Xt must be greater than zero, lamina_type_module'
       return
     end if
     
-    if (this%strength%Xc <= SMALLNUM) then
+    if (this%strength%Xc < SMALLNUM) then
       istat = STAT_FAILURE
       emsg  = 'lamina Xc must be greater than zero, lamina_type_module'
       return
     end if
     
-    if (this%strength%Yt <= SMALLNUM) then
+    if (this%strength%Yt < SMALLNUM) then
       istat = STAT_FAILURE
       emsg  = 'lamina Yt must be greater than zero, lamina_type_module'
       return
     end if
     
-    if (this%strength%Yc <= SMALLNUM) then
+    if (this%strength%Yc < SMALLNUM) then
       istat = STAT_FAILURE
       emsg  = 'lamina Yc must be greater than zero, lamina_type_module'
       return
     end if
     
-    if (this%strength%Sl <= SMALLNUM) then
+    if (this%strength%Sl < SMALLNUM) then
       istat = STAT_FAILURE
       emsg  = 'lamina Sl must be greater than zero, lamina_type_module'
       return
     end if
     
-    if (this%strength%St <= SMALLNUM) then
+    if (this%strength%St < SMALLNUM) then
       istat = STAT_FAILURE
       emsg  = 'lamina St must be greater than zero, lamina_type_module'
       return
@@ -517,19 +525,19 @@ contains
 
     
     ! matrix toughnesses and mixed-mode ratio must be positive non-zero
-    if (this%matrixToughness%GmcI <= SMALLNUM) then
+    if (this%matrixToughness%GmcI < SMALLNUM) then
       istat = STAT_FAILURE
       emsg  = 'lamina GmcI must be greater than zero, lamina_type_module'
       return
     end if
     
-    if (this%matrixToughness%GmcII <= SMALLNUM) then
+    if (this%matrixToughness%GmcII < SMALLNUM) then
       istat = STAT_FAILURE
       emsg  = 'lamina GmcII must be greater than zero, lamina_type_module'
       return
     end if
     
-    if (this%matrixToughness%eta <= SMALLNUM) then
+    if (this%matrixToughness%eta < SMALLNUM) then
       istat = STAT_FAILURE
       emsg  = 'lamina eta must be greater than zero, lamina_type_module'
       return
@@ -537,13 +545,13 @@ contains
 
 
     ! fibre toughnesses must be positive non-zero
-    if (this%fibreToughness%GfcT <= SMALLNUM) then
+    if (this%fibreToughness%GfcT < SMALLNUM) then
       istat = STAT_FAILURE
       emsg  = 'lamina GfcT must be greater than zero, lamina_type_module'
       return
     end if
     
-    if (this%fibreToughness%GfcC <= SMALLNUM) then
+    if (this%fibreToughness%GfcC < SMALLNUM) then
       istat = STAT_FAILURE
       emsg  = 'lamina GfcC must be greater than zero, lamina_type_module'
       return
@@ -551,6 +559,7 @@ contains
 
 
   end subroutine check_mat_prop
+
 
 
   pure subroutine deemat3d (dee, this_mat, df, dm2, dm3)
@@ -584,6 +593,9 @@ contains
     nu21 = ZERO;  nu31 = ZERO;  nu32 = ZERO
     del  = ZERO;  dm23 = ZERO
     
+    ! for private procedures used in the main procedure (ddsdde_lamina),
+    ! the values of the input arguments are not checked. 
+    ! they are assumed to be of valid values.
       
     ! extract elastic muduli from passed-in material object
     E1   = this_mat%modulus%E1
@@ -651,25 +663,27 @@ contains
 
     
     ! apply transverse (2-3) matrix degradation 
-    G23 = G23*(ONE-dm23)
+    G23 = G23 * (ONE-dm23)
     ! do not degrade below residual stiffness
     G23 = max(G23,RESIDUAL_STIFFNESS)
         
     
     ! calculate D matrix terms
     ! zero all terms first
-    dee = ZERO  
+    dee = ZERO
+  
     del = ONE-nu12*nu21-nu13*nu31-nu23*nu32-TWO*nu21*nu32*nu13
     del = del/E1/E2/E3
-    dee(1,1) = (ONE-nu23*nu32)/E2/E3/del
-    dee(1,2) = (nu21+nu23*nu31)/E2/E3/del
-    dee(1,3) = (nu31+nu21*nu32)/E2/E3/del
+    
+    dee(1,1) = (ONE  - nu23 * nu32)/E2/E3/del
+    dee(1,2) = (nu21 + nu23 * nu31)/E2/E3/del
+    dee(1,3) = (nu31 + nu21 * nu32)/E2/E3/del
     dee(2,1) = dee(1,2)
-    dee(2,2) = (ONE-nu13*nu31)/E1/E3/del
-    dee(2,3) = (nu32+nu12*nu31)/E1/E3/del
+    dee(2,2) = (ONE  - nu13 * nu31)/E1/E3/del
+    dee(2,3) = (nu32 + nu12 * nu31)/E1/E3/del
     dee(3,1) = dee(1,3)
     dee(3,2) = dee(2,3)
-    dee(3,3) = (ONE-nu12*nu21)/E1/E2/del
+    dee(3,3) = (ONE  - nu12 * nu21)/E1/E2/del
     dee(4,4) = G12
     dee(5,5) = G13
     dee(6,6) = G23
@@ -678,13 +692,14 @@ contains
   end subroutine deemat
 
 
-
     
-  pure subroutine FibreCohesiveLaw(ffstat, df, u0, uf, stress, strain, &
-  & clength, strength, fibreToughness, maxdm) 
+  pure subroutine fibre_cohesive_law(ffstat, df, u0, uf, stress, strain, &
+  & clength, strength, fibreToughness, maxdm, istat, emsg) 
   ! Purpose:
   ! to update fibre failure status, stiffness degradation factor and 
-  ! cohesive law variables according to a linear cohesive softening law
+  ! cohesive law variables according to a linear cohesive softening law;
+  ! this is a complex subroutine, istat and emsg are required to flag an
+  ! error when an unexpected logical case is met
   
     ! dummy argument list:
     ! - ffstat          : fibre failure status                  to update
@@ -697,6 +712,8 @@ contains
     ! - strength        : strength parameters of lamina         passed-in
     ! - fibreToughness  : fibre-direction toughness parameters  passed-in
     ! - maxdm           : maximum degradation factor            passed-in
+    ! - istat           : status variable of this procedure     to output
+    ! - emsg            : error message                         to output
     integer,                      intent(inout) :: ffstat
     real(DP),                     intent(inout) :: df, u0, uf
     real(DP),                     intent(in)    :: stress(:), strain(:)
@@ -704,9 +721,13 @@ contains
     type(lamina_strength),        intent(in)    :: strength
     type(lamina_fibreToughness),  intent(in)    :: fibreToughness
     real(DP),                     intent(in)    :: maxdm
+    integer,                      intent(out)   :: istat
+    character(len=MSGLENGTH),     intent(out)   :: emsg
     
     
     ! local variables:
+    ! Xt      : fibre tensile     strength
+    ! Xc      : fibre compressive strength
     ! GfcT    : fibre tensile     fracture toughness
     ! GfcC    : fibre compressive fracture toughness
     ! findex  : failure index of the failure criterion
@@ -714,7 +735,7 @@ contains
     ! u_eff   : effective displacement for cohesive law
     ! T_eff   : effective traction     for cohesive law
     ! df_tmp  : temporary df
-    real(DP) :: GfcT, GfcC, findex, T0, u_eff, T_eff, df_tmp
+    real(DP) :: Xt, Xc, GfcT, GfcC, findex, T0, u_eff, T_eff, df_tmp
     
     
     ! --------------------------------------------------------- !
@@ -729,7 +750,10 @@ contains
     !               exponential
     !           ...
     
-    ! initialize local variables
+    ! initialize intent(out) & local variables
+    istat  = STAT_SUCCESS
+    emsg   = ''
+    Xt     = ZERO;   Xc    = ZERO
     GfcT   = ZERO;   GfcC  = ZERO
     findex = ZERO;   T0    = ZERO
     u_eff  = ZERO;   T_eff = ZERO
@@ -750,46 +774,56 @@ contains
     
     ! check and update ffstat and damage variables
     !
-    ! possible cases of ffstat:
+    ! possible changes of ffstat: 
     !
-    ! INTACT -> INTACT : no change
-    !        -> ONSET  : update ffstat, calculate u0, uf and df
-    !        -> FAILED : update ffstat, calculate u0, uf and df
+    ! INTACT -> failure criterion -> INTACT : no change
+    !                             -> ONSET  : update ffstat, u0, uf and df
+    !                             -> FAILED : update ffstat, u0, uf and df
     !
-    ! ONSET  -> ONSET  : update ffstat and df
-    !        -> FAILED : update ffstat and df
+    ! ONSET  -> cohesive law      -> ONSET  : update ffstat and df
+    !                             -> FAILED : update ffstat and df
+    !
+    ! so basically, select what to do based in ffstat: 
+    ! - if it is still INTACT, go to failure criterion, calculate
+    !   u0, uf and df if failure criterion is met;
+    ! - if it is FAILURE ONSET, go to cohesive law, and update df
+    ! - if it is other value, flag error stat & msg and return
     
     ffstat_select: select case (ffstat)
       
       ! if ffstat is still INTACT, then df, u0, uf have never been updated;
       ! failure criterion needs to be firstly applied on the stress.
       ! if failure onset is reached, calculate the cohesive law var. u0 and uf,
-      ! then estimate df and exit;
+      ! then update ffstat, calculate df (update ffstat again if brittle);
       ! if failure onset is not reached, do nothing, exit
       case (INTACT) ffstat_select
       
         ! apply failure criterion and calculate the failure index
         findex = max(stress(1), ZERO) / Xt + abs( min(stress(1), ZERO) / Xc )
         
-        ! check to see if the fibre failure onset criterion is reached
+        ! check to see if the fibre failure onset criterion is reached;
+        ! if so, update ffstat, calculate u0, uf and df;
+        ! if not, do nothing
         findex_if: if (findex > ONE-SMALLNUM) then 
           ! update ffstat
           ffstat = FIBRE_ONSET
           ! calculate effective jump and traction at failure onset
           u_eff  = abs(strain(1)) * clength
           T_eff  = abs(stress(1))    
-          ! calculate effective jump and traction at failure onset, 
-          ! adjusted with overshoot of failure index (ideally, findex = ONE)
+          ! adjust    effective jump and traction at failure onset, 
+          ! with overshoot of failure index (ideally, findex = ONE)
           u0     = u_eff / findex
           T0     = T_eff / findex    
           ! calculate effective jump at final failure
           if (strain(1) > ZERO) then
+            ! use tensile     fracture toughness
             uf   = TWO * GfcT / T0
           else
+            ! use compressive fracture toughness
             uf   = TWO * GfcC / T0
           end if   
           ! calculate df
-          if(uf <= u0 + SMALLNUM) then 
+          if(uf < u0 + SMALLNUM) then 
             ! GfcT/GfcC too small, brittle failure
             ! update df and ffstat
             df     = maxdm
@@ -805,7 +839,8 @@ contains
       ! if ffstat is already FIBRE_ONSET, then cohesive law var. u0 and uf must
       ! have already been defined. 
       ! the only thing to do here is to update df with respect to displacement,
-      ! according to the already-defined cohesive law.
+      ! according to the already-defined cohesive law. 
+      ! if df reaches maxdm, update ffstat to FIBRE_FAILED
       case (FIBRE_ONSET) ffstat_select
     
         ! calculate effective displacement
@@ -820,50 +855,65 @@ contains
         end if
     
         ! check df and update ffstat if df reaches the max
-        if (df >= maxdm-SMALLNUM) then
+        if (df > maxdm-SMALLNUM) then
             df     = maxdm
             ffstat = FIBRE_FAILED
         end if
       
       case default ffstat_select
-        ! this should never be reached
+        ! this case should never be reached; flag error status and msg
+        istat = STAT_FAILURE
+        emsg  = 'unexpected ffstat value in fibre_cohesive_law, & 
+        &lamina_type_module!'
+        return
       
     end select ffstat_select
     
-  end subroutine FibreCohesiveLaw
+  end subroutine fibre_cohesive_law
 
 
     
-  pure subroutine MatrixFailureCriterion(sigma,strength,fstat,findex)
-    ! at the moment, only tensile failure is considered
+  pure subroutine matrix_failure_criterion3d (mfstat, stress, strength)
+  ! Purpose:
+  ! to implement a matrix failure criterion based on the stress and strength
+  ! for 3D problems with standard 6 strains.
+  ! at the moment, only in-plane tensile failure is considered;
+  ! only in-plane stress components are used in the failure criterion.
+  ! more complicated failure criterion can be implemented here in the future
+  ! to include compressive failure and out-plane stress components, and  
+  ! to output matrix crack angle w.r.t shell plane
     
-    real(DP),                   intent(in) :: sigma(:)
-    type(lamina_strength),      intent(in) :: strength
-    integer,                   intent(out) :: fstat
-    real(DP), optional,        intent(out) :: findex
+    ! list of dummy arguments:
+    ! mfstat    : matrix failure status variable      to update
+    ! stress    : stress array                        passed-in
+    ! strength  : strength parameters                 passed-in
+    integer,               intent(inout) :: mfstat
+    real(DP),              intent(in)    :: stress(:)
+    type(lamina_strength), intent(in)    :: strength
     
-    
-    
-    ! local variables
-    integer     :: nStrain
-    real(DP)    :: Yt,Yc,Sl,St ! tensile, compressive, and shear strengths
-    real(DP)    :: findex2
+    ! local variables list:
+    ! Yt, Yc, Sl, St  : lamina strength parameters
+    ! findex          : failure index of the failure criterion
+    real(DP)  :: Yt, Yc, Sl, St
+    real(DP)  :: findex
 
     
-    ! initialize variables
-    if(present(findex)) findex=ZERO                     ! intent (out)
-    Yt=ZERO; Yc=ZERO; Sl=ZERO; St=ZERO; findex2=ZERO
-    nStrain=0; fstat=0
+    ! initialize local variables
+    Yt      = ZERO 
+    Yc      = ZERO 
+    Sl      = ZERO 
+    St      = ZERO
+    findex  = ZERO
     
-    ! extract nStrain
-    nStrain=size(sigma)
+    ! for private procedures used in the main procedure (ddsdde_lamina),
+    ! the values of the input arguments are not checked. 
+    ! they are assumed to be of valid values.
     
     ! extract strength parameters
-    Yt=strength%Yt
-    Yc=strength%Yc
-    Sl=strength%Sl
-    St=strength%St
-    
+    Yt = strength%Yt
+    Yc = strength%Yc
+    Sl = strength%Sl
+    St = strength%St
     
     ! --------------------------------------------------------- !
     ! the following assumes quadratic stress criterion
@@ -877,23 +927,16 @@ contains
     !               max. stress
     !           ...
     
-    if(min(Yt,St,Sl) > tiny(ONE)) then
-        ! failure index for tensile failure; matrix crack perpendicular to shell plane, no z-dir stress components
-        if(nStrain==3) then 
-        findex2=sqrt((max(sigma(2),ZERO)/Yt)**2 + (sigma(3)/Sl)**2)
-        else
-        findex2=sqrt((max(sigma(2),ZERO)/Yt)**2 + (sigma(4)/Sl)**2)
-        end if
-        
-        if(findex2>=ONE) fstat=matrix_onset
-    else
-        ! strength close to ZERO == already failed
-        fstat=matrix_onset
-    end if
+    ! calculate the failure index for tensile failure
+    ! matrix crack is assumed to be perpendicular to shell plane
+    ! no out-plane stress components are considered
+
+    findex = sqrt( (max(stress(2),ZERO)/Yt)**2 + (stress(4)/Sl)**2 )
     
-    if(present(findex)) findex=findex2
+    if(findex > ONE-SMALLNUM) mfstat = MATRIX_ONSET
     
-  end subroutine MatrixFailureCriterion
+    
+  end subroutine matrix_failure_criterion
     
     
     
