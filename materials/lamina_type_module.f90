@@ -13,10 +13,23 @@ module lamina_type_module
 !    30/03/15  B. Y. Chen            Original code
 !
 
-! list out ALL the parameter used, no matter how long
+! list out ALL the parameter used, no matter how long:
+! DP                : precision of real number, Double Precision
+! ZERO, ONE, TWO    : self explanatory
+! SMALLNUM          : a very small real number, used when comparing two reals
+! RESIDUAL_MODULUS  : residual modulus of the material at final failure
+! MSGLENGTH         : length of error message
+! STAT_SUCCESS      : integer value of a successful status
+! STAT_FAILURE      : integer value of a failure    status
+! INTACT            : integer value for generic intact state
+! MATRIX_ONSET      : integer value for matrix failure onset state
+! MATRIX_FAILED     : integer value for matrix total failure state
+! FIBRE_ONSET       : integer value for fibre  failure onset state
+! FIBRE_FAILED      : integer value for fibre  total failure state
+! LAMINA_SDV        : a der. type to group specific variables of lamina material
 use parameter_module, only : DP, ZERO, ONE, TWO, SMALLNUM, RESIDUAL_MODULUS, &
 & MSGLENGTH, STAT_SUCCESS, STAT_FAILURE, INTACT, MATRIX_ONSET, MATRIX_FAILED,&
-& FIBRE_ONSET, FIBRE_FAILED 
+& FIBRE_ONSET, FIBRE_FAILED, LAMINA_SDV 
 
 implicit none
 private
@@ -156,7 +169,7 @@ contains
     ! - maxdm       : maximum degradation factor          passed-in (optional)
     real(DP),                 intent(inout) :: dee(:,:)
     real(DP),                 intent(inout) :: stress(:)
-    type(SDV_LAMINA),         intent(inout) :: sdv
+    type(LAMINA_SDV),         intent(inout) :: sdv
     type(lamina_type),        intent(in)    :: this_mat
     real(DP),                 intent(in)    :: strain(:)    
     real(DP),                 intent(in)    :: clength
@@ -390,7 +403,7 @@ contains
   ! Purpose:
   ! to check the validity of the input solution-dependent variables
   
-    type(SDV_LAMINA),         intent(in)  :: sdv
+    type(LAMINA_SDV),         intent(in)  :: sdv
     integer,                  intent(out) :: istat
     character(len=MSGLENGTH), intent(out) :: emsg
     
