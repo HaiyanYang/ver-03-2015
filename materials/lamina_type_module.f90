@@ -83,12 +83,16 @@ interface extract
     module procedure extract_lamina
 end interface
 
+interface display
+    module procedure display_lamina
+end interface
+
 interface ddsdde
     module procedure ddsdde_lamina
 end interface
 
 
-public :: empty,update,extract,ddsdde
+public :: empty, update, extract, display, ddsdde
 
 
 
@@ -136,7 +140,7 @@ contains
   pure subroutine extract_lamina(this, modulus, strength, matrixToughness,&
   & fibreToughness)
   ! Purpose:
-  ! to extract componets of this lamina object
+  ! to extract components of this lamina object
     
    	type(lamina_type),                      intent(in) :: this
     type(lamina_modulus),         optional,intent(out) :: modulus
@@ -150,6 +154,55 @@ contains
     if(present(fibreToughness))   fibreToughness  = this%fibreToughness
 
   end subroutine extract_lamina 
+  
+  
+  
+  subroutine display_lamina(this)
+  ! Purpose:
+  ! to display this lamina object's components on cmd window
+  ! this is useful for debugging
+ 
+    type(lamina_type),intent(in) :: this
+    
+    ! local variable
+    character(len=20) :: display_fmt
+    
+    ! initialize local variable
+    display_fmt = ''
+
+    ! set display format, note that for scientific real, ESw.d, w>=d+7
+    display_fmt = '(1X, A, ES10.3)' 
+    
+    write(*,'(1X, A)') '---------------------------------------------------'
+    write(*,'(1X, A)') ''
+    write(*,'(1X, A)') 'Display the modulus of the inquired lamina object :'
+    write(*,display_fmt) 'lamina E1   is: ', this%modulus%E1 
+    write(*,display_fmt) 'lamina E2   is: ', this%modulus%E2
+    write(*,display_fmt) 'lamina G12  is: ', this%modulus%G12
+    write(*,display_fmt) 'lamina G23  is: ', this%modulus%G23
+    write(*,display_fmt) 'lamina nu12 is: ', this%modulus%nu12
+    write(*,display_fmt) 'lamina nu23 is: ', this%modulus%nu23
+    write(*,'(1X, A)') ''
+    write(*,'(1X, A)') 'Display the strength of the inquired lamina object :'
+    write(*,display_fmt) 'lamina Xt   is: ', this%modulus%Xt 
+    write(*,display_fmt) 'lamina Xc   is: ', this%modulus%Xc
+    write(*,display_fmt) 'lamina Yt   is: ', this%modulus%Yt
+    write(*,display_fmt) 'lamina Yc   is: ', this%modulus%Yc
+    write(*,display_fmt) 'lamina St   is: ', this%modulus%St
+    write(*,display_fmt) 'lamina Sl   is: ', this%modulus%Sl
+    write(*,'(1X, A)') ''
+    write(*,'(1X, A)') 'Display the matrix toughness of the inquired lamina object :'
+    write(*,display_fmt) 'lamina GIc   is: ', this%modulus%GIc 
+    write(*,display_fmt) 'lamina GIIc  is: ', this%modulus%GIIc
+    write(*,display_fmt) 'lamina eta   is: ', this%modulus%eta
+    write(*,'(1X, A)') ''
+    write(*,'(1X, A)') 'Display the fibre  toughness of the inquired lamina object :'
+    write(*,display_fmt) 'lamina GfcT  is: ', this%modulus%GfcT 
+    write(*,display_fmt) 'lamina GfcC  is: ', this%modulus%GfcC
+    write(*,'(1X, A)') ''
+    write(*,'(1X, A)') '------------------------------------------------------------'
+
+  end subroutine display_lamina
   
   
 
