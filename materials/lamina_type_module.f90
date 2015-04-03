@@ -26,10 +26,9 @@ module lamina_type_module
 ! MATRIX_FAILED     : integer value for matrix total failure state
 ! FIBRE_ONSET       : integer value for fibre  failure onset state
 ! FIBRE_FAILED      : integer value for fibre  total failure state
-! LAMINA_SDV        : a der. type to group specific variables of lamina material
 use parameter_module, only : DP, ZERO, ONE, TWO, SMALLNUM, RESIDUAL_MODULUS, &
 & MSGLENGTH, STAT_SUCCESS, STAT_FAILURE, INTACT, MATRIX_ONSET, MATRIX_FAILED,&
-& FIBRE_ONSET, FIBRE_FAILED, LAMINA_SDV 
+& FIBRE_ONSET, FIBRE_FAILED
 
 implicit none
 private
@@ -67,6 +66,10 @@ type, public :: lamina_type
   type(lamina_fibreToughness)   :: fibreToughness
 end type
 
+type, public :: lamina_sdv
+    real(DP) :: df    = ZERO,   u0     = ZERO,   uf     = ZERO
+    integer, :: fstat = INTACT, ffstat = INTACT, mfstat = INTACT
+end type
 
 interface empty
     module procedure empty_lamina
@@ -150,7 +153,7 @@ contains
   
   
 
-  pure subroutine ddsdde_lamina(dee, stress, sdv, this_mat, strain, clength, &
+  pure subroutine ddsdde_lamina(this_mat, dee, stress, sdv, strain, clength, &
   & istat, emsg, maxdm)
   ! Purpose:
   ! to calculate the D matrix, stress and solution-dependent variables
@@ -158,19 +161,19 @@ contains
   ! (restricted to 3D problems, with the standard 6 strain terms)
 
     ! dummy argument list:
+    ! - this_mat    : material properties object,         passed-in (pass arg)
     ! - dee         : local stiffness matrix D,           to update
     ! - stress      : local stress vector,                to update
     ! - sdv         : solution-dependent variables array, to update
-    ! - this_mat    : material properties object,         passed-in
     ! - strain      : local strain vector,                passed-in
     ! - clength     : elem. characteristic length,        passed-in
     ! - istat       : status variable of this procedure   to output
     ! - emsg        : error message                       to output
     ! - maxdm       : maximum degradation factor          passed-in (optional)
+    type(lamina_type),        intent(in)    :: this_mat
     real(DP),                 intent(inout) :: dee(:,:)
     real(DP),                 intent(inout) :: stress(:)
-    type(LAMINA_SDV),         intent(inout) :: sdv
-    type(lamina_type),        intent(in)    :: this_mat
+    type(lamina_sdv),         intent(inout) :: sdv
     real(DP),                 intent(in)    :: strain(:)    
     real(DP),                 intent(in)    :: clength
     integer,                  intent(out)   :: istat
@@ -403,7 +406,7 @@ contains
   ! Purpose:
   ! to check the validity of the input solution-dependent variables
   
-    type(LAMINA_SDV),         intent(in)  :: sdv
+    type(lamina_sdv),         intent(in)  :: sdv
     integer,                  intent(out) :: istat
     character(len=MSGLENGTH), intent(out) :: emsg
     

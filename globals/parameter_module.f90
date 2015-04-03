@@ -73,11 +73,6 @@ END TYPE
 ! LAMINA MATERIAL MODULE PARAMETERS --------------------------------------------
 INTEGER, PARAMETER :: MATRIX_ONSET = 5,  MATRIX_FAILED = 10,                  &
                     & FIBRE_ONSET  = 15, FIBRE_FAILED  = 20
-                    
-TYPE :: LAMINA_SDV
-    REAL(KIND=DP) :: DF    = ZERO,   U0     = ZERO,   UF     = ZERO
-    INTEGER,      :: FSTAT = INTACT, FFSTAT = INTACT, MFSTAT = INTACT
-END TYPE
 !-------------------------------------------------------------------------------
 
 
