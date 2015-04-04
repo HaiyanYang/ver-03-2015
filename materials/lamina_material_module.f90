@@ -1,4 +1,4 @@
-module lamina_type_module
+module lamina_material_module
 !
 !  Purpose:
 !    define an object to represent a lamina material
@@ -59,7 +59,7 @@ type, public :: lamina_fibreToughness
 end type
 
 ! lamina material object definition
-type, public :: lamina_type
+type, public :: lamina_material
   type(lamina_modulus)          :: modulus
   type(lamina_strength)         :: strength
   type(lamina_matrixToughness)  :: matrixToughness
@@ -106,7 +106,7 @@ contains
   ! Purpose:
   ! to reset this lamina object components into their default values (ZERO)
  
-    type(lamina_type),intent(inout) :: this
+    type(lamina_material),intent(inout) :: this
     
     this%modulus         = lamina_modulus(ZERO,ZERO,ZERO,ZERO,ZERO,ZERO)
     this%strength        = lamina_strength(ZERO,ZERO,ZERO,ZERO,ZERO,ZERO)
@@ -122,7 +122,7 @@ contains
   ! Purpose:
   ! to update this lamina object components
     
-   	type(lamina_type),                  intent(inout) :: this
+   	type(lamina_material),              intent(inout) :: this
     type(lamina_modulus),         optional,intent(in) :: modulus
     type(lamina_strength),        optional,intent(in) :: strength
     type(lamina_matrixToughness), optional,intent(in) :: matrixToughness
@@ -142,7 +142,7 @@ contains
   ! Purpose:
   ! to extract components of this lamina object
     
-   	type(lamina_type),                      intent(in) :: this
+   	type(lamina_material),                  intent(in) :: this
     type(lamina_modulus),         optional,intent(out) :: modulus
     type(lamina_strength),        optional,intent(out) :: strength
     type(lamina_matrixToughness), optional,intent(out) :: matrixToughness
@@ -162,7 +162,7 @@ contains
   ! to display this lamina object's components on cmd window
   ! this is useful for debugging
  
-    type(lamina_type),intent(in) :: this
+    type(lamina_material),intent(in) :: this
     
     ! local variable
     character(len=20) :: display_fmt
@@ -207,10 +207,10 @@ contains
   
 
   pure subroutine ddsdde_lamina(this_mat, dee, stress, sdv, strain, clength, &
-  & istat, emsg, maxdm)
+  & istat, emsg, d_max)
   ! Purpose:
   ! to calculate the D matrix, stress and solution-dependent variables
-  ! at an integration point of an element with lamina_type material definition.
+  ! at an integration point of an element with lamina_material material definition.
   ! (restricted to 3D problems, with the standard 6 strain terms)
 
     ! dummy argument list:
@@ -222,8 +222,8 @@ contains
     ! - clength     : elem. characteristic length,        passed-in
     ! - istat       : status variable of this procedure   to output
     ! - emsg        : error message                       to output
-    ! - maxdm       : maximum degradation factor          passed-in (optional)
-    type(lamina_type),        intent(in)    :: this_mat
+    ! - d_max       : maximum degradation factor          passed-in (optional)
+    type(lamina_material),    intent(in)    :: this_mat
     real(DP),                 intent(inout) :: dee(:,:)
     real(DP),                 intent(inout) :: stress(:)
     type(lamina_sdv),         intent(inout) :: sdv
@@ -231,7 +231,7 @@ contains
     real(DP),                 intent(in)    :: clength
     integer,                  intent(out)   :: istat
     character(len=MSGLENGTH), intent(out)   :: emsg
-    real(DP),       optional, intent(in)    :: maxdm
+    real(DP),       optional, intent(in)    :: d_max
     
     ! local variables list:
     ! - fstat     : generic failure status
@@ -240,10 +240,10 @@ contains
     ! - df        : fibre degradation
     ! - u0        : fibre cohesive law, failure onset displacement
     ! - uf        : fibre cohesive law, total failure displacement
-    ! - maxdm_lcl : local copy of maxdm
+    ! - d_max_lcl : local copy of d_max
     integer  :: fstat, ffstat, mfstat
     real(DP) :: df, u0, uf
-    real(DP) :: maxdm_lcl
+    real(DP) :: d_max_lcl
 
     
     ! initialize intent(out) & local variables
@@ -255,7 +255,7 @@ contains
     df        = ZERO 
     u0        = ZERO 
     uf        = ZERO 
-    maxdm_lcl = ZERO
+    d_max_lcl = ZERO
     
     ! check validity of dummy arguments with intent(in) or (inout)
     
@@ -263,21 +263,21 @@ contains
     if (.not. (size(dee(:,1)) == 6 .and. size(dee(1,:)) == 6)) then
       istat = STAT_FAILURE
       emsg  = 'size of dee is not supported for ddsdde_lamina, &
-      &lamina_type_module!'
+      &lamina_material_module!'
       return
     end if
     
     if (.not. (size(stress) == 6)) then
       istat = STAT_FAILURE
       emsg  = 'size of stress is not supported for ddsdde_lamina, &
-      &lamina_type_module!'
+      &lamina_material_module!'
       return
     end if
     
     if (.not. (size(strain) == 6)) then
       istat = STAT_FAILURE
       emsg  = 'size of strain is not supported for ddsdde_lamina, &
-      &lamina_type_module!'
+      &lamina_material_module!'
       return
     end if
     
@@ -293,16 +293,16 @@ contains
     if (.not. (clength > SMALLNUM)) then 
       istat = STAT_FAILURE
       emsg  = 'clength must be larger than zero for ddsdde_lamina, &
-      &lamina_type_module!'
+      &lamina_material_module!'
       return
     end if
     
-    ! check maxdm value, must be between ZERO and ONE
-    if (present(maxdm)) then
-      if (.not. (ZERO-SMALLNUM < maxdm .and. maxdm < ONE+SMALLNUM)) then
+    ! check d_max value, must be between ZERO and ONE
+    if (present(d_max)) then
+      if (.not. (ZERO-SMALLNUM < d_max .and. d_max < ONE+SMALLNUM)) then
         istat = STAT_FAILURE
-        emsg  = 'maxdm must be within [0., 1.] for ddsdde_lamina, &
-        &lamina_type_module!'
+        emsg  = 'd_max must be within [0., 1.] for ddsdde_lamina, &
+        &lamina_material_module!'
         return
       end if
     end if 
@@ -317,11 +317,11 @@ contains
     uf     = sdv%UF
          
     ! copy max. degradation (if present) into local variable
-    if(present(maxdm))  then
-      maxdm_lcl = maxdm
+    if(present(d_max))  then
+      d_max_lcl = d_max
     else  
       ! default value is ONE              
-      maxdm_lcl = ONE
+      d_max_lcl = ONE
     end if
     
     !---------------------------------------------------------------------------
@@ -373,7 +373,7 @@ contains
       case default
         istat = STAT_FAILURE
         emsg  = 'ffstat value is not recognized in ffstat_bfr_cohlaw, &
-        & lamina_ddsdde, lamina_type_module!'
+        & lamina_ddsdde, lamina_material_module!'
         return
         
     end select ffstat_bfr_cohlaw
@@ -382,7 +382,7 @@ contains
     ! call fibre cohesive law, calculate fibre damage var.
     call fibre_cohesive_law (ffstat, df, u0, uf, stress, strain, &
   & clength, this_mat%strength, this_mat%fibreToughness,         &
-  & maxdm_lcl, istat, emsg)
+  & d_max_lcl, istat, emsg)
   
     ! check if the cohesive law is run successfully
     if(istat == STAT_FAILURE) return
@@ -435,7 +435,7 @@ contains
       case default
         istat = STAT_FAILURE
         emsg  = 'ffstat value is not recognized in ffstat_aft_cohlaw, &
-        & lamina_ddsdde, lamina_type_module!'
+        & lamina_ddsdde, lamina_material_module!'
         return
  
     end select ffstat_aft_cohlaw
@@ -469,19 +469,19 @@ contains
     
     if (.not. (ZERO-SMALLNUM < sdv%DF .and. sdv%DF < ONE+SMALLNUM)) then
       istat = STAT_FAILURE
-      emsg  = 'lamina DF must be between [0., 1.], lamina_type_module'
+      emsg  = 'lamina DF must be between [0., 1.], lamina_material_module'
       return
     end if
     
     if (.not. (ZERO-SMALLNUM < sdv%U0)) then
       istat = STAT_FAILURE
-      emsg  = 'lamina U0 must be >= 0., lamina_type_module'
+      emsg  = 'lamina U0 must be >= 0., lamina_material_module'
       return
     end if
     
     if (.not. (ZERO-SMALLNUM < sdv%UF)) then
       istat = STAT_FAILURE
-      emsg  = 'lamina UF must be >= 0., lamina_type_module'
+      emsg  = 'lamina UF must be >= 0., lamina_material_module'
       return
     end if
     
@@ -490,7 +490,7 @@ contains
         continue
       case default
         istat = STAT_FAILURE
-        emsg  = 'lamina FSTAT value is incorrect, lamina_type_module'
+        emsg  = 'lamina FSTAT value is incorrect, lamina_material_module'
         return
     end select
     
@@ -499,7 +499,7 @@ contains
         continue
       case default
         istat = STAT_FAILURE
-        emsg  = 'lamina FFSTAT value is incorrect, lamina_type_module'
+        emsg  = 'lamina FFSTAT value is incorrect, lamina_material_module'
         return
     end select
     
@@ -508,7 +508,7 @@ contains
         continue
       case default
         istat = STAT_FAILURE
-        emsg  = 'lamina MFSTAT value is incorrect, lamina_type_module'
+        emsg  = 'lamina MFSTAT value is incorrect, lamina_material_module'
         return
     end select
     
@@ -520,7 +520,7 @@ contains
   ! Purpose:
   ! to check the validity of the input material properties
  
-    type(lamina_type),        intent(in)  :: this
+    type(lamina_material),    intent(in)  :: this
     integer,                  intent(out) :: istat
     character(len=MSGLENGTH), intent(out) :: emsg
     
@@ -531,25 +531,25 @@ contains
     ! elastic moduli must be positive non-zero
     if (this%modulus%E1 < SMALLNUM) then
       istat = STAT_FAILURE
-      emsg  = 'lamina E1 must be greater than zero, lamina_type_module'
+      emsg  = 'lamina E1 must be greater than zero, lamina_material_module'
       return
     end if
     
     if (this%modulus%E2 < SMALLNUM) then
       istat = STAT_FAILURE
-      emsg  = 'lamina E2 must be greater than zero, lamina_type_module'
+      emsg  = 'lamina E2 must be greater than zero, lamina_material_module'
       return
     end if
     
     if (this%modulus%G12 < SMALLNUM) then
       istat = STAT_FAILURE
-      emsg  = 'lamina G12 must be greater than zero, lamina_type_module'
+      emsg  = 'lamina G12 must be greater than zero, lamina_material_module'
       return
     end if
     
     if (this%modulus%G23 < SMALLNUM) then
       istat = STAT_FAILURE
-      emsg  = 'lamina G23 must be greater than zero, lamina_type_module'
+      emsg  = 'lamina G23 must be greater than zero, lamina_material_module'
       return
     end if
   
@@ -558,37 +558,37 @@ contains
     ! strengths must be positive non-zero
     if (this%strength%Xt < SMALLNUM) then
       istat = STAT_FAILURE
-      emsg  = 'lamina Xt must be greater than zero, lamina_type_module'
+      emsg  = 'lamina Xt must be greater than zero, lamina_material_module'
       return
     end if
     
     if (this%strength%Xc < SMALLNUM) then
       istat = STAT_FAILURE
-      emsg  = 'lamina Xc must be greater than zero, lamina_type_module'
+      emsg  = 'lamina Xc must be greater than zero, lamina_material_module'
       return
     end if
     
     if (this%strength%Yt < SMALLNUM) then
       istat = STAT_FAILURE
-      emsg  = 'lamina Yt must be greater than zero, lamina_type_module'
+      emsg  = 'lamina Yt must be greater than zero, lamina_material_module'
       return
     end if
     
     if (this%strength%Yc < SMALLNUM) then
       istat = STAT_FAILURE
-      emsg  = 'lamina Yc must be greater than zero, lamina_type_module'
+      emsg  = 'lamina Yc must be greater than zero, lamina_material_module'
       return
     end if
     
     if (this%strength%Sl < SMALLNUM) then
       istat = STAT_FAILURE
-      emsg  = 'lamina Sl must be greater than zero, lamina_type_module'
+      emsg  = 'lamina Sl must be greater than zero, lamina_material_module'
       return
     end if
     
     if (this%strength%St < SMALLNUM) then
       istat = STAT_FAILURE
-      emsg  = 'lamina St must be greater than zero, lamina_type_module'
+      emsg  = 'lamina St must be greater than zero, lamina_material_module'
       return
     end if
 
@@ -596,19 +596,19 @@ contains
     ! matrix toughnesses and mixed-mode ratio must be positive non-zero
     if (this%matrixToughness%GmcI < SMALLNUM) then
       istat = STAT_FAILURE
-      emsg  = 'lamina GmcI must be greater than zero, lamina_type_module'
+      emsg  = 'lamina GmcI must be greater than zero, lamina_material_module'
       return
     end if
     
     if (this%matrixToughness%GmcII < SMALLNUM) then
       istat = STAT_FAILURE
-      emsg  = 'lamina GmcII must be greater than zero, lamina_type_module'
+      emsg  = 'lamina GmcII must be greater than zero, lamina_material_module'
       return
     end if
     
     if (this%matrixToughness%eta < SMALLNUM) then
       istat = STAT_FAILURE
-      emsg  = 'lamina eta must be greater than zero, lamina_type_module'
+      emsg  = 'lamina eta must be greater than zero, lamina_material_module'
       return
     end if
 
@@ -616,13 +616,13 @@ contains
     ! fibre toughnesses must be positive non-zero
     if (this%fibreToughness%GfcT < SMALLNUM) then
       istat = STAT_FAILURE
-      emsg  = 'lamina GfcT must be greater than zero, lamina_type_module'
+      emsg  = 'lamina GfcT must be greater than zero, lamina_material_module'
       return
     end if
     
     if (this%fibreToughness%GfcC < SMALLNUM) then
       istat = STAT_FAILURE
-      emsg  = 'lamina GfcC must be greater than zero, lamina_type_module'
+      emsg  = 'lamina GfcC must be greater than zero, lamina_material_module'
       return
     end if
 
@@ -642,9 +642,9 @@ contains
     ! - df          : fibre degradation,                      passed-in
     ! - dm2         : matrix degradation (in-plane, dir. 2),  passed-in
     ! - dm3         : matrix degradation (out-plane, dir. 3), passed-in
-    real(DP),           intent(inout) :: dee(:,:)
-    type(lamina_type),  intent(in)    :: this_mat
-    real(DP),   optional, intent(in)  :: df, dm2, dm3
+    real(DP),              intent(inout) :: dee(:,:)
+    type(lamina_material), intent(in)    :: this_mat
+    real(DP),    optional, intent(in)    :: df, dm2, dm3
 
     
     !local var. list:
@@ -763,7 +763,7 @@ contains
 
     
   pure subroutine fibre_cohesive_law(ffstat, df, u0, uf, stress, strain, &
-  & clength, strength, fibreToughness, maxdm, istat, emsg) 
+  & clength, strength, fibreToughness, d_max, istat, emsg) 
   ! Purpose:
   ! to update fibre failure status, stiffness degradation factor and 
   ! cohesive law variables according to a linear cohesive softening law;
@@ -780,7 +780,7 @@ contains
     ! - clength         : element characteristic length         passed-in
     ! - strength        : strength parameters of lamina         passed-in
     ! - fibreToughness  : fibre-direction toughness parameters  passed-in
-    ! - maxdm           : maximum degradation factor            passed-in
+    ! - d_max           : maximum degradation factor            passed-in
     ! - istat           : status variable of this procedure     to output
     ! - emsg            : error message                         to output
     integer,                      intent(inout) :: ffstat
@@ -789,7 +789,7 @@ contains
     real(DP),                     intent(in)    :: clength
     type(lamina_strength),        intent(in)    :: strength
     type(lamina_fibreToughness),  intent(in)    :: fibreToughness
-    real(DP),                     intent(in)    :: maxdm
+    real(DP),                     intent(in)    :: d_max
     integer,                      intent(out)   :: istat
     character(len=MSGLENGTH),     intent(out)   :: emsg
     
@@ -895,7 +895,7 @@ contains
           if(uf < u0 + SMALLNUM) then 
             ! GfcT/GfcC too small, brittle failure
             ! update df and ffstat
-            df     = maxdm
+            df     = d_max
             ffstat = FIBRE_FAILED
           else
             ! df is calculated such that 
@@ -909,7 +909,7 @@ contains
       ! have already been defined. 
       ! the only thing to do here is to update df with respect to displacement,
       ! according to the already-defined cohesive law. 
-      ! if df reaches maxdm, update ffstat to FIBRE_FAILED
+      ! if df reaches d_max, update ffstat to FIBRE_FAILED
       case (FIBRE_ONSET) ffstat_select
     
         ! calculate effective displacement
@@ -924,8 +924,8 @@ contains
         end if
     
         ! check df and update ffstat if df reaches the max
-        if (df > maxdm-SMALLNUM) then
-            df     = maxdm
+        if (df > d_max-SMALLNUM) then
+            df     = d_max
             ffstat = FIBRE_FAILED
         end if
       
@@ -933,7 +933,7 @@ contains
         ! this case should never be reached; flag error status and msg
         istat = STAT_FAILURE
         emsg  = 'unexpected ffstat value in fibre_cohesive_law, & 
-        &lamina_type_module!'
+        &lamina_material_module!'
         return
       
     end select ffstat_select
@@ -1009,4 +1009,4 @@ contains
     
     
     
-end module lamina_type_module
+end module lamina_material_module
