@@ -1,4 +1,4 @@
-    module interface_type_module
+    module cohesive_material_module
     use parameter_module
     
     implicit none
@@ -19,7 +19,7 @@
     end type
     
 
-    type,public :: interface_type
+    type,public :: cohesive_material
         type(interface_modulus) :: modulus
         type(interface_strength) :: strength
         type(interface_toughness) :: toughness
@@ -54,7 +54,7 @@
     
       subroutine empty_interface(this_interface)
       
-      	type(interface_type),intent(inout) :: this_interface
+      	type(cohesive_material),intent(inout) :: this_interface
         
         this_interface%modulus_active=.false.
         this_interface%strength_active=.false.
@@ -66,7 +66,7 @@
 
       subroutine update_interface(this_interface,modulus,strength,toughness)
       
-      	type(interface_type),intent(inout) :: this_interface
+      	type(cohesive_material),intent(inout) :: this_interface
         type(interface_modulus),optional,intent(in) :: modulus
         type(interface_strength),optional,intent(in) :: strength
         type(interface_toughness),optional,intent(in) :: toughness
@@ -96,7 +96,7 @@
 !********************************************************************************************
       subroutine ddsdde_interface(this_mat,dee,jump,stress,sdv,dfail)
 
-        type(interface_type),       intent(in)  :: this_mat
+        type(cohesive_material),       intent(in)  :: this_mat
         real(kind=dp),              intent(out) :: dee(:,:)
         real(kind=dp),              intent(in)  :: jump(:)
         real(kind=dp),              intent(out) :: stress(:)
@@ -485,4 +485,4 @@
       end subroutine FailureCriterion
       
       
-    end module interface_type_module
+    end module cohesive_material_module

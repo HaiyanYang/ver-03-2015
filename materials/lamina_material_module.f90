@@ -33,7 +33,7 @@ use parameter_module, only : DP, ZERO, ONE, TWO, SMALLNUM, RESIDUAL_MODULUS, &
 implicit none
 private
 
-! elastic moduli
+! elastic moduli, standard notations
 type, public :: lamina_modulus
   real(DP) :: E1   = ZERO, E2   = ZERO 
   real(DP) :: G12  = ZERO, G23  = ZERO
@@ -50,10 +50,11 @@ end type
 ! matrix toughness properties
 type, public :: lamina_matrixToughness
   real(DP) :: GIc = ZERO, GIIc = ZERO  ! matrix toughness, mode I and II 
-  real(DP) :: eta = ZERO                ! mixed-mode law constant (BK)
+  real(DP) :: eta = ZERO               ! mixed-mode law constant (BK)
 end type
 
-! fibre toughness properties, tensile and compressive
+! fibre toughness properties
+! mode I toughness, tensile (GfcT) and compressive (GfcC)
 type, public :: lamina_fibreToughness
   real(DP) :: GfcT = ZERO, GfcC = ZERO 
 end type
@@ -66,25 +67,31 @@ type, public :: lamina_material
   type(lamina_fibreToughness)   :: fibreToughness
 end type
 
+! lamina material solution-dependent variables
+! df     : fibre modulus degradation factor
+! u0, uf : cohesive law parameters, initial & final failure displacements
+! fstat  : generic failure status (= ffstat/mfstat, whichever is more severe)
+! ffstat : fibre   failure status
+! mfstat : matrix  failure status
 type, public :: lamina_sdv
-    real(DP) :: df    = ZERO,   u0     = ZERO,   uf     = ZERO
-    integer  :: fstat = INTACT, ffstat = INTACT, mfstat = INTACT
+  real(DP) :: df    = ZERO,   u0     = ZERO,   uf     = ZERO
+  integer  :: fstat = INTACT, ffstat = INTACT, mfstat = INTACT
 end type
 
 interface empty
-    module procedure empty_lamina
+  module procedure empty_lamina
 end interface
     
 interface update
-    module procedure update_lamina
+  module procedure update_lamina
 end interface
 
 interface extract
-    module procedure extract_lamina
+  module procedure extract_lamina
 end interface
 
 interface display
-    module procedure display_lamina
+  module procedure display_lamina
 end interface
 
 interface display
@@ -108,7 +115,7 @@ contains
 
   pure subroutine empty_lamina(this)
   ! Purpose:
-  ! to reset this lamina object components into their default values (ZERO)
+  ! to reset this lamina object's components into their default values (ZERO)
  
     type(lamina_material),intent(inout) :: this
     
@@ -124,7 +131,7 @@ contains
   pure subroutine update_lamina(this, modulus, strength, fibreToughness,&
   & matrixToughness)
   ! Purpose:
-  ! to update this lamina object components
+  ! to update this lamina object's components
     
    	type(lamina_material),              intent(inout) :: this
     type(lamina_modulus),         optional,intent(in) :: modulus
@@ -174,7 +181,10 @@ contains
     ! initialize local variable
     display_fmt = ''
 
-    ! set display format, note that for scientific real, ESw.d, w>=d+7
+    ! set display format for string and real
+    ! A for string, ES for real (scientific notation)
+    ! 10 is width, 3 is no. of digits aft decimal point
+    ! note that for scientific real, ESw.d, w>=d+7
     display_fmt = '(1X, A, ES10.3)' 
     
     write(*,'(1X, A)') ''
@@ -194,12 +204,14 @@ contains
     write(*,display_fmt) 'lamina St   is: ', this%strength%St
     write(*,display_fmt) 'lamina Sl   is: ', this%strength%Sl
     write(*,'(1X, A)') ''
-    write(*,'(1X, A)') 'Display the matrix toughness of the inquired lamina object :'
+    write(*,'(1X, A)') 'Display the matrix toughness of the inquired lamina &
+    &object :'
     write(*,display_fmt) 'lamina GIc   is: ', this%matrixToughness%GIc 
     write(*,display_fmt) 'lamina GIIc  is: ', this%matrixToughness%GIIc
     write(*,display_fmt) 'lamina eta   is: ', this%matrixToughness%eta
     write(*,'(1X, A)') ''
-    write(*,'(1X, A)') 'Display the fibre  toughness of the inquired lamina object :'
+    write(*,'(1X, A)') 'Display the fibre  toughness of the inquired lamina &
+    &object :'
     write(*,display_fmt) 'lamina GfcT  is: ', this%fibreToughness%GfcT 
     write(*,display_fmt) 'lamina GfcC  is: ', this%fibreToughness%GfcC
     write(*,'(1X, A)') ''
@@ -213,11 +225,6 @@ contains
   ! to display this lamina_sdv's components on cmd window
   ! this is useful for debugging
   
-    !~type, public :: lamina_sdv
-    !~    real(DP) :: df    = ZERO,   u0     = ZERO,   uf     = ZERO
-    !~    integer  :: fstat = INTACT, ffstat = INTACT, mfstat = INTACT
-    !~end type
-  
     type(lamina_sdv), intent(in) :: this_sdv
   
     ! local variable
@@ -226,7 +233,8 @@ contains
     ! initialize local variable
     display_fmt = ''
 
-    ! set display format, I for integer, 10 for width of the number
+    ! set display format for string and integer
+    ! A for string, I for integer, 10 for width of the number
     display_fmt = '(1X, A, I10)' 
     
     write(*,'(1X, A)') ''
@@ -234,7 +242,11 @@ contains
     write(*,display_fmt) 'lamina FSTAT  is: ', this_sdv%FSTAT 
     write(*,display_fmt) 'lamina FFSTAT is: ', this_sdv%FFSTAT 
     write(*,display_fmt) 'lamina MFSTAT is: ', this_sdv%MFSTAT 
-  
+
+    ! set display format for string and real
+    ! A for string, ES for real (scientific notation)
+    ! 10 is width, 3 is no. of digits aft decimal point
+    ! note that for scientific real, ESw.d, w>=d+7
     display_fmt = '(1X, A, ES10.3)' 
     
     write(*,display_fmt) 'lamina DF     is: ', this_sdv%DF 
@@ -250,7 +262,7 @@ contains
   & istat, emsg, d_max)
   ! Purpose:
   ! to calculate the D matrix, stress and solution-dependent variables
-  ! at an integration point of an element with lamina_material material definition.
+  ! at an integration point of an element of lamina_material definition
   ! (restricted to 3D problems, with the standard 6 strain terms)
 
     ! dummy argument list:
@@ -384,6 +396,16 @@ contains
     !---------------------------------------------------------------------------
     
     ! ffstat is the key variable, select what to do next based on ffstat
+    ! for calculations before the fibre cohesive law:
+    ! - if the fibres are already failed, just calculate D and stress, 
+    !   then exit the problem;
+    ! - if the fibres are already damaged (but not yet failed), then the fibre
+    !   cohesive law is needed to update the damage variables, D and stress, 
+    !   based on the current strain values;
+    ! - if the fibres are still intact, then the fibre cohesive law & matrix 
+    !   failure criterion are needed to check if failure criteria are met based 
+    !   on the current stress values; if so, update the damage variables, D and 
+    !   stress 
     ffstat_bfr_cohlaw: select case (ffstat)
     
       ! if fibres are already FAILED, just calculate stress and return;
@@ -419,12 +441,13 @@ contains
     end select ffstat_bfr_cohlaw
       
       
-    ! call fibre cohesive law, calculate fibre damage var.
+    ! call fibre cohesive law, calculate fibre damage variables
     call fibre_cohesive_law (ffstat, df, u0, uf, stress, strain, &
   & clength, this_mat%strength, this_mat%fibreToughness,         &
   & d_max_lcl, istat, emsg)
   
-    ! check if the cohesive law is run successfully
+    ! check if the cohesive law is run successfully;
+    ! if not, return (in this case, emsg will show the reason of error)
     if(istat == STAT_FAILURE) return
 
     !---------------------------------------------------------------------------
@@ -435,7 +458,16 @@ contains
     ! 4. onset  -> failed : update fstat, D, stress
     !---------------------------------------------------------------------------
   
-    ! ffstat is the key variable, select what to do next based on ffstat
+    ! ffstat is the key variable, select what to do next based on ffstat for
+    ! the calculations after the fibre cohesive law:
+    ! - if fibres are damaged or failed, regardless of its prior status 
+    !   (intact or damaged), damage variables, D and stress should be updated;
+    ! - if fibres remain intact, then matrix failure criterion needs to be
+    !   checked, if it is met, fstat would be updated as mfstat; no need to 
+    !   update any damage variable or D or stress, because matrix failure here
+    !   does not lead to softening (note that in FNM, matrix failure is
+    !   explicitly represented by a cohesive sub-element; only the matrix
+    !   failure status is interested here)
     ffstat_aft_cohlaw: select case (ffstat)
     
       ! if fibres are DAMAGED/FAILED after the cohesive law, 
