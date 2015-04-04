@@ -369,7 +369,7 @@ contains
     uf     = sdv%UF
          
     ! copy max. degradation (if present) into local variable
-    if(present(d_max))  then
+    if (present(d_max))  then
       d_max_lcl = d_max
     else  
       ! default value is ONE              
@@ -412,7 +412,7 @@ contains
       ! no need to go through failure criterion, coh law and update sdvs
       case (FIBRE_FAILED)
         ! calculate dee; degrade both fibre and matrix stiffness properties
-        call deemat_3d (dee, this_mat, df=df, dm2=df, dm3=df)
+        call deemat_3d (this_mat, dee, df=df, dm2=df, dm3=df)
         ! calculate stress
         stress = matmul(dee, strain)
         ! exit program
@@ -427,7 +427,7 @@ contains
       ! when fibres are INTACT, calculate stress for failure criterion check
       case (INTACT)
         ! calculate dee using original material properties only
-        call deemat_3d (dee, this_mat)
+        call deemat_3d (this_mat, dee)
         ! calculate stress
         stress = matmul(dee, strain)
         
@@ -442,13 +442,12 @@ contains
       
       
     ! call fibre cohesive law, calculate fibre damage variables
-    call fibre_cohesive_law (ffstat, df, u0, uf, stress, strain, &
-  & clength, this_mat%strength, this_mat%fibreToughness,         &
-  & d_max_lcl, istat, emsg)
+    call fibre_cohesive_law (this_mat, ffstat, df, u0, uf, &
+    & stress, strain, clength, d_max_lcl, istat, emsg)
   
     ! check if the cohesive law is run successfully;
     ! if not, return (in this case, emsg will show the reason of error)
-    if(istat == STAT_FAILURE) return
+    if (istat == STAT_FAILURE) return
 
     !---------------------------------------------------------------------------
     ! going through cohesive law, the possible outcomes of ffstat are:
@@ -482,7 +481,7 @@ contains
         sdv%U0     = u0
         sdv%UF     = uf
         ! update D matrix
-        call deemat_3d (dee, this_mat, df=df, dm2=df, dm3=df) 
+        call deemat_3d (this_mat, dee, df=df, dm2=df, dm3=df) 
         ! update stress
         stress = matmul(dee, strain) 
         
@@ -492,9 +491,9 @@ contains
         ! check for matrix failure
         if (mfstat == INTACT) then       
           ! go through failure criterion and update fstat
-          call matrix_failure_criterion_3d (mfstat, stress, this_mat%strength)
+          call matrix_failure_criterion_3d (this_mat, mfstat, stress)
           ! update fstat if matrix reached failure onset
-          if(mfstat == MATRIX_ONSET) then
+          if (mfstat == MATRIX_ONSET) then
             fstat = mfstat 
             ! update to sdv (only fstat and mfstat)
             sdv%FSTAT  = fstat
@@ -703,19 +702,19 @@ contains
 
 
 
-  pure subroutine deemat_3d (dee, this_mat, df, dm2, dm3)
+  pure subroutine deemat_3d (this_mat, dee, df, dm2, dm3)
   ! Purpose:
   ! to calculate local stiffness matrix D
   ! for 3D problem with the standard 6 strains
     
     ! dummy argument list:
+    ! - this_mat    : passed-in material object,              pass arg.
     ! - dee         : local stiffness matrix,                 to update
-    ! - this_mat    : passed-in material object,              passed-in
     ! - df          : fibre degradation,                      passed-in
     ! - dm2         : matrix degradation (in-plane, dir. 2),  passed-in
     ! - dm3         : matrix degradation (out-plane, dir. 3), passed-in
-    real(DP),              intent(inout) :: dee(:,:)
     type(lamina_material), intent(in)    :: this_mat
+    real(DP),              intent(inout) :: dee(:,:)
     real(DP),    optional, intent(in)    :: df, dm2, dm3
 
     
@@ -754,7 +753,7 @@ contains
     
 
     ! apply fibre degradation if present        
-    if(present(df)) then    
+    if (present(df)) then    
       E1   = E1   * (ONE - df)
       nu12 = nu12 * (ONE - df)
       nu13 = nu13 * (ONE - df)      
@@ -768,7 +767,7 @@ contains
 
     
     ! apply in-plane matrix degradation if present
-    if(present(dm2)) then    
+    if (present(dm2)) then    
       E2   = E2   * (ONE - dm2)
       nu21 = nu21 * (ONE - dm2)
       nu23 = nu23 * (ONE - dm2)
@@ -786,7 +785,7 @@ contains
 
     
     ! apply out-plane matrix degradation if present
-    if(present(dm3)) then    
+    if (present(dm3)) then    
       E3   = E3   * (ONE - dm3)
       nu31 = nu31 * (ONE - dm3)
       nu32 = nu32 * (ONE - dm3)
@@ -834,8 +833,8 @@ contains
 
 
     
-  pure subroutine fibre_cohesive_law(ffstat, df, u0, uf, stress, strain, &
-  & clength, strength, fibreToughness, d_max, istat, emsg) 
+  pure subroutine fibre_cohesive_law(this_mat, ffstat, df, u0, uf, &
+  & stress, strain, clength, d_max, istat, emsg) 
   ! Purpose:
   ! to update fibre failure status, stiffness degradation factor and 
   ! cohesive law variables according to a linear cohesive softening law;
@@ -843,6 +842,7 @@ contains
   ! error when an unexpected logical case is met
   
     ! dummy argument list:
+    ! - this_mat        : lamina material object                pass arg.
     ! - ffstat          : fibre failure status                  to update
     ! - df              : fibre stiffness degradation factor    to update
     ! - u0              : fibre cohesive law, u0                to update
@@ -850,17 +850,14 @@ contains
     ! - stress          : stress vector                         passed-in
     ! - strain          : strain vector                         passed-in
     ! - clength         : element characteristic length         passed-in
-    ! - strength        : strength parameters of lamina         passed-in
-    ! - fibreToughness  : fibre-direction toughness parameters  passed-in
     ! - d_max           : maximum degradation factor            passed-in
     ! - istat           : status variable of this procedure     to output
     ! - emsg            : error message                         to output
+    type(lamina_material),        intent(in)    :: this_mat
     integer,                      intent(inout) :: ffstat
     real(DP),                     intent(inout) :: df, u0, uf
     real(DP),                     intent(in)    :: stress(:), strain(:)
     real(DP),                     intent(in)    :: clength
-    type(lamina_strength),        intent(in)    :: strength
-    type(lamina_fibreToughness),  intent(in)    :: fibreToughness
     real(DP),                     intent(in)    :: d_max
     integer,                      intent(out)   :: istat
     character(len=MSGLENGTH),     intent(out)   :: emsg
@@ -905,12 +902,12 @@ contains
     ! they are assumed to be of valid values.
     
     ! extract strength parameters
-    Xt   = strength%Xt
-    Xc   = strength%Xc
+    Xt   = this_mat%strength%Xt
+    Xc   = this_mat%strength%Xc
     
     ! extract toughness parameters
-    GfcT = fibreToughness%GfcT
-    GfcC = fibreToughness%GfcC 
+    GfcT = this_mat%fibreToughness%GfcT
+    GfcC = this_mat%fibreToughness%GfcC 
     
     
     ! check and update ffstat and damage variables
@@ -964,7 +961,7 @@ contains
             uf   = TWO * GfcC / T0
           end if   
           ! calculate df
-          if(uf < u0 + SMALLNUM) then 
+          if (uf < u0 + SMALLNUM) then 
             ! GfcT/GfcC too small, brittle failure
             ! update df and ffstat
             df     = d_max
@@ -1014,7 +1011,7 @@ contains
 
 
     
-  pure subroutine matrix_failure_criterion_3d (mfstat, stress, strength)
+  pure subroutine matrix_failure_criterion_3d (this_mat, mfstat, stress)
   ! Purpose:
   ! to implement a matrix failure criterion based on the stress and strength
   ! for 3D problems with standard 6 strains.
@@ -1025,16 +1022,16 @@ contains
   ! to output matrix crack angle w.r.t shell plane
     
     ! list of dummy arguments:
-    ! mfstat    : matrix failure status variable      to update
-    ! stress    : stress array                        passed-in
-    ! strength  : strength parameters                 passed-in
+    ! - this_mat  : lamina object                       pass arg.
+    ! - mfstat    : matrix failure status variable      to update
+    ! - stress    : stress array                        passed-in
+    type(lamina_material), intent(in)    :: this_mat
     integer,               intent(inout) :: mfstat
     real(DP),              intent(in)    :: stress(:)
-    type(lamina_strength), intent(in)    :: strength
     
     ! local variables list:
-    ! Yt, Yc, Sl, St  : lamina strength parameters
-    ! findex          : failure index of the failure criterion
+    ! - Yt, Yc, Sl, St  : lamina strength parameters
+    ! - findex          : failure index of the failure criterion
     real(DP)  :: Yt, Yc, Sl, St
     real(DP)  :: findex
 
@@ -1051,10 +1048,10 @@ contains
     ! they are assumed to be of valid values.
     
     ! extract strength parameters
-    Yt = strength%Yt
-    Yc = strength%Yc
-    Sl = strength%Sl
-    St = strength%St
+    Yt = this_mat%strength%Yt
+    Yc = this_mat%strength%Yc
+    Sl = this_mat%strength%Sl
+    St = this_mat%strength%St
     
     ! --------------------------------------------------------- !
     ! the following assumes quadratic stress criterion
@@ -1074,7 +1071,7 @@ contains
 
     findex = sqrt( (max(stress(2),ZERO)/Yt)**2 + (stress(4)/Sl)**2 )
     
-    if(findex > ONE-SMALLNUM) mfstat = MATRIX_ONSET
+    if (findex > ONE-SMALLNUM) mfstat = MATRIX_ONSET
     
     
   end subroutine matrix_failure_criterion_3d
