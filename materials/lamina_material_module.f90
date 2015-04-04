@@ -49,8 +49,8 @@ end type
 
 ! matrix toughness properties
 type, public :: lamina_matrixToughness
-  real(DP) :: GmcI = ZERO, GmcII = ZERO  ! matrix toughness, mode I and II 
-  real(DP) :: eta  = ZERO                ! mixed-mode law constant (BK)
+  real(DP) :: GIc = ZERO, GIIc = ZERO  ! matrix toughness, mode I and II 
+  real(DP) :: eta = ZERO                ! mixed-mode law constant (BK)
 end type
 
 ! fibre toughness properties, tensile and compressive
@@ -68,7 +68,7 @@ end type
 
 type, public :: lamina_sdv
     real(DP) :: df    = ZERO,   u0     = ZERO,   uf     = ZERO
-    integer, :: fstat = INTACT, ffstat = INTACT, mfstat = INTACT
+    integer  :: fstat = INTACT, ffstat = INTACT, mfstat = INTACT
 end type
 
 interface empty
@@ -85,6 +85,10 @@ end interface
 
 interface display
     module procedure display_lamina
+end interface
+
+interface display
+    module procedure display_lamina_sdv
 end interface
 
 interface ddsdde
@@ -162,7 +166,7 @@ contains
   ! to display this lamina object's components on cmd window
   ! this is useful for debugging
  
-    type(lamina_material),intent(in) :: this
+    type(lamina_material), intent(in) :: this
     
     ! local variable
     character(len=20) :: display_fmt
@@ -173,7 +177,6 @@ contains
     ! set display format, note that for scientific real, ESw.d, w>=d+7
     display_fmt = '(1X, A, ES10.3)' 
     
-    write(*,'(1X, A)') '---------------------------------------------------'
     write(*,'(1X, A)') ''
     write(*,'(1X, A)') 'Display the modulus of the inquired lamina object :'
     write(*,display_fmt) 'lamina E1   is: ', this%modulus%E1 
@@ -184,25 +187,62 @@ contains
     write(*,display_fmt) 'lamina nu23 is: ', this%modulus%nu23
     write(*,'(1X, A)') ''
     write(*,'(1X, A)') 'Display the strength of the inquired lamina object :'
-    write(*,display_fmt) 'lamina Xt   is: ', this%modulus%Xt 
-    write(*,display_fmt) 'lamina Xc   is: ', this%modulus%Xc
-    write(*,display_fmt) 'lamina Yt   is: ', this%modulus%Yt
-    write(*,display_fmt) 'lamina Yc   is: ', this%modulus%Yc
-    write(*,display_fmt) 'lamina St   is: ', this%modulus%St
-    write(*,display_fmt) 'lamina Sl   is: ', this%modulus%Sl
+    write(*,display_fmt) 'lamina Xt   is: ', this%strength%Xt 
+    write(*,display_fmt) 'lamina Xc   is: ', this%strength%Xc
+    write(*,display_fmt) 'lamina Yt   is: ', this%strength%Yt
+    write(*,display_fmt) 'lamina Yc   is: ', this%strength%Yc
+    write(*,display_fmt) 'lamina St   is: ', this%strength%St
+    write(*,display_fmt) 'lamina Sl   is: ', this%strength%Sl
     write(*,'(1X, A)') ''
     write(*,'(1X, A)') 'Display the matrix toughness of the inquired lamina object :'
-    write(*,display_fmt) 'lamina GIc   is: ', this%modulus%GIc 
-    write(*,display_fmt) 'lamina GIIc  is: ', this%modulus%GIIc
-    write(*,display_fmt) 'lamina eta   is: ', this%modulus%eta
+    write(*,display_fmt) 'lamina GIc   is: ', this%matrixToughness%GIc 
+    write(*,display_fmt) 'lamina GIIc  is: ', this%matrixToughness%GIIc
+    write(*,display_fmt) 'lamina eta   is: ', this%matrixToughness%eta
     write(*,'(1X, A)') ''
     write(*,'(1X, A)') 'Display the fibre  toughness of the inquired lamina object :'
-    write(*,display_fmt) 'lamina GfcT  is: ', this%modulus%GfcT 
-    write(*,display_fmt) 'lamina GfcC  is: ', this%modulus%GfcC
+    write(*,display_fmt) 'lamina GfcT  is: ', this%fibreToughness%GfcT 
+    write(*,display_fmt) 'lamina GfcC  is: ', this%fibreToughness%GfcC
     write(*,'(1X, A)') ''
-    write(*,'(1X, A)') '------------------------------------------------------------'
 
   end subroutine display_lamina
+  
+  
+  
+  subroutine display_lamina_sdv(this_sdv)
+  ! Purpose:
+  ! to display this lamina_sdv's components on cmd window
+  ! this is useful for debugging
+  
+    !~type, public :: lamina_sdv
+    !~    real(DP) :: df    = ZERO,   u0     = ZERO,   uf     = ZERO
+    !~    integer  :: fstat = INTACT, ffstat = INTACT, mfstat = INTACT
+    !~end type
+  
+    type(lamina_sdv), intent(in) :: this_sdv
+  
+    ! local variable
+    character(len=20) :: display_fmt
+    
+    ! initialize local variable
+    display_fmt = ''
+
+    ! set display format, I for integer, 10 for width of the number
+    display_fmt = '(1X, A, I10)' 
+    
+    write(*,'(1X, A)') ''
+    write(*,'(1X, A)') 'Display the inquired lamina SDVs :'
+    write(*,display_fmt) 'lamina FSTAT  is: ', this_sdv%FSTAT 
+    write(*,display_fmt) 'lamina FFSTAT is: ', this_sdv%FFSTAT 
+    write(*,display_fmt) 'lamina MFSTAT is: ', this_sdv%MFSTAT 
+  
+    display_fmt = '(1X, A, ES10.3)' 
+    
+    write(*,display_fmt) 'lamina DF     is: ', this_sdv%DF 
+    write(*,display_fmt) 'lamina U0     is: ', this_sdv%U0
+    write(*,display_fmt) 'lamina UF     is: ', this_sdv%UF
+    write(*,'(1X, A)') ''
+  
+  end subroutine display_lamina_sdv
   
   
 
@@ -350,7 +390,7 @@ contains
       ! no need to go through failure criterion, coh law and update sdvs
       case (FIBRE_FAILED)
         ! calculate dee; degrade both fibre and matrix stiffness properties
-        call deemat3d (dee, this_mat, df=df, dm2=df, dm3=df)
+        call deemat_3d (dee, this_mat, df=df, dm2=df, dm3=df)
         ! calculate stress
         stress = matmul(dee, strain)
         ! exit program
@@ -365,7 +405,7 @@ contains
       ! when fibres are INTACT, calculate stress for failure criterion check
       case (INTACT)
         ! calculate dee using original material properties only
-        call deemat3d (dee, this_mat)
+        call deemat_3d (dee, this_mat)
         ! calculate stress
         stress = matmul(dee, strain)
         
@@ -410,7 +450,7 @@ contains
         sdv%U0     = u0
         sdv%UF     = uf
         ! update D matrix
-        call deemat3d (dee, this_mat, df=df, dm2=df, dm3=df) 
+        call deemat_3d (dee, this_mat, df=df, dm2=df, dm3=df) 
         ! update stress
         stress = matmul(dee, strain) 
         
@@ -420,7 +460,7 @@ contains
         ! check for matrix failure
         if (mfstat == INTACT) then       
           ! go through failure criterion and update fstat
-          call matrix_failure_criterion3d (mfstat, stress, this_mat%strength)
+          call matrix_failure_criterion_3d (mfstat, stress, this_mat%strength)
           ! update fstat if matrix reached failure onset
           if(mfstat == MATRIX_ONSET) then
             fstat = mfstat 
@@ -594,15 +634,15 @@ contains
 
     
     ! matrix toughnesses and mixed-mode ratio must be positive non-zero
-    if (this%matrixToughness%GmcI < SMALLNUM) then
+    if (this%matrixToughness%GIc < SMALLNUM) then
       istat = STAT_FAILURE
-      emsg  = 'lamina GmcI must be greater than zero, lamina_material_module'
+      emsg  = 'lamina GIc must be greater than zero, lamina_material_module'
       return
     end if
     
-    if (this%matrixToughness%GmcII < SMALLNUM) then
+    if (this%matrixToughness%GIIc < SMALLNUM) then
       istat = STAT_FAILURE
-      emsg  = 'lamina GmcII must be greater than zero, lamina_material_module'
+      emsg  = 'lamina GIIc must be greater than zero, lamina_material_module'
       return
     end if
     
@@ -631,7 +671,7 @@ contains
 
 
 
-  pure subroutine deemat3d (dee, this_mat, df, dm2, dm3)
+  pure subroutine deemat_3d (dee, this_mat, df, dm2, dm3)
   ! Purpose:
   ! to calculate local stiffness matrix D
   ! for 3D problem with the standard 6 strains
@@ -687,8 +727,8 @@ contains
       nu12 = nu12 * (ONE - df)
       nu13 = nu13 * (ONE - df)      
       ! do not degrade below residual stiffness
-      if (E1 < RESIDUAL_STIFFNESS) then
-        E1   = RESIDUAL_STIFFNESS
+      if (E1 < RESIDUAL_MODULUS) then
+        E1   = RESIDUAL_MODULUS
         nu12 = ZERO
         nu13 = ZERO
       end if      
@@ -702,12 +742,12 @@ contains
       nu23 = nu23 * (ONE - dm2)
       G12  = G12  * (ONE - dm2)      
       ! do not degrade below residual stiffness
-      if (E2 < RESIDUAL_STIFFNESS) then
-        E2   = RESIDUAL_STIFFNESS
+      if (E2 < RESIDUAL_MODULUS) then
+        E2   = RESIDUAL_MODULUS
         nu21 = ZERO
         nu23 = ZERO
       end if      
-      G12  = max(G12, RESIDUAL_STIFFNESS)      
+      G12  = max(G12, RESIDUAL_MODULUS)      
       ! update matrix degradation for 2-3 plane
       dm23 = max(dm23, dm2)      
     end if
@@ -720,12 +760,12 @@ contains
       nu32 = nu32 * (ONE - dm3)
       G13  = G13  * (ONE - dm3)      
       ! do not degrade below residual stiffness
-      if (E3 < RESIDUAL_STIFFNESS) then
-        E3   = RESIDUAL_STIFFNESS
+      if (E3 < RESIDUAL_MODULUS) then
+        E3   = RESIDUAL_MODULUS
         nu31 = ZERO
         nu32 = ZERO
       end if      
-      G13  = max(G13, RESIDUAL_STIFFNESS)      
+      G13  = max(G13, RESIDUAL_MODULUS)      
       ! update matrix degradation for 2-3 plane
       dm23 = max(dm23, dm3)      
     end if
@@ -734,7 +774,7 @@ contains
     ! apply transverse (2-3) matrix degradation 
     G23 = G23 * (ONE-dm23)
     ! do not degrade below residual stiffness
-    G23 = max(G23,RESIDUAL_STIFFNESS)
+    G23 = max(G23,RESIDUAL_MODULUS)
         
     
     ! calculate D matrix terms
@@ -758,7 +798,7 @@ contains
     dee(6,6) = G23
     
     
-  end subroutine deemat
+  end subroutine deemat_3d
 
 
     
@@ -942,7 +982,7 @@ contains
 
 
     
-  pure subroutine matrix_failure_criterion3d (mfstat, stress, strength)
+  pure subroutine matrix_failure_criterion_3d (mfstat, stress, strength)
   ! Purpose:
   ! to implement a matrix failure criterion based on the stress and strength
   ! for 3D problems with standard 6 strains.
@@ -1005,7 +1045,7 @@ contains
     if(findex > ONE-SMALLNUM) mfstat = MATRIX_ONSET
     
     
-  end subroutine matrix_failure_criterion
+  end subroutine matrix_failure_criterion_3d
     
     
     
