@@ -2,7 +2,7 @@ module lamina_material_module
 !
 !  Purpose:
 !    define an object to represent a lamina material
-!    with the associated procedures to empty, update, extract
+!    with the associated procedures to empty, update, extract and display
 !    its components, to integrate local stiffness matrix, and
 !    to update local solution-dependent variables (damage variables)
 !    

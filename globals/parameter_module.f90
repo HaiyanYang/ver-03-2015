@@ -80,7 +80,7 @@ INTEGER, PARAMETER :: MATRIX_ONSET = 5,  MATRIX_FAILED = 10,                  &
 
 
 ! INTERFACE MATERIAL MODULE PARAMETERS -----------------------------------------
-INTEGER, PARAMETER :: DELAM_ONSET = 5,  DELAM_FAILED = 10
+INTEGER, PARAMETER :: COH_MAT_ONSET = 5,  COH_MAT_FAILED = 10
 !-------------------------------------------------------------------------------
 
 
