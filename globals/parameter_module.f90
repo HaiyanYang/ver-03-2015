@@ -73,8 +73,7 @@ END TYPE
 
 
 ! LAMINA MATERIAL MODULE PARAMETERS --------------------------------------------
-INTEGER, PARAMETER :: MATRIX_ONSET = 5,  MATRIX_FAILED = 10,                  &
-                    & FIBRE_ONSET  = 15, FIBRE_FAILED  = 20
+INTEGER, PARAMETER :: MATRIX_ONSET = 5, FIBRE_ONSET  = 15, FIBRE_FAILED  = 20
 !-------------------------------------------------------------------------------
 
 
