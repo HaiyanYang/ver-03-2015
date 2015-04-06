@@ -76,7 +76,7 @@ toughness%Glc   = 1._DP
 toughness%alpha = 1._DP
 
 ! define separation
-!separation(1) = 0.006_DP
+separation(1) = -0.006_DP
 separation(2) = 0.02_DP
 separation(3) = 0.02_DP
 

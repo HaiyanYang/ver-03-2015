@@ -2,7 +2,7 @@ module lamina_material_module
 !
 !  Purpose:
 !    define an object to represent a lamina material
-!    with the associated procedures to empty, update, extract and display
+!    with the associated procedures to empty, update, and display
 !    its components, to integrate local stiffness matrix, and
 !    to update local solution-dependent variables (damage variables)
 !    
@@ -23,7 +23,6 @@ module lamina_material_module
 ! STAT_FAILURE      : integer value of a failure    status
 ! INTACT            : integer value for generic intact state
 ! MATRIX_ONSET      : integer value for matrix failure onset state
-! MATRIX_FAILED     : integer value for matrix total failure state
 ! FIBRE_ONSET       : integer value for fibre  failure onset state
 ! FIBRE_FAILED      : integer value for fibre  total failure state
 use parameter_module, only : DP, ZERO, ONE, TWO, SMALLNUM, RESIDUAL_MODULUS, &
@@ -108,9 +107,9 @@ contains
  
     type(lamina_material),intent(inout) :: this
     
-    this%modulus         = lamina_modulus(ZERO,ZERO,ZERO,ZERO,ZERO,ZERO)
-    this%strength        = lamina_strength(ZERO,ZERO,ZERO,ZERO,ZERO,ZERO)
-    this%fibreToughness  = lamina_fibreToughness(ZERO,ZERO)
+    this%modulus         = lamina_modulus  (ZERO, ZERO, ZERO, ZERO, ZERO, ZERO)
+    this%strength        = lamina_strength (ZERO, ZERO, ZERO, ZERO, ZERO, ZERO)
+    this%fibreToughness  = lamina_fibreToughness (ZERO, ZERO)
 
   end subroutine empty_lamina
 
@@ -120,14 +119,14 @@ contains
   ! Purpose:
   ! to update this lamina object's components
     
-   	type(lamina_material),              intent(inout) :: this
-    type(lamina_modulus),         optional,intent(in) :: modulus
-    type(lamina_strength),        optional,intent(in) :: strength
-    type(lamina_fibreToughness),  optional,intent(in) :: fibreToughness
+   	type(lamina_material),                 intent(inout) :: this
+    type(lamina_modulus),        optional, intent(in)    :: modulus
+    type(lamina_strength),       optional, intent(in)    :: strength
+    type(lamina_fibreToughness), optional, intent(in)    :: fibreToughness
             
-    if(present(modulus))          this%modulus          = modulus    
-    if(present(strength))         this%strength         = strength       
-    if(present(fibreToughness))   this%fibreToughness   = fibreToughness
+    if(present(modulus))          this%modulus        = modulus    
+    if(present(strength))         this%strength       = strength       
+    if(present(fibreToughness))   this%fibreToughness = fibreToughness
 
   end subroutine update_lamina  
     
@@ -140,7 +139,7 @@ contains
  
     type(lamina_material), intent(in) :: this
     
-    ! local variable
+    ! local variable to set the output format
     character(len=20) :: display_fmt
     
     ! initialize local variable
@@ -186,7 +185,7 @@ contains
   
     type(lamina_sdv), intent(in) :: this_sdv
   
-    ! local variable
+    ! local variable to set the output format
     character(len=20) :: display_fmt
     
     ! initialize local variable
@@ -434,7 +433,7 @@ contains
     ffstat_aft_cohlaw: select case (ffstat)
     
       ! if fibres are DAMAGED/FAILED after the cohesive law, 
-      ! update fstat (and to sdv), deemat and stress
+      ! update fstat, sdv, deemat and stress
       case (FIBRE_ONSET, FIBRE_FAILED)
         ! update fstat
         fstat = ffstat
@@ -450,11 +449,11 @@ contains
         stress = matmul(dee, strain) 
         
       ! if fibres are STILL INTACT, check for matrix status;
-      ! if matrix failure onset, update fstat (and sdv)
+      ! if matrix failure onset, update fstat and sdv
       case (INTACT)
         ! check for matrix failure
         if (mfstat == INTACT) then       
-          ! go through failure criterion and update fstat
+          ! go through failure criterion and calculate findex
           call matrix_failure_criterion_3d (this_mat, stress, findex)
           ! update fstat if matrix reached failure onset (findex >= 1.)
           if (findex > ONE - SMALLNUM) then
@@ -749,7 +748,7 @@ contains
     ! apply transverse (2-3) matrix degradation 
     G23 = G23 * (ONE-dm23)
     ! do not degrade below residual stiffness
-    G23 = max(G23,RESIDUAL_MODULUS)
+    G23 = max(G23, RESIDUAL_MODULUS)
         
     
     ! calculate D matrix terms
@@ -898,7 +897,7 @@ contains
           u0     = u_eff / findex
           T0     = T_eff / findex    
           ! calculate effective jump at final failure
-          if (strain(1) > ZERO) then
+          if (strain(1) > ZERO + SMALLNUM) then
             ! use tensile     fracture toughness
             uf   = TWO * GfcT / T0
           else
@@ -970,13 +969,13 @@ contains
     ! - this_mat  : lamina object       pass arg.
     ! - stress    : stress array        passed-in
     ! - findex    : failure index       to output
-    type(lamina_material), intent(in)    :: this_mat
-    real(DP),              intent(in)    :: stress(:)
-    real(DP),              intent(out)   :: findex
+    type(lamina_material), intent(in)   :: this_mat
+    real(DP),              intent(in)   :: stress(:)
+    real(DP),              intent(out)  :: findex
     
     ! local variables list:
     ! - Yt, Yc, Sl, St      : lamina strength parameters
-    ! - tau_n, tau_t, tau_l : normal and two shear tractions on the potential
+    ! - tau_n/t/l           : normal and two shear tractions on the potential
     !                         matrix crack surface
     ! - sigma_1/2/3         : standard normal stress components
     ! - tau_12/13/23        : standard shear stress components

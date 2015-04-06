@@ -2,7 +2,7 @@ module cohesive_material_module
 !
 !  Purpose:
 !    define an object to represent a cohesive interface material
-!    with the associated procedures to empty, update, extract and display
+!    with the associated procedures to empty, update, and display
 !    its components, to integrate local stiffness matrix, and
 !    to update local solution-dependent variables (damage variables)
 !    
@@ -15,7 +15,8 @@ module cohesive_material_module
 
 ! list out ALL the parameter used, no matter how long:
 ! DP                : precision of real number, Double Precision
-! ZERO, ONE, TWO    : self explanatory
+! ZERO, ONE, TWO,   
+! HALF              : self explanatory
 ! SMALLNUM          : a very small real number, used when comparing two reals
 ! RESIDUAL_MODULUS  : residual modulus of the material at final failure
 ! MSGLENGTH         : length of error message
@@ -57,7 +58,7 @@ type,public :: cohesive_toughness
   real(DP) :: alpha = ZERO
 end type
 
-
+! cohesive material object definition
 type,public :: cohesive_material
   type(cohesive_modulus)   :: modulus
   type(cohesive_strength)  :: strength
@@ -66,7 +67,7 @@ end type
 
 ! cohesive material solution-dependent variables
 ! dm     : cohesive modulus degradation factor
-! u0, uf : cohesive law parameters, initial & final failure displacements
+! u0, uf : cohesive law parameters, initial & final failure separations
 ! fstat  : failure status
 type, public :: cohesive_sdv
   real(DP) :: dm    = ZERO,  u0 = ZERO,  uf = ZERO
@@ -142,7 +143,7 @@ contains
  
     type(cohesive_material), intent(in) :: this
     
-    ! local variable
+    ! local variable to set the output format
     character(len=20) :: display_fmt
     
     ! initialize local variable
@@ -183,7 +184,7 @@ contains
   
     type(cohesive_sdv), intent(in) :: this_sdv
   
-    ! local variable
+    ! local variable to set the output format
     character(len=20) :: display_fmt
     
     ! initialize local variable
@@ -203,7 +204,7 @@ contains
     ! note that for scientific real, ESw.d, w>=d+7
     display_fmt = '(1X, A, ES10.3)' 
     
-    write(*,display_fmt) 'cohesive dm    is: ', this_sdv%dm 
+    write(*,display_fmt) 'cohesive DM    is: ', this_sdv%dm 
     write(*,display_fmt) 'cohesive U0    is: ', this_sdv%U0
     write(*,display_fmt) 'cohesive UF    is: ', this_sdv%UF
     write(*,'(1X, A)') ''
@@ -212,7 +213,7 @@ contains
   
 
 
-  subroutine ddsdde_cohesive (this_mat, dee, traction, sdv, separation, &
+  pure subroutine ddsdde_cohesive (this_mat, dee, traction, sdv, separation, &
   & istat, emsg, d_max)
   ! Purpose:
   ! to calculate the D matrix, traction and solution-dependent variables
@@ -239,11 +240,13 @@ contains
     real(DP),       optional, intent(in)    :: d_max
     
     ! local variables list:
-    ! - fstat     : failure status
-    ! - dm        : degradation factor
-    ! - u0        : cohesive law, failure onset displacement
-    ! - uf        : cohesive law, total failure displacement
-    ! - d_max_lcl : local copy of d_max
+    ! - fstat           : failure status
+    ! - dm              : degradation factor
+    ! - u0              : cohesive law, failure onset displacement
+    ! - uf              : cohesive law, total failure displacement
+    ! - d_max_lcl       : local copy of d_max
+    ! - is_closed_crack : logical variable, true if the cohesive material is 
+    !                     under compression
     integer  :: fstat
     real(DP) :: dm, u0, uf
     real(DP) :: d_max_lcl
@@ -318,7 +321,7 @@ contains
     end if
     
     ! if normal separation is less than ZERO, then the crack is closed
-    is_closed_crack = separation(1) < ZERO - SMALLNUM
+    is_closed_crack = separation(1) < (ZERO - SMALLNUM)
     
     !---------------------------------------------------------------------------
     ! Possible changes of fstat before&after cohesive law
@@ -342,7 +345,7 @@ contains
     !   traction, then exit the program;
     ! - if the cohesive material is already damaged but not yet failed, then the
     !   cohesive law is needed to update the damage variables, D and traction, 
-    !   based on the current displacement separation vector;
+    !   based on the current separation vector;
     ! - if the cohesive material is still intact, then the cohesive failure 
     !   criterion is needed to check if failure onset is met based on the 
     !   current traction values; if so, update the damage variables, D and 
@@ -622,17 +625,16 @@ contains
     ! extract info about if the crack is closed
     if (present(is_closed_crack)) crack_closed = is_closed_crack
 
-    ! apply fibre degradation if dm is present and crack is NOT closed        
+    ! apply fibre degradation if dm is present       
     if (present(dm)) then
-      if (.not. crack_closed) then
-        Dnn = Dnn * (ONE - dm)
-        Dtt = Dtt * (ONE - dm)
-        Dll = Dll * (ONE - dm)
-        ! do not degrade below residual stiffness
-        if (Dnn < RESIDUAL_MODULUS + SMALLNUM) Dnn = RESIDUAL_MODULUS
-        if (Dtt < RESIDUAL_MODULUS + SMALLNUM) Dtt = RESIDUAL_MODULUS
-        if (Dll < RESIDUAL_MODULUS + SMALLNUM) Dll = RESIDUAL_MODULUS
-      end if
+      ! degrade normal stiffness if crack is NOT closed 
+      if (.not. crack_closed) Dnn = Dnn * (ONE - dm)
+      Dtt = Dtt * (ONE - dm)
+      Dll = Dll * (ONE - dm)
+      ! do not degrade below residual stiffness
+      if (Dnn < RESIDUAL_MODULUS + SMALLNUM) Dnn = RESIDUAL_MODULUS
+      if (Dtt < RESIDUAL_MODULUS + SMALLNUM) Dtt = RESIDUAL_MODULUS
+      if (Dll < RESIDUAL_MODULUS + SMALLNUM) Dll = RESIDUAL_MODULUS
     end if 
     
     ! calculate D matrix terms
@@ -854,7 +856,7 @@ contains
   pure subroutine failure_criterion_3d (this_mat, traction, findex)
   ! Purpose:
   ! to calculate the failure index of the coh mat under current traction
-  ! for 3D problem with the standard 3 displacement separations
+  ! for 3D problem with the standard 3 separations
   ! findex >= ONE when failure onset is met
     
     ! dummy argument list:
@@ -871,15 +873,15 @@ contains
     real(DP) :: tau_n,  tau_t,  tau_l
     real(DP) :: tau_nc, tau_tc, tau_lc
     
-    ! initialize variables
+    ! initialize intent(out) & local variables
     findex = ZERO
     tau_n  = ZERO;  tau_t  = ZERO;  tau_l  = ZERO
     tau_nc = ZERO;  tau_tc = ZERO;  tau_lc = ZERO
     
     ! extract traction terms
-    tau_n   = max(traction(1), ZERO)
-    tau_t   = traction(2)
-    tau_l   = traction(3)
+    tau_n  = max(traction(1), ZERO)
+    tau_t  = traction(2)
+    tau_l  = traction(3)
      
     ! extract strength parameters
     tau_nc = this_mat%strength%tau_nc

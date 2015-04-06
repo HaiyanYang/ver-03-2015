@@ -1,5 +1,5 @@
 GFORTRAN module version '10' created from C:\Users\mpecb\Documents\GitHub\ver-03-2015\test_cohesive_material.f90
-MD5:39db0fa940893bf7f671d1191647091a -- If you edit this, you'll get what you deserve.
+MD5:519ad9bddcc4c5f8d1b0f17d6e43609a -- If you edit this, you'll get what you deserve.
 
 (() () () () () () () () () () () () () () () () () () () () () () ()
 () () () ())
@@ -103,7 +103,7 @@ UNKNOWN-INTENT UNKNOWN-PROC DECL UNKNOWN 0 0 FUNCTION GENERIC) (UNKNOWN
 UNKNOWN-INTENT UNKNOWN-PROC DECL UNKNOWN 0 0 FUNCTION GENERIC) (UNKNOWN
 0 0 0 0 UNKNOWN ()) 0 0 () () 33 () () () 0 0)
 7 'ddsdde_cohesive' 'cohesive_material_module' '' 1 ((PROCEDURE
-UNKNOWN-INTENT MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE IMPLICIT_PURE
+UNKNOWN-INTENT MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE PURE
 ALWAYS_EXPLICIT) (UNKNOWN 0 0 0 0 UNKNOWN ()) 34 0 (35 36 37 38 39 40 41
 42) () 0 () () () 0 0)
 8 'display_cohesive_sdv' 'cohesive_material_module' '' 1 ((PROCEDURE
