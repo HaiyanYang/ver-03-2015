@@ -1,5 +1,5 @@
 GFORTRAN module version '10' created from C:\Users\mpecb\Documents\GitHub\ver-03-2015\test_lamina_material.f90
-MD5:d129a97d466a1e5768dd5c68c3daea67 -- If you edit this, you'll get what you deserve.
+MD5:ef4dbbddce7dc986b96b127ef0078066 -- If you edit this, you'll get what you deserve.
 
 (() () () () () () () () () () () () () () () () () () () () () () ()
 () () () ())
@@ -11,7 +11,7 @@ MD5:d129a97d466a1e5768dd5c68c3daea67 -- If you edit this, you'll get what you de
 'lamina_material_module' 6) ('lamina_material' 'lamina_material_module'
 7) ('lamina_modulus' 'lamina_material_module' 8) ('lamina_sdv'
 'lamina_material_module' 9) ('lamina_strength' 'lamina_material_module'
-10) ('update' 'lamina_material_module' 11))
+10) ('set' 'lamina_material_module' 11))
 
 ()
 
@@ -133,10 +133,9 @@ UNKNOWN ()) 52 0 (53) () 0 () () () 0 0)
 5 'empty_lamina' 'lamina_material_module' '' 1 ((PROCEDURE
 UNKNOWN-INTENT MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE PURE) (UNKNOWN 0
 0 0 0 UNKNOWN ()) 54 0 (55) () 0 () () () 0 0)
-11 'update_lamina' 'lamina_material_module' '' 1 ((PROCEDURE
-UNKNOWN-INTENT MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE PURE
-ALWAYS_EXPLICIT) (UNKNOWN 0 0 0 0 UNKNOWN ()) 56 0 (57 58 59 60) () 0 ()
-() () 0 0)
+11 'set_lamina' 'lamina_material_module' '' 1 ((PROCEDURE UNKNOWN-INTENT
+MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE PURE) (UNKNOWN 0 0 0 0 UNKNOWN ())
+56 0 (57 58 59 60 61 62) () 0 () () () 0 0)
 41 'this_mat' '' '' 40 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
 DUMMY) (DERIVED 7 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
 42 'dee' '' '' 40 ((VARIABLE INOUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
@@ -169,12 +168,16 @@ DUMMY) (DERIVED 7 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
 57 'this' '' '' 56 ((VARIABLE INOUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
 DUMMY) (DERIVED 7 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
 58 'modulus' '' '' 56 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
-OPTIONAL DUMMY) (DERIVED 8 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
+DUMMY) (DERIVED 8 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
 59 'strength' '' '' 56 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
-OPTIONAL DUMMY) (DERIVED 10 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
+DUMMY) (DERIVED 10 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
 60 'fibretoughness' '' '' 56 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN
-0 0 OPTIONAL DUMMY) (DERIVED 6 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0
-0)
+0 0 DUMMY) (DERIVED 6 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
+61 'istat' '' '' 56 ((VARIABLE OUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
+DUMMY) (INTEGER 4 0 0 0 INTEGER ()) 0 0 () () 0 () () () 0 0)
+62 'emsg' '' '' 56 ((VARIABLE OUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0 DUMMY)
+(CHARACTER 1 0 0 0 CHARACTER ((CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0
+'256'))) 0 0 () () 0 () () () 0 0)
 )
 
 ('Lamina_fibretoughness' 0 6 'Lamina_material' 0 7 'Lamina_modulus' 0 8

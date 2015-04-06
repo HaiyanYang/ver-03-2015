@@ -1,5 +1,5 @@
 GFORTRAN module version '10' created from C:\Users\mpecb\Documents\GitHub\ver-03-2015\test_cohesive_material.f90
-MD5:519ad9bddcc4c5f8d1b0f17d6e43609a -- If you edit this, you'll get what you deserve.
+MD5:160afc4fe55704f69a53189b00a3147d -- If you edit this, you'll get what you deserve.
 
 (() () () () () () () () () () () () () () () () () () () () () () ()
 () () () ())
@@ -11,8 +11,8 @@ MD5:519ad9bddcc4c5f8d1b0f17d6e43609a -- If you edit this, you'll get what you de
 4) ('cohesive_strength' 'cohesive_material_module' 5) (
 'cohesive_toughness' 'cohesive_material_module' 6) ('ddsdde'
 'cohesive_material_module' 7) ('display' 'cohesive_material_module' 8 9)
-('empty' 'cohesive_material_module' 10) ('update'
-'cohesive_material_module' 11))
+('empty' 'cohesive_material_module' 10) ('set' 'cohesive_material_module'
+11))
 
 ()
 
@@ -115,10 +115,9 @@ UNKNOWN ()) 45 0 (46) () 0 () () () 0 0)
 10 'empty_cohesive' 'cohesive_material_module' '' 1 ((PROCEDURE
 UNKNOWN-INTENT MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE PURE) (UNKNOWN 0
 0 0 0 UNKNOWN ()) 47 0 (48) () 0 () () () 0 0)
-11 'update_cohesive' 'cohesive_material_module' '' 1 ((PROCEDURE
-UNKNOWN-INTENT MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE PURE
-ALWAYS_EXPLICIT) (UNKNOWN 0 0 0 0 UNKNOWN ()) 49 0 (50 51 52 53) () 0 ()
-() () 0 0)
+11 'set_cohesive' 'cohesive_material_module' '' 1 ((PROCEDURE
+UNKNOWN-INTENT MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE PURE) (UNKNOWN 0
+0 0 0 UNKNOWN ()) 49 0 (50 51 52 53 54 55) () 0 () () () 0 0)
 35 'this_mat' '' '' 34 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
 DUMMY) (DERIVED 2 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
 36 'dee' '' '' 34 ((VARIABLE INOUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
@@ -149,11 +148,16 @@ DUMMY) (DERIVED 2 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
 50 'this' '' '' 49 ((VARIABLE INOUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
 DUMMY) (DERIVED 2 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
 51 'modulus' '' '' 49 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
-OPTIONAL DUMMY) (DERIVED 3 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
+DUMMY) (DERIVED 3 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
 52 'strength' '' '' 49 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
-OPTIONAL DUMMY) (DERIVED 5 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
+DUMMY) (DERIVED 5 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
 53 'toughness' '' '' 49 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
-OPTIONAL DUMMY) (DERIVED 6 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
+DUMMY) (DERIVED 6 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
+54 'istat' '' '' 49 ((VARIABLE OUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
+DUMMY) (INTEGER 4 0 0 0 INTEGER ()) 0 0 () () 0 () () () 0 0)
+55 'emsg' '' '' 49 ((VARIABLE OUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0 DUMMY)
+(CHARACTER 1 0 0 0 CHARACTER ((CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0
+'256'))) 0 0 () () 0 () () () 0 0)
 )
 
 ('Cohesive_material' 0 2 'Cohesive_modulus' 0 3 'Cohesive_sdv' 0 4

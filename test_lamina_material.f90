@@ -15,7 +15,7 @@ program test_lamina_material
 use parameter_module
 use lamina_material_module, only : lamina_modulus, lamina_strength,        &
                                  & lamina_fibreToughness, lamina_material, &
-                                 & lamina_sdv, empty, update, display, ddsdde
+                                 & lamina_sdv, empty, set, display, ddsdde
 
 implicit none
 
@@ -97,7 +97,13 @@ call empty (this)
 
 call display (this)
 
-call update (this, modulus, strength, fibreToughness)
+call set (this, modulus, strength, fibreToughness, &
+& istat=istat, emsg=emsg)
+
+if(istat == STAT_FAILURE) then
+  write(*,*) emsg
+  return
+end if
 
 call display (this)
 

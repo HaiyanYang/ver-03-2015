@@ -15,7 +15,7 @@ program test_cohesive_material
 use parameter_module
 use cohesive_material_module, only : cohesive_modulus, cohesive_strength,   &
                                    & cohesive_toughness, cohesive_material, &
-                                   & cohesive_sdv, empty, update, display,  &
+                                   & cohesive_sdv, empty, set, display,     &
                                    & ddsdde
 
 implicit none
@@ -90,12 +90,18 @@ call empty (this)
 
 call display (this)
 
-call update (this, modulus=modulus, strength=strength, toughness=toughness)
+call set (this, modulus=modulus, strength=strength, toughness=toughness, &
+& istat=istat, emsg=emsg)
+
+if(istat == STAT_FAILURE) then
+  write(*,*) emsg
+  return
+end if
 
 call display (this)
 
 call ddsdde (this, dee=dee, traction=traction, sdv=sdv, separation=separation, &
-  & istat=istat, emsg=emsg, d_max=d_max)
+& istat=istat, emsg=emsg, d_max=d_max)
 
 if(istat == STAT_FAILURE) then
   write(*,*) emsg
