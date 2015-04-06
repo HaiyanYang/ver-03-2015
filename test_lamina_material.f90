@@ -13,9 +13,9 @@ program test_lamina_material
 !
 !
 use parameter_module
-use lamina_material_module, only : lamina_modulus, lamina_strength, &
-& lamina_matrixToughness, lamina_fibreToughness, lamina_material,   &
-& lamina_sdv, empty, update, extract, display, ddsdde
+use lamina_material_module, only : lamina_modulus, lamina_strength,        &
+                                 & lamina_fibreToughness, lamina_material, &
+                                 & lamina_sdv, empty, update, display, ddsdde
 
 implicit none
 
@@ -26,7 +26,6 @@ integer, parameter :: NST = 6
 ! modulus
 ! strength
 ! fibreToughness
-! matrixToughness
 ! sdv
 ! dee
 ! stress, strain
@@ -38,7 +37,6 @@ integer, parameter :: NST = 6
 type(lamina_material)         :: this
 type(lamina_modulus)          :: modulus
 type(lamina_strength)         :: strength
-type(lamina_matrixToughness)  :: matrixToughness
 type(lamina_fibreToughness)   :: fibreToughness
 type(lamina_sdv)              :: sdv
 real(DP)                      :: dee(NST,NST)
@@ -68,8 +66,8 @@ modulus%E1   = 161000._DP
 modulus%E2   = 11400._DP
 modulus%G12  = 5170._DP
 modulus%G23  = 4980._DP
-modulus%nu12 = 0.32_DP
-modulus%nu23 = 0.43_DP
+modulus%nu12 = ZERO
+modulus%nu23 = ZERO
 
 ! define values of input strengths
 strength%Xt  = 2820._DP
@@ -79,17 +77,12 @@ strength%Yc  = 110._DP
 strength%St  = 90._DP
 strength%Sl  = 90._DP
 
-! define values of input matrix toughness
-matrixToughness%GIc  = 0.293_DP
-matrixToughness%GIIc = 0.631_DP
-matrixToughness%eta  = 1._DP
-
 ! define values of input fibre  toughness
 fibreToughness%GfcT  = 112.7_DP
 fibreToughness%GfcC  = 112.7_DP
 
 ! define strain
-strain(1) = 0.02_DP
+strain(1) = 0.6_DP
 
 ! define clength
 clength = 0.5_DP
@@ -100,20 +93,16 @@ d_max = ONE
 
 ! call all public procedures, test their correctness
 
-call empty(this)
+call empty (this)
 
 call display (this)
 
-call update (this, modulus, strength, fibreToughness,&
-  & matrixToughness)
+call update (this, modulus, strength, fibreToughness)
 
 call display (this)
-!~
-!~call extract (this, modulus, strength, matrixToughness,&
-!~  & fibreToughness)
-!~
-call ddsdde (this, dee, stress, sdv, strain, clength, &
-& istat, emsg, d_max)
+
+call ddsdde (this, dee=dee, stress=stress, sdv=sdv, strain=strain, &
+& clength=clength, istat=istat, emsg=emsg, d_max=d_max)
 
 if(istat == STAT_FAILURE) then
   write(*,*) emsg

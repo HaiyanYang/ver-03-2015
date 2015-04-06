@@ -978,11 +978,11 @@ contains
     ! - Yt, Yc, Sl, St      : lamina strength parameters
     ! - tau_n, tau_t, tau_l : normal and two shear tractions on the potential
     !                         matrix crack surface
-    ! - sigma1/2/3          : standard normal stress components
-    ! - tau12/13/23         : standard shear stress components
+    ! - sigma_1/2/3         : standard normal stress components
+    ! - tau_12/13/23        : standard shear stress components
     real(DP)  :: Yt, Yc, Sl, St
     real(DP)  :: tau_n, tau_t, tau_l
-    real(DP)  :: sigma1, sigma2, sigma3, tau12, tau13, tau23
+    real(DP)  :: sigma_1, sigma_2, sigma_3, tau_12, tau_13, tau_23
 
     
     ! initialize local & intent(out) variables
@@ -994,9 +994,9 @@ contains
     tau_n   = ZERO
     tau_t   = ZERO
     tau_l   = ZERO
-    sigma1  = ZERO
-    sigma2  = ZERO
-    sigma3  = ZERO
+    sigma_1 = ZERO
+    sigma_2 = ZERO
+    sigma_3 = ZERO
     tau_12  = ZERO
     tau_13  = ZERO
     tau_23  = ZERO
@@ -1013,9 +1013,9 @@ contains
     St = this_mat%strength%St
     
     ! extract stress components
-    sigma1  = stress(1)
-    sigma2  = stress(2)
-    sigma3  = stress(3)
+    sigma_1 = stress(1)
+    sigma_2 = stress(2)
+    sigma_3 = stress(3)
     tau_12  = stress(4)
     tau_13  = stress(5)
     tau_23  = stress(6)
@@ -1036,7 +1036,7 @@ contains
     ! matrix crack is assumed to be perpendicular to shell plane
     ! no out-plane stress components are considered
     
-    tau_n = max(sigma2, ZERO)
+    tau_n = max(sigma_2, ZERO)
     tau_t = ZERO
     tau_l = tau_12
 
