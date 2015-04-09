@@ -57,6 +57,7 @@ type, public :: coh3d8_element
   ! ID_matkey : index of element material in the global matkey array
   ! traction  : traction on the interface, for output
   ! ig_point  : x, xi, weight, stress, strain, sdv; initialize in set procedure
+  ! local_clock : locally-saved program clock
   ! sdv       : element solution dependent variables
   integer  :: curr_status   = 0
   integer  :: ID_elem       = 0
@@ -64,9 +65,9 @@ type, public :: coh3d8_element
   integer  :: ID_matkey     = 0
   real(DP) :: traction(NSTRAIN) = ZERO
   
-  type(integration_point) :: ig_point(NIGPOINT)
-  
-  type(sdv_array), allocatable :: sdv(:)
+  type(integration_point)       :: ig_point(NIGPOINT)
+  type(program_clock)           :: local_clock
+  type(sdv_array), allocatable  :: sdv(:)
     
 end type
 
@@ -164,11 +165,11 @@ pure subroutine extract_coh3d8_element (elem, curr_status, ID_elem, connec, &
 ! Purpose:
 ! to extract the components of this element
 
-  type(coh3d8_element),                           intent(in)  :: elem
-  integer,                              optional, intent(out) :: curr_status
-  integer,                              optional, intent(out) :: ID_elem
-  integer,                 allocatable, optional, intent(out) :: connec(:)
-  integer,                              optional, intent(out) :: ID_matkey
+  type(coh3d8_element),           intent(in)  :: elem
+  integer,              optional, intent(out) :: curr_status
+  integer,              optional, intent(out) :: ID_elem
+  integer, allocatable, optional, intent(out) :: connec(:)
+  integer,              optional, intent(out) :: ID_matkey
   type(integration_point), allocatable, optional, intent(out) :: ig_point(:)
   type(sdv_array),         allocatable, optional, intent(out) :: sdv(:)
   

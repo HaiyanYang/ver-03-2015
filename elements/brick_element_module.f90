@@ -79,6 +79,7 @@ type, public :: brick_element
   ! stress    : stresses for output
   ! strain    : strains for output
   ! ig_point  : x, xi, weight, stress, strain, sdv; initialize in set procedure
+  ! local_clock : locally-saved program clock
   ! sdv       : element solution dependent variables
   integer  :: curr_status     = 0
   integer  :: ID_elem         = 0
@@ -88,9 +89,9 @@ type, public :: brick_element
   real(DP) :: stress(NSTRAIN) = ZERO
   real(DP) :: strain(NSTRAIN) = ZERO
   
-  type(integration_point) :: ig_point(NIGPOINT)
-  
-  type(SDV_ARRAY), allocatable :: sdv(:)
+  type(integration_point)       :: ig_point(NIGPOINT)
+  type(program_clock)           :: local_clock
+  type(SDV_ARRAY), allocatable  :: sdv(:)
     
 end type
 
@@ -193,14 +194,14 @@ pure subroutine extract_brick_element (elem, curr_status, ID_elem, connec, &
 ! Purpose:
 ! to extract the components of this element
 
-  type(brick_element),                            intent(in)  :: elem
-  integer,                              optional, intent(out) :: curr_status
-  integer,                              optional, intent(out) :: ID_elem
-  integer,                 allocatable, optional, intent(out) :: connec(:)
-  integer,                              optional, intent(out) :: ID_matkey
-  real(DP),                             optional, intent(out) :: ply_angle
-  real(DP),                allocatable, optional, intent(out) :: stress(:)
-  real(DP),                allocatable, optional, intent(out) :: strain(:)
+  type(brick_element),             intent(in)  :: elem
+  integer,               optional, intent(out) :: curr_status
+  integer,               optional, intent(out) :: ID_elem
+  integer,  allocatable, optional, intent(out) :: connec(:)
+  integer,               optional, intent(out) :: ID_matkey
+  real(DP),              optional, intent(out) :: ply_angle
+  real(DP), allocatable, optional, intent(out) :: stress(:)
+  real(DP), allocatable, optional, intent(out) :: strain(:)
   type(integration_point), allocatable, optional, intent(out) :: ig_point(:)
   type(SDV_ARRAY),         allocatable, optional, intent(out) :: sdv(:)
   
@@ -265,11 +266,8 @@ use glb_clock_module   ! global analysis progress (curr. step, inc, time, dtime)
   character(len=matnamelength)  :: matname
   character(len=mattypelength)  :: mattype
   integer                       :: type_array_index
-  ! - glb clock step and increment no. extracted from glb clock module
-  integer   :: curr_step, curr_inc
-  ! - variables extracted from element isdv
-  integer   :: nstep, ninc                  ! step and increment no. of the last iteration, stored in the element
-  logical   :: last_converged               ! true if last iteration has converged: a new increment/step has started
+  ! true if last iteration has converged: a new increment/step has started
+  logical   :: last_converged
   ! - variables extracted from intg point sdvs
   type(SDV_ARRAY), allocatable  :: ig_sdv(:)
   

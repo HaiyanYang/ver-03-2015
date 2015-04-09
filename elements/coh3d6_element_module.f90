@@ -59,6 +59,7 @@ type, public :: coh3d6_element
   ! ID_matkey : index of element material in the global matkey array
   ! traction  : traction on the interface, for output
   ! ig_point  : x, xi, weight, stress, strain, sdv; initialize in set procedure
+  ! local_clock : locally-saved program clock
   ! sdv       : element solution dependent variables
   integer  :: curr_status   = 0
   integer  :: ID_elem       = 0
@@ -66,9 +67,9 @@ type, public :: coh3d6_element
   integer  :: ID_matkey     = 0
   real(DP) :: traction(NSTRAIN) = ZERO
   
-  type(integration_point) :: ig_point(NIGPOINT)
-  
-  type(sdv_array), allocatable :: sdv(:)
+  type(integration_point)       :: ig_point(NIGPOINT)
+  type(program_clock)           :: local_clock
+  type(sdv_array), allocatable  :: sdv(:)
     
 end type
 

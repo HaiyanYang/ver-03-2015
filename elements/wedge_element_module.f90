@@ -78,6 +78,7 @@ type, public :: wedge_element
   ! stress    : stresses for output
   ! strain    : strains for output
   ! ig_point  : x, xi, weight, stress, strain, sdv; initialize in set procedure
+  ! local_clock : locally-saved program clock
   ! sdv       : element solution dependent variables
   integer  :: curr_status     = 0
   integer  :: ID_elem         = 0
@@ -87,10 +88,10 @@ type, public :: wedge_element
   real(DP) :: stress(NSTRAIN) = ZERO
   real(DP) :: strain(NSTRAIN) = ZERO
   
-  type(integration_point) :: ig_point(NIGPOINT)
-  
-  type(sdv_array), allocatable :: sdv(:)
-    
+  type(integration_point)       :: ig_point(NIGPOINT)
+  type(program_clock)           :: local_clock
+  type(sdv_array), allocatable  :: sdv(:)
+
 end type
 
 
@@ -192,14 +193,14 @@ pure subroutine extract_wedge_element (elem, curr_status, ID_elem, connec, &
 ! Purpose:
 ! to extract the components of this element
 
-  type(wedge_element),                            intent(in)  :: elem  
-  integer,                              optional, intent(out) :: curr_status
-  integer,                              optional, intent(out) :: ID_elem
-  integer,                 allocatable, optional, intent(out) :: connec(:)
-  integer,                              optional, intent(out) :: ID_matkey
-  real(DP),                             optional, intent(out) :: ply_angle
-  real(DP),                allocatable, optional, intent(out) :: stress(:)
-  real(DP),                allocatable, optional, intent(out) :: strain(:)
+  type(wedge_element),             intent(in)  :: elem  
+  integer,               optional, intent(out) :: curr_status
+  integer,               optional, intent(out) :: ID_elem
+  integer,  allocatable, optional, intent(out) :: connec(:)
+  integer,               optional, intent(out) :: ID_matkey
+  real(DP),              optional, intent(out) :: ply_angle
+  real(DP), allocatable, optional, intent(out) :: stress(:)
+  real(DP), allocatable, optional, intent(out) :: strain(:)
   type(integration_point), allocatable, optional, intent(out) :: ig_point(:)
   type(SDV_ARRAY),         allocatable, optional, intent(out) :: sdv(:)
   
