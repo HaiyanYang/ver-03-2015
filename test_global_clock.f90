@@ -37,6 +37,9 @@ else
   write(*,'(1X,a)')   ''
   write(*,'(1X,a)')   'local clock is out of sync with global clock'
   write(*,'(1X,a)')   ''
+  local_clock = global_clock
+  if (clock_in_sync(global_clock, local_clock)) &
+  & write(*,'(1X,a)')   'local clock is in sync with global clock'
 end if
 
 end program test_global_clock

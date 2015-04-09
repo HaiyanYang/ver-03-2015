@@ -35,6 +35,7 @@ module coh3d6_element_module
 !
 use parameter_module, only : DP, SDV_ARRAY, ZERO,
 use integration_point_module
+use global_clock_module
 
 implicit none
 private
@@ -123,7 +124,9 @@ pure subroutine empty_coh3d6_element (elem)
   do i=1, NIGPOINT
     call empty (elem%ig_point(i))
   end do
-    
+  
+  call empty (elem%local_clock)
+  
   if(allocated(elem%sdv)) deallocate(elem%sdv)
 
 end subroutine empty_coh3d6_element
@@ -154,22 +157,25 @@ pure subroutine set_coh3d6_element (elem, ID_elem, connec, ID_matkey)
   do i=1, NIGPOINT
     call update (elem%ig_point(i), x=x, u=u, stress=stress, strain=strain)
   end do
+  
+  elem%local_clock = GLOBAL_CLOCK
 
 end subroutine set_coh3d6_element
 
 
 
 pure subroutine extract_coh3d6_element (elem, curr_status, ID_elem, connec, &
-& ID_matkey, ig_point, sdv)
+& ID_matkey, ig_point, local_clock, sdv)
 ! Purpose:
 ! to extract the components of this element
 
-  type(coh3d6_element),                           intent(in)  :: elem
-  integer,                              optional, intent(out) :: curr_status
-  integer,                              optional, intent(out) :: ID_elem
-  integer,                 allocatable, optional, intent(out) :: connec(:)
-  integer,                              optional, intent(out) :: ID_matkey
+  type(coh3d6_element),           intent(in)  :: elem
+  integer,              optional, intent(out) :: curr_status
+  integer,              optional, intent(out) :: ID_elem
+  integer, allocatable, optional, intent(out) :: connec(:)
+  integer,              optional, intent(out) :: ID_matkey
   type(integration_point), allocatable, optional, intent(out) :: ig_point(:)
+  type(program_clock),                  optional, intent(out) :: local_clock
   type(sdv_array),         allocatable, optional, intent(out) :: sdv(:)
   
   if (present(curr_status)) curr_status = elem%curr_status
@@ -187,6 +193,8 @@ pure subroutine extract_coh3d6_element (elem, curr_status, ID_elem, connec, &
     allocate(ig_point(NIGPOINT))
     ig_point = elem%ig_point
   end if
+  
+  if (present(local_clock)) local_clock = elem%local_clock
   
   if (present(sdv)) then        
     if (allocated(elem%sdv)) then

@@ -19,17 +19,17 @@ type, public :: program_clock
   integer  :: increment_number = 0
 end type program_clock
 
-! define the global program_clock, publicly available and saved
-type(program_clock), public, save :: global_clock
+! define the global variable GLOBAL_CLOCK, it is saved
+type(program_clock), public, save :: GLOBAL_CLOCK
 
 
 ! related procedures
 interface empty
-  module procedure empty_global_clock
+  module procedure empty_program_clock
 end interface empty
 
 interface set
-  module procedure set_global_clock
+  module procedure set_program_clock
 end interface set
 
 public :: empty, set, clock_in_sync
@@ -42,37 +42,37 @@ contains
 
 
 
-pure subroutine empty_global_clock (global_clock)
+pure subroutine empty_program_clock (GLOBAL_CLOCK)
 
-  type(program_clock), intent(inout) :: global_clock
+  type(program_clock), intent(inout) :: GLOBAL_CLOCK
 
-  global_clock%step_number      = 0
-  global_clock%increment_number = 0
+  GLOBAL_CLOCK%step_number      = 0
+  GLOBAL_CLOCK%increment_number = 0
 
-end subroutine empty_global_clock
+end subroutine empty_program_clock
 
 
 
-pure subroutine set_global_clock (global_clock, curr_step, curr_inc)
+pure subroutine set_program_clock (GLOBAL_CLOCK, curr_step, curr_inc)
 
-  type(program_clock), intent(inout) :: global_clock
+  type(program_clock), intent(inout) :: GLOBAL_CLOCK
   integer,  optional,  intent(in)    :: curr_step, curr_inc
   
-  if (present(curr_step)) global_clock%step_number      = curr_step
-  if (present(curr_inc))  global_clock%increment_number = curr_inc
+  if (present(curr_step)) GLOBAL_CLOCK%step_number      = curr_step
+  if (present(curr_inc))  GLOBAL_CLOCK%increment_number = curr_inc
 
-end subroutine set_global_clock
+end subroutine set_program_clock
 
 
 
-pure logical function clock_in_sync (global_clock, local_clock)
+pure logical function clock_in_sync (GLOBAL_CLOCK, local_clock)
 ! Purpose:
 ! to see if the local clock is in sync with the global clock
-  type(program_clock), intent(in) :: global_clock
+  type(program_clock), intent(in) :: GLOBAL_CLOCK
   type(program_clock), intent(in) :: local_clock
   
-  if (local_clock%step_number == global_clock%step_number .and. &
-  &   local_clock%increment_number == global_clock%increment_number) then
+  if (local_clock%step_number == GLOBAL_CLOCK%step_number .and. &
+  &   local_clock%increment_number == GLOBAL_CLOCK%increment_number) then
     clock_in_sync = .true.
   else
     clock_in_sync = .false.

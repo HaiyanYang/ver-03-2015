@@ -39,6 +39,7 @@ module wedge_element_module
 !
 use parameter_module, only : DP, SDV_ARRAY, ZERO,
 use integration_point_module
+use global_clock_module
 
 implicit none
 private
@@ -148,6 +149,8 @@ pure subroutine empty_wedge_element (elem)
     call empty (elem%ig_point(i))
   end do
 
+  call empty (elem%local_clock)
+
   if(allocated(elem%sdv)) deallocate(elem%sdv)
 
 end subroutine empty_wedge_element
@@ -183,13 +186,15 @@ pure subroutine set_wedge_element (elem, ID_elem, connec, ID_matkey, ply_angle)
   do i=1, NIGPOINT
     call update (elem%ig_point(i), x=x, u=u, stress=stress, strain=strain)
   end do
+  
+  elem%local_clock = GLOBAL_CLOCK
 
 end subroutine set_wedge_element
 
 
 
 pure subroutine extract_wedge_element (elem, curr_status, ID_elem, connec, &
-& ID_matkey, ply_angle, stress, strain, ig_point, sdv)
+& ID_matkey, ply_angle, stress, strain, ig_point, local_clock, sdv)
 ! Purpose:
 ! to extract the components of this element
 
@@ -202,6 +207,7 @@ pure subroutine extract_wedge_element (elem, curr_status, ID_elem, connec, &
   real(DP), allocatable, optional, intent(out) :: stress(:)
   real(DP), allocatable, optional, intent(out) :: strain(:)
   type(integration_point), allocatable, optional, intent(out) :: ig_point(:)
+  type(program_clock),                  optional, intent(out) :: local_clock
   type(SDV_ARRAY),         allocatable, optional, intent(out) :: sdv(:)
   
   if (present(curr_status)) curr_status = elem%curr_status
@@ -231,6 +237,8 @@ pure subroutine extract_wedge_element (elem, curr_status, ID_elem, connec, &
     allocate(ig_point(NIGPOINT))
     ig_point = elem%ig_point
   end if
+  
+  if (present(local_clock)) local_clock = elem%local_clock
   
   if (present(sdv)) then        
     if (allocated(elem%sdv)) then

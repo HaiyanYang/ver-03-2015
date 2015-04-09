@@ -39,6 +39,7 @@ module brick_element_module
 !
 use parameter_module, only : DP, SDV_ARRAY, ZERO,
 use integration_point_module
+use global_clock_module
 
 implicit none
 private
@@ -149,6 +150,8 @@ pure subroutine empty_brick_element (elem)
     call empty (elem%ig_point(i))
   end do      
 
+  call empty (elem%local_clock)
+
   if(allocated(elem%sdv)) deallocate(elem%sdv) 
 
 end subroutine empty_brick_element
@@ -184,13 +187,15 @@ pure subroutine set_brick_element (elem, ID_elem, connec, ID_matkey, ply_angle)
   do i=1, NIGPOINT
     call update (elem%ig_point(i), x=x, u=u, stress=stress, strain=strain)
   end do
+  
+  elem%local_clock = GLOBAL_CLOCK
 
 end subroutine set_brick_element
 
 
 
 pure subroutine extract_brick_element (elem, curr_status, ID_elem, connec, &
-& ID_matkey, ply_angle, stress, strain, ig_point, sdv)
+& ID_matkey, ply_angle, stress, strain, ig_point, local_clock, sdv)
 ! Purpose:
 ! to extract the components of this element
 
@@ -203,6 +208,7 @@ pure subroutine extract_brick_element (elem, curr_status, ID_elem, connec, &
   real(DP), allocatable, optional, intent(out) :: stress(:)
   real(DP), allocatable, optional, intent(out) :: strain(:)
   type(integration_point), allocatable, optional, intent(out) :: ig_point(:)
+  type(program_clock),                  optional, intent(out) :: local_clock
   type(SDV_ARRAY),         allocatable, optional, intent(out) :: sdv(:)
   
   if (present(curr_status)) curr_status = elem%curr_status
@@ -233,6 +239,8 @@ pure subroutine extract_brick_element (elem, curr_status, ID_elem, connec, &
     ig_point = elem%ig_point
   end if
   
+  if (present(local_clock)) local_clock = elem%local_clock
+  
   if (present(sdv)) then        
     if (allocated(elem%sdv)) then
       allocate(sdv(size(elem%sdv)))
@@ -260,18 +268,24 @@ use glb_clock_module   ! global analysis progress (curr. step, inc, time, dtime)
   
   ! the rest are all local variables
   
-  ! variables to be extracted from global arrays
-  type(xnode)                   :: node(NNODE) ! x, u, du, v, extra dof ddof etc
-  type(global_matkey)           :: matkey ! matname, mattype and ID_matkey to glb mattype array
+  ! variables to be extracted from global arrays :
+  ! - nodes   : array of element nodes containing x, u, du, v, extra dof/ddof
+  ! - matkey  : global_matkey of this element containing matname, mattype and 
+  !             type_array_index
+  ! - matname : material name
+  ! - mattype : material type name
+  ! - type_array_index  : the index in the corresponding material type array
+  ! - last_converged    : true if last iteration has converged
+  type(xnode)                   :: nodes(NNODE)
+  type(global_matkey)           :: matkey
   character(len=matnamelength)  :: matname
   character(len=mattypelength)  :: mattype
   integer                       :: type_array_index
-  ! true if last iteration has converged: a new increment/step has started
-  logical   :: last_converged
-  ! - variables extracted from intg point sdvs
-  type(SDV_ARRAY), allocatable  :: ig_sdv(:)
+  logical                       :: last_converged
   
   ! variables defined locally
+  type(SDV_ARRAY), allocatable  :: ig_sdv(:)
+  
   real(DP) :: igxi(NDIM,NIGPOINT),igwt(NIGPOINT) ! ig point natural coords and weights
   real(DP) :: coords(NDIM,NNODE) ! coordinates of the element nodes
   real(DP) :: theta ! orientation of element local coordinates
@@ -298,7 +312,7 @@ use glb_clock_module   ! global analysis progress (curr. step, inc, time, dtime)
   
   i=0; j=0; kig=0
   do i=1,NNODE
-      call empty(node(i))
+      call empty(nodes(i))
   end do
   call empty(mat)
   curr_step=0; curr_inc=0
@@ -310,14 +324,14 @@ use glb_clock_module   ! global analysis progress (curr. step, inc, time, dtime)
   nofail=.false.
   if(present(nofailure)) nofail=nofailure
   
-  ! copy nodes from global node array 
-  node(:)=lib_node(elem%connec(:))
+  ! copy nodes from global nodes array 
+  nodes(:)=lib_node(elem%connec(:))
   
   ! assign values to local arrays from nodal values
   do j=1,NNODE
   
     ! extract useful values from nodes
-    call extract(node(j),x=xj,u=uj)
+    call extract(nodes(j),x=xj,u=uj)
     
     ! assign values to coords matrix and u vector
     if(allocated(xj)) then
