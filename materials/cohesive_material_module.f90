@@ -93,6 +93,7 @@ end interface
 
 interface ddsdde
   module procedure ddsdde_cohesive
+  module procedure ddsdde_cohesive_intact
 end interface
 
 
@@ -311,6 +312,71 @@ contains
   
   end subroutine display_cohesive_sdv
   
+
+
+
+  pure subroutine ddsdde_cohesive_intact (this_mat, dee, traction, separation, &
+  & istat, emsg)
+  ! Purpose:
+  ! to calculate the D matrix, traction and solution-dependent variables
+  ! at an integration point of an element of cohesive_material definition
+  ! (restricted to 3D problems, with the standard 3 separation terms)
+
+    ! dummy argument list:
+    ! - this_mat    : material properties object,         passed-in (pass arg)
+    ! - dee         : local stiffness matrix D,           to update
+    ! - traction    : local traction vector,              to update
+    ! - separation  : local separation vector,            passed-in
+    ! - istat       : status variable of this procedure   to output
+    ! - emsg        : error message                       to output
+  
+    type(cohesive_material),  intent(in)    :: this_mat
+    real(DP),                 intent(inout) :: dee(:,:)
+    real(DP),                 intent(inout) :: traction(:)
+    real(DP),                 intent(in)    :: separation(:)
+    integer,                  intent(out)   :: istat
+    character(len=MSGLENGTH), intent(out)   :: emsg
+    
+    
+    ! initialize intent(out) & local variables
+    istat     = STAT_SUCCESS  ! default
+    emsg      = ''
+    
+    ! check validity of dummy arguments with intent(in) or (inout)
+    
+    ! check dee, traction and separation size
+    if (.not. (size(dee(:,1)) == 3 .and. size(dee(1,:)) == 3)) then
+      istat = STAT_FAILURE
+      emsg  = 'size of dee is not supported for ddsdde_cohesive, &
+      &cohesive_material_module!'
+      return
+    end if
+    
+    if (.not. (size(traction) == 3)) then
+      istat = STAT_FAILURE
+      emsg  = 'size of traction is not supported for ddsdde_cohesive, &
+      &cohesive_material_module!'
+      return
+    end if
+    
+    if (.not. (size(separation) == 3)) then
+      istat = STAT_FAILURE
+      emsg  = 'size of separation is not supported for ddsdde_cohesive, &
+      &cohesive_material_module!'
+      return
+    end if
+    
+    ! calculate dee using original material properties only
+    call deemat_3d (this_mat, dee)
+    
+    ! calculate traction
+    traction = matmul(dee, separation)
+        
+    
+  end subroutine ddsdde_cohesive_intact 
+  
+ 
+
 
 
   pure subroutine ddsdde_cohesive (this_mat, dee, traction, sdv, separation, &

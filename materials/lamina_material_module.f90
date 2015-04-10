@@ -88,6 +88,7 @@ end interface
 
 interface ddsdde
     module procedure ddsdde_lamina
+    module procedure ddsdde_lamina_intact
 end interface
 
 
@@ -324,6 +325,70 @@ contains
   end subroutine display_lamina_sdv
   
   
+
+
+  pure subroutine ddsdde_lamina_intact (this_mat, dee, stress, strain, &
+  & istat, emsg)
+  ! Purpose:
+  ! to use intact material properties to calculate the D matrix and stress 
+  ! at an integration point of an element of lamina_material definition
+  ! (restricted to 3D problems, with the standard 6 strain terms)
+
+    ! dummy argument list:
+    ! - this_mat    : material properties object,         passed-in (pass arg)
+    ! - dee         : local stiffness matrix D,           to update
+    ! - stress      : local stress vector,                to update
+    ! - strain      : local strain vector,                passed-in
+    ! - istat       : status variable of this procedure   to output
+    ! - emsg        : error message                       to output
+    type(lamina_material),    intent(in)    :: this_mat
+    real(DP),                 intent(inout) :: dee(:,:)
+    real(DP),                 intent(inout) :: stress(:)
+    real(DP),                 intent(in)    :: strain(:)    
+    integer,                  intent(out)   :: istat
+    character(len=MSGLENGTH), intent(out)   :: emsg
+    
+    
+    ! initialize intent(out) & local variables
+    istat = STAT_SUCCESS  ! default
+    emsg  = ''
+    
+    ! check validity of dummy arguments with intent(in) or (inout)
+    
+    ! check dee, stress and strain size
+    if (.not. (size(dee(:,1)) == 6 .and. size(dee(1,:)) == 6)) then
+      istat = STAT_FAILURE
+      emsg  = 'size of dee is not supported for ddsdde_lamina, &
+      &lamina_material_module!'
+      return
+    end if
+    
+    if (.not. (size(stress) == 6)) then
+      istat = STAT_FAILURE
+      emsg  = 'size of stress is not supported for ddsdde_lamina, &
+      &lamina_material_module!'
+      return
+    end if
+    
+    if (.not. (size(strain) == 6)) then
+      istat = STAT_FAILURE
+      emsg  = 'size of strain is not supported for ddsdde_lamina, &
+      &lamina_material_module!'
+      return
+    end if
+    
+    ! calculate dee using original material properties only
+    call deemat_3d (this_mat, dee)
+    
+    ! calculate stress
+    stress = matmul(dee, strain)
+       
+    
+  end subroutine ddsdde_lamina_intact
+
+
+
+
 
   pure subroutine ddsdde_lamina (this_mat, dee, stress, sdv, strain, clength, &
   & istat, emsg, d_max)

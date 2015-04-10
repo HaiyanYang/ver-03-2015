@@ -1,17 +1,17 @@
-GFORTRAN module version '10' created from C:\Users\mpecb\Documents\GitHub\ver-03-2015\test_lamina_material.f90
-MD5:ef4dbbddce7dc986b96b127ef0078066 -- If you edit this, you'll get what you deserve.
+GFORTRAN module version '10' created from C:\Users\User\Documents\GitHub\ver-03-2015\test_lamina_material.f90
+MD5:3ae14766ec1325174c6ca15c06a3f864 -- If you edit this, you'll get what you deserve.
 
 (() () () () () () () () () () () () () () () () () () () () () () ()
 () () () ())
 
 ()
 
-(('ddsdde' 'lamina_material_module' 2) ('display' 'lamina_material_module'
-3 4) ('empty' 'lamina_material_module' 5) ('lamina_fibretoughness'
-'lamina_material_module' 6) ('lamina_material' 'lamina_material_module'
-7) ('lamina_modulus' 'lamina_material_module' 8) ('lamina_sdv'
-'lamina_material_module' 9) ('lamina_strength' 'lamina_material_module'
-10) ('set' 'lamina_material_module' 11))
+(('ddsdde' 'lamina_material_module' 2 3) ('display'
+'lamina_material_module' 4 5) ('empty' 'lamina_material_module' 6) (
+'lamina_fibretoughness' 'lamina_material_module' 7) ('lamina_material'
+'lamina_material_module' 8) ('lamina_modulus' 'lamina_material_module' 9)
+('lamina_sdv' 'lamina_material_module' 10) ('lamina_strength'
+'lamina_material_module' 11) ('set' 'lamina_material_module' 12))
 
 ()
 
@@ -19,168 +19,189 @@ MD5:ef4dbbddce7dc986b96b127ef0078066 -- If you edit this, you'll get what you de
 
 ()
 
-(6 'Lamina_fibretoughness' 'lamina_material_module' '' 1 ((DERIVED
+(7 'Lamina_fibretoughness' 'lamina_material_module' '' 1 ((DERIVED
 UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0) (UNKNOWN 0 0 0 0
-UNKNOWN ()) 0 0 () () 0 ((12 'gfct' (REAL 8 0 0 0 REAL ()) () (
+UNKNOWN ()) 0 0 () () 0 ((13 'gfct' (REAL 8 0 0 0 REAL ()) () (
 UNKNOWN-FL UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0)
 UNKNOWN-ACCESS (CONSTANT (REAL 8 0 0 0 REAL ()) 0 '0.00000000000000@0'))
-(13 'gfcc' (REAL 8 0 0 0 REAL ()) () (UNKNOWN-FL UNKNOWN-INTENT
+(14 'gfcc' (REAL 8 0 0 0 REAL ()) () (UNKNOWN-FL UNKNOWN-INTENT
 UNKNOWN-PROC UNKNOWN UNKNOWN 0 0) UNKNOWN-ACCESS (CONSTANT (REAL 8 0 0 0
 REAL ()) 0 '0.00000000000000@0'))) PUBLIC (() () () ()) () 0 0 7555237)
-7 'Lamina_material' 'lamina_material_module' '' 1 ((DERIVED
+8 'Lamina_material' 'lamina_material_module' '' 1 ((DERIVED
 UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0) (UNKNOWN 0 0 0 0
-UNKNOWN ()) 0 0 () () 0 ((14 'modulus' (DERIVED 8 0 0 0 DERIVED ()) () (
+UNKNOWN ()) 0 0 () () 0 ((15 'modulus' (DERIVED 9 0 0 0 DERIVED ()) () (
 UNKNOWN-FL UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0)
-UNKNOWN-ACCESS (STRUCTURE (DERIVED 8 0 0 0 DERIVED ()) 0 (((CONSTANT (
+UNKNOWN-ACCESS (STRUCTURE (DERIVED 9 0 0 0 DERIVED ()) 0 (((CONSTANT (
 REAL 8 0 0 0 REAL ()) 0 '0.00000000000000@0') ()) ((CONSTANT (REAL 8 0 0
 0 REAL ()) 0 '0.00000000000000@0') ()) ((CONSTANT (REAL 8 0 0 0 REAL ())
 0 '0.00000000000000@0') ()) ((CONSTANT (REAL 8 0 0 0 REAL ()) 0
 '0.00000000000000@0') ()) ((CONSTANT (REAL 8 0 0 0 REAL ()) 0
 '0.00000000000000@0') ()) ((CONSTANT (REAL 8 0 0 0 REAL ()) 0
-'0.00000000000000@0') ())) ())) (15 'strength' (DERIVED 10 0 0 0 DERIVED
+'0.00000000000000@0') ())) ())) (16 'strength' (DERIVED 11 0 0 0 DERIVED
 ()) () (UNKNOWN-FL UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0)
-UNKNOWN-ACCESS (STRUCTURE (DERIVED 10 0 0 0 DERIVED ()) 0 (((CONSTANT (
+UNKNOWN-ACCESS (STRUCTURE (DERIVED 11 0 0 0 DERIVED ()) 0 (((CONSTANT (
 REAL 8 0 0 0 REAL ()) 0 '0.00000000000000@0') ()) ((CONSTANT (REAL 8 0 0
 0 REAL ()) 0 '0.00000000000000@0') ()) ((CONSTANT (REAL 8 0 0 0 REAL ())
 0 '0.00000000000000@0') ()) ((CONSTANT (REAL 8 0 0 0 REAL ()) 0
 '0.00000000000000@0') ()) ((CONSTANT (REAL 8 0 0 0 REAL ()) 0
 '0.00000000000000@0') ()) ((CONSTANT (REAL 8 0 0 0 REAL ()) 0
-'0.00000000000000@0') ())) ())) (16 'fibretoughness' (DERIVED 6 0 0 0
+'0.00000000000000@0') ())) ())) (17 'fibretoughness' (DERIVED 7 0 0 0
 DERIVED ()) () (UNKNOWN-FL UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN UNKNOWN 0
-0) UNKNOWN-ACCESS (STRUCTURE (DERIVED 6 0 0 0 DERIVED ()) 0 (((CONSTANT
+0) UNKNOWN-ACCESS (STRUCTURE (DERIVED 7 0 0 0 DERIVED ()) 0 (((CONSTANT
 (REAL 8 0 0 0 REAL ()) 0 '0.00000000000000@0') ()) ((CONSTANT (REAL 8 0
 0 0 REAL ()) 0 '0.00000000000000@0') ())) ()))) PUBLIC (() () () ()) ()
 0 0 43914220)
-8 'Lamina_modulus' 'lamina_material_module' '' 1 ((DERIVED
+9 'Lamina_modulus' 'lamina_material_module' '' 1 ((DERIVED
 UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0) (UNKNOWN 0 0 0 0
-UNKNOWN ()) 0 0 () () 0 ((17 'e1' (REAL 8 0 0 0 REAL ()) () (UNKNOWN-FL
+UNKNOWN ()) 0 0 () () 0 ((18 'e1' (REAL 8 0 0 0 REAL ()) () (UNKNOWN-FL
 UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0) UNKNOWN-ACCESS (
-CONSTANT (REAL 8 0 0 0 REAL ()) 0 '0.00000000000000@0')) (18 'e2' (REAL
+CONSTANT (REAL 8 0 0 0 REAL ()) 0 '0.00000000000000@0')) (19 'e2' (REAL
 8 0 0 0 REAL ()) () (UNKNOWN-FL UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN
 UNKNOWN 0 0) UNKNOWN-ACCESS (CONSTANT (REAL 8 0 0 0 REAL ()) 0
-'0.00000000000000@0')) (19 'g12' (REAL 8 0 0 0 REAL ()) () (UNKNOWN-FL
+'0.00000000000000@0')) (20 'g12' (REAL 8 0 0 0 REAL ()) () (UNKNOWN-FL
 UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0) UNKNOWN-ACCESS (
-CONSTANT (REAL 8 0 0 0 REAL ()) 0 '0.00000000000000@0')) (20 'g23' (
+CONSTANT (REAL 8 0 0 0 REAL ()) 0 '0.00000000000000@0')) (21 'g23' (
 REAL 8 0 0 0 REAL ()) () (UNKNOWN-FL UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN
 UNKNOWN 0 0) UNKNOWN-ACCESS (CONSTANT (REAL 8 0 0 0 REAL ()) 0
-'0.00000000000000@0')) (21 'nu12' (REAL 8 0 0 0 REAL ()) () (UNKNOWN-FL
+'0.00000000000000@0')) (22 'nu12' (REAL 8 0 0 0 REAL ()) () (UNKNOWN-FL
 UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0) UNKNOWN-ACCESS (
-CONSTANT (REAL 8 0 0 0 REAL ()) 0 '0.00000000000000@0')) (22 'nu23' (
+CONSTANT (REAL 8 0 0 0 REAL ()) 0 '0.00000000000000@0')) (23 'nu23' (
 REAL 8 0 0 0 REAL ()) () (UNKNOWN-FL UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN
 UNKNOWN 0 0) UNKNOWN-ACCESS (CONSTANT (REAL 8 0 0 0 REAL ()) 0
 '0.00000000000000@0'))) PUBLIC (() () () ()) () 0 0 37711826)
-9 'Lamina_sdv' 'lamina_material_module' '' 1 ((DERIVED UNKNOWN-INTENT
+10 'Lamina_sdv' 'lamina_material_module' '' 1 ((DERIVED UNKNOWN-INTENT
 UNKNOWN-PROC UNKNOWN UNKNOWN 0 0) (UNKNOWN 0 0 0 0 UNKNOWN ()) 0 0 () ()
-0 ((23 'df' (REAL 8 0 0 0 REAL ()) () (UNKNOWN-FL UNKNOWN-INTENT
+0 ((24 'df' (REAL 8 0 0 0 REAL ()) () (UNKNOWN-FL UNKNOWN-INTENT
 UNKNOWN-PROC UNKNOWN UNKNOWN 0 0) UNKNOWN-ACCESS (CONSTANT (REAL 8 0 0 0
-REAL ()) 0 '0.00000000000000@0')) (24 'u0' (REAL 8 0 0 0 REAL ()) () (
+REAL ()) 0 '0.00000000000000@0')) (25 'u0' (REAL 8 0 0 0 REAL ()) () (
 UNKNOWN-FL UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0)
 UNKNOWN-ACCESS (CONSTANT (REAL 8 0 0 0 REAL ()) 0 '0.00000000000000@0'))
-(25 'uf' (REAL 8 0 0 0 REAL ()) () (UNKNOWN-FL UNKNOWN-INTENT
+(26 'uf' (REAL 8 0 0 0 REAL ()) () (UNKNOWN-FL UNKNOWN-INTENT
 UNKNOWN-PROC UNKNOWN UNKNOWN 0 0) UNKNOWN-ACCESS (CONSTANT (REAL 8 0 0 0
-REAL ()) 0 '0.00000000000000@0')) (26 'fstat' (INTEGER 4 0 0 0 INTEGER ())
+REAL ()) 0 '0.00000000000000@0')) (27 'fstat' (INTEGER 4 0 0 0 INTEGER ())
 () (UNKNOWN-FL UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0)
-UNKNOWN-ACCESS (CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '0')) (27 'ffstat'
+UNKNOWN-ACCESS (CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '0')) (28 'ffstat'
 (INTEGER 4 0 0 0 INTEGER ()) () (UNKNOWN-FL UNKNOWN-INTENT UNKNOWN-PROC
 UNKNOWN UNKNOWN 0 0) UNKNOWN-ACCESS (CONSTANT (INTEGER 4 0 0 0 INTEGER ())
-0 '0')) (28 'mfstat' (INTEGER 4 0 0 0 INTEGER ()) () (UNKNOWN-FL
+0 '0')) (29 'mfstat' (INTEGER 4 0 0 0 INTEGER ()) () (UNKNOWN-FL
 UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0) UNKNOWN-ACCESS (
 CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '0'))) PUBLIC (() () () ()) () 0
 0 71318592)
-10 'Lamina_strength' 'lamina_material_module' '' 1 ((DERIVED
+11 'Lamina_strength' 'lamina_material_module' '' 1 ((DERIVED
 UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0) (UNKNOWN 0 0 0 0
-UNKNOWN ()) 0 0 () () 0 ((29 'xt' (REAL 8 0 0 0 REAL ()) () (UNKNOWN-FL
+UNKNOWN ()) 0 0 () () 0 ((30 'xt' (REAL 8 0 0 0 REAL ()) () (UNKNOWN-FL
 UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0) UNKNOWN-ACCESS (
-CONSTANT (REAL 8 0 0 0 REAL ()) 0 '0.00000000000000@0')) (30 'xc' (REAL
+CONSTANT (REAL 8 0 0 0 REAL ()) 0 '0.00000000000000@0')) (31 'xc' (REAL
 8 0 0 0 REAL ()) () (UNKNOWN-FL UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN
 UNKNOWN 0 0) UNKNOWN-ACCESS (CONSTANT (REAL 8 0 0 0 REAL ()) 0
-'0.00000000000000@0')) (31 'yt' (REAL 8 0 0 0 REAL ()) () (UNKNOWN-FL
+'0.00000000000000@0')) (32 'yt' (REAL 8 0 0 0 REAL ()) () (UNKNOWN-FL
 UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0) UNKNOWN-ACCESS (
-CONSTANT (REAL 8 0 0 0 REAL ()) 0 '0.00000000000000@0')) (32 'yc' (REAL
+CONSTANT (REAL 8 0 0 0 REAL ()) 0 '0.00000000000000@0')) (33 'yc' (REAL
 8 0 0 0 REAL ()) () (UNKNOWN-FL UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN
 UNKNOWN 0 0) UNKNOWN-ACCESS (CONSTANT (REAL 8 0 0 0 REAL ()) 0
-'0.00000000000000@0')) (33 'sl' (REAL 8 0 0 0 REAL ()) () (UNKNOWN-FL
+'0.00000000000000@0')) (34 'sl' (REAL 8 0 0 0 REAL ()) () (UNKNOWN-FL
 UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0) UNKNOWN-ACCESS (
-CONSTANT (REAL 8 0 0 0 REAL ()) 0 '0.00000000000000@0')) (34 'st' (REAL
+CONSTANT (REAL 8 0 0 0 REAL ()) 0 '0.00000000000000@0')) (35 'st' (REAL
 8 0 0 0 REAL ()) () (UNKNOWN-FL UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN
 UNKNOWN 0 0) UNKNOWN-ACCESS (CONSTANT (REAL 8 0 0 0 REAL ()) 0
 '0.00000000000000@0'))) PUBLIC (() () () ()) () 0 0 42588710)
-35 'lamina_fibretoughness' 'lamina_material_module' '' 1 ((PROCEDURE
+36 'lamina_fibretoughness' 'lamina_material_module' '' 1 ((PROCEDURE
 UNKNOWN-INTENT UNKNOWN-PROC DECL UNKNOWN 0 0 FUNCTION GENERIC) (UNKNOWN
-0 0 0 0 UNKNOWN ()) 0 0 () () 35 () () () 0 0)
-36 'lamina_material' 'lamina_material_module' '' 1 ((PROCEDURE
+0 0 0 0 UNKNOWN ()) 0 0 () () 36 () () () 0 0)
+37 'lamina_material' 'lamina_material_module' '' 1 ((PROCEDURE
 UNKNOWN-INTENT UNKNOWN-PROC DECL UNKNOWN 0 0 FUNCTION GENERIC) (UNKNOWN
 0 0 0 0 UNKNOWN ()) 0 0 () () 0 () () () 0 0)
-37 'lamina_modulus' 'lamina_material_module' '' 1 ((PROCEDURE
+38 'lamina_modulus' 'lamina_material_module' '' 1 ((PROCEDURE
 UNKNOWN-INTENT UNKNOWN-PROC DECL UNKNOWN 0 0 FUNCTION GENERIC) (UNKNOWN
-0 0 0 0 UNKNOWN ()) 0 0 () () 37 () () () 0 0)
-38 'lamina_sdv' 'lamina_material_module' '' 1 ((PROCEDURE UNKNOWN-INTENT
+0 0 0 0 UNKNOWN ()) 0 0 () () 38 () () () 0 0)
+39 'lamina_sdv' 'lamina_material_module' '' 1 ((PROCEDURE UNKNOWN-INTENT
 UNKNOWN-PROC DECL UNKNOWN 0 0 FUNCTION GENERIC) (UNKNOWN 0 0 0 0 UNKNOWN
 ()) 0 0 () () 0 () () () 0 0)
-39 'lamina_strength' 'lamina_material_module' '' 1 ((PROCEDURE
+40 'lamina_strength' 'lamina_material_module' '' 1 ((PROCEDURE
 UNKNOWN-INTENT UNKNOWN-PROC DECL UNKNOWN 0 0 FUNCTION GENERIC) (UNKNOWN
-0 0 0 0 UNKNOWN ()) 0 0 () () 39 () () () 0 0)
-2 'ddsdde_lamina' 'lamina_material_module' '' 1 ((PROCEDURE
+0 0 0 0 UNKNOWN ()) 0 0 () () 40 () () () 0 0)
+2 'ddsdde_lamina_intact' 'lamina_material_module' '' 1 ((PROCEDURE
 UNKNOWN-INTENT MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE PURE
-ALWAYS_EXPLICIT) (UNKNOWN 0 0 0 0 UNKNOWN ()) 40 0 (41 42 43 44 45 46 47
-48 49) () 0 () () () 0 0)
-3 'display_lamina_sdv' 'lamina_material_module' '' 1 ((PROCEDURE
+ALWAYS_EXPLICIT) (UNKNOWN 0 0 0 0 UNKNOWN ()) 41 0 (42 43 44 45 46 47) ()
+0 () () () 0 0)
+3 'ddsdde_lamina' 'lamina_material_module' '' 1 ((PROCEDURE
+UNKNOWN-INTENT MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE PURE
+ALWAYS_EXPLICIT) (UNKNOWN 0 0 0 0 UNKNOWN ()) 48 0 (49 50 51 52 53 54 55
+56 57) () 0 () () () 0 0)
+4 'display_lamina_sdv' 'lamina_material_module' '' 1 ((PROCEDURE
 UNKNOWN-INTENT MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE) (UNKNOWN 0 0 0 0
-UNKNOWN ()) 50 0 (51) () 0 () () () 0 0)
-4 'display_lamina' 'lamina_material_module' '' 1 ((PROCEDURE
+UNKNOWN ()) 58 0 (59) () 0 () () () 0 0)
+5 'display_lamina' 'lamina_material_module' '' 1 ((PROCEDURE
 UNKNOWN-INTENT MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE) (UNKNOWN 0 0 0 0
-UNKNOWN ()) 52 0 (53) () 0 () () () 0 0)
-5 'empty_lamina' 'lamina_material_module' '' 1 ((PROCEDURE
+UNKNOWN ()) 60 0 (61) () 0 () () () 0 0)
+6 'empty_lamina' 'lamina_material_module' '' 1 ((PROCEDURE
 UNKNOWN-INTENT MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE PURE) (UNKNOWN 0
-0 0 0 UNKNOWN ()) 54 0 (55) () 0 () () () 0 0)
-11 'set_lamina' 'lamina_material_module' '' 1 ((PROCEDURE UNKNOWN-INTENT
+0 0 0 UNKNOWN ()) 62 0 (63) () 0 () () () 0 0)
+12 'set_lamina' 'lamina_material_module' '' 1 ((PROCEDURE UNKNOWN-INTENT
 MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE PURE) (UNKNOWN 0 0 0 0 UNKNOWN ())
-56 0 (57 58 59 60 61 62) () 0 () () () 0 0)
-41 'this_mat' '' '' 40 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
-DUMMY) (DERIVED 7 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
-42 'dee' '' '' 40 ((VARIABLE INOUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
+64 0 (65 66 67 68 69 70) () 0 () () () 0 0)
+42 'this_mat' '' '' 41 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
+DUMMY) (DERIVED 8 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
+43 'dee' '' '' 41 ((VARIABLE INOUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
 DIMENSION DUMMY) (REAL 8 0 0 0 REAL ()) 0 0 () (2 0 ASSUMED_SHAPE (
 CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '1') () (CONSTANT (INTEGER 4 0 0
 0 INTEGER ()) 0 '1') ()) 0 () () () 0 0)
-43 'stress' '' '' 40 ((VARIABLE INOUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
+44 'stress' '' '' 41 ((VARIABLE INOUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
 DIMENSION DUMMY) (REAL 8 0 0 0 REAL ()) 0 0 () (1 0 ASSUMED_SHAPE (
 CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '1') ()) 0 () () () 0 0)
-44 'sdv' '' '' 40 ((VARIABLE INOUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
-DUMMY) (DERIVED 9 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
-45 'strain' '' '' 40 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
+45 'strain' '' '' 41 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
 DIMENSION DUMMY) (REAL 8 0 0 0 REAL ()) 0 0 () (1 0 ASSUMED_SHAPE (
 CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '1') ()) 0 () () () 0 0)
-46 'clength' '' '' 40 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
-DUMMY) (REAL 8 0 0 0 REAL ()) 0 0 () () 0 () () () 0 0)
-47 'istat' '' '' 40 ((VARIABLE OUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
+46 'istat' '' '' 41 ((VARIABLE OUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
 DUMMY) (INTEGER 4 0 0 0 INTEGER ()) 0 0 () () 0 () () () 0 0)
-48 'emsg' '' '' 40 ((VARIABLE OUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0 DUMMY)
+47 'emsg' '' '' 41 ((VARIABLE OUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0 DUMMY)
 (CHARACTER 1 0 0 0 CHARACTER ((CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0
 '256'))) 0 0 () () 0 () () () 0 0)
-49 'd_max' '' '' 40 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
-OPTIONAL DUMMY) (REAL 8 0 0 0 REAL ()) 0 0 () () 0 () () () 0 0)
-51 'this_sdv' '' '' 50 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
-DUMMY) (DERIVED 9 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
-53 'this' '' '' 52 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0 DUMMY)
-(DERIVED 7 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
-55 'this' '' '' 54 ((VARIABLE INOUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
-DUMMY) (DERIVED 7 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
-57 'this' '' '' 56 ((VARIABLE INOUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
-DUMMY) (DERIVED 7 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
-58 'modulus' '' '' 56 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
+49 'this_mat' '' '' 48 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
 DUMMY) (DERIVED 8 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
-59 'strength' '' '' 56 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
+50 'dee' '' '' 48 ((VARIABLE INOUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
+DIMENSION DUMMY) (REAL 8 0 0 0 REAL ()) 0 0 () (2 0 ASSUMED_SHAPE (
+CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '1') () (CONSTANT (INTEGER 4 0 0
+0 INTEGER ()) 0 '1') ()) 0 () () () 0 0)
+51 'stress' '' '' 48 ((VARIABLE INOUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
+DIMENSION DUMMY) (REAL 8 0 0 0 REAL ()) 0 0 () (1 0 ASSUMED_SHAPE (
+CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '1') ()) 0 () () () 0 0)
+52 'sdv' '' '' 48 ((VARIABLE INOUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
 DUMMY) (DERIVED 10 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
-60 'fibretoughness' '' '' 56 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN
-0 0 DUMMY) (DERIVED 6 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
-61 'istat' '' '' 56 ((VARIABLE OUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
+53 'strain' '' '' 48 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
+DIMENSION DUMMY) (REAL 8 0 0 0 REAL ()) 0 0 () (1 0 ASSUMED_SHAPE (
+CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '1') ()) 0 () () () 0 0)
+54 'clength' '' '' 48 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
+DUMMY) (REAL 8 0 0 0 REAL ()) 0 0 () () 0 () () () 0 0)
+55 'istat' '' '' 48 ((VARIABLE OUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
 DUMMY) (INTEGER 4 0 0 0 INTEGER ()) 0 0 () () 0 () () () 0 0)
-62 'emsg' '' '' 56 ((VARIABLE OUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0 DUMMY)
+56 'emsg' '' '' 48 ((VARIABLE OUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0 DUMMY)
+(CHARACTER 1 0 0 0 CHARACTER ((CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0
+'256'))) 0 0 () () 0 () () () 0 0)
+57 'd_max' '' '' 48 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
+OPTIONAL DUMMY) (REAL 8 0 0 0 REAL ()) 0 0 () () 0 () () () 0 0)
+59 'this_sdv' '' '' 58 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
+DUMMY) (DERIVED 10 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
+61 'this' '' '' 60 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0 DUMMY)
+(DERIVED 8 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
+63 'this' '' '' 62 ((VARIABLE INOUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
+DUMMY) (DERIVED 8 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
+65 'this' '' '' 64 ((VARIABLE INOUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
+DUMMY) (DERIVED 8 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
+66 'modulus' '' '' 64 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
+DUMMY) (DERIVED 9 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
+67 'strength' '' '' 64 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
+DUMMY) (DERIVED 11 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
+68 'fibretoughness' '' '' 64 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN
+0 0 DUMMY) (DERIVED 7 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
+69 'istat' '' '' 64 ((VARIABLE OUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
+DUMMY) (INTEGER 4 0 0 0 INTEGER ()) 0 0 () () 0 () () () 0 0)
+70 'emsg' '' '' 64 ((VARIABLE OUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0 DUMMY)
 (CHARACTER 1 0 0 0 CHARACTER ((CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0
 '256'))) 0 0 () () 0 () () () 0 0)
 )
 
-('Lamina_fibretoughness' 0 6 'Lamina_material' 0 7 'Lamina_modulus' 0 8
-'Lamina_sdv' 0 9 'Lamina_strength' 0 10 'lamina_fibretoughness' 0 35
-'lamina_material' 0 36 'lamina_modulus' 0 37 'lamina_sdv' 0 38
-'lamina_strength' 0 39)
+('Lamina_fibretoughness' 0 7 'Lamina_material' 0 8 'Lamina_modulus' 0 9
+'Lamina_sdv' 0 10 'Lamina_strength' 0 11 'lamina_fibretoughness' 0 36
+'lamina_material' 0 37 'lamina_modulus' 0 38 'lamina_sdv' 0 39
+'lamina_strength' 0 40)

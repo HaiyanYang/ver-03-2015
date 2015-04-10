@@ -252,7 +252,8 @@ end subroutine extract_brick_element
 
 
 
-pure subroutine integrate_brick_element (elem, K_matrix, F_vector, nofailure)
+pure subroutine integrate_brick_element (elem, K_matrix, F_vector, istat, emsg,&
+& nofailure)
 ! Purpose:
 ! updates K matrix, F vector, integration point stress and strain,
 ! and the solution dependent variables (sdvs) of ig points and element
@@ -284,42 +285,54 @@ use glb_clock_module   ! global analysis progress (curr. step, inc, time, dtime)
   logical                       :: last_converged
   
   ! variables defined locally
+  ! - ig_sdv: integration point sdv arrays
+  ! - ig_xi: integration point natural coordinates
+  ! - ig_weight: integration point weights
+  ! - coords : element nodal coordinates
+  ! - u : nodal disp. vector
+  ! - fn, dn, gn : shape functions & their deriv. physical space
+  ! - jac, detj : jacobian matrix and its determinant
+  ! - bee, beet : b matrix and its transpose
+  ! - dee : D matrix
+  ! - btd, btdb : b'*d & b'*d*b
+  ! - tmpx, tmpu, tmpstrain, tmpstress
+  ! - xj, uj : nodal vars extracted from glb lib_node array
+  ! - clength, ctip : variables used for calculating clength
+  
   type(SDV_ARRAY), allocatable  :: ig_sdv(:)
   
-  real(DP) :: igxi(NDIM,NIGPOINT),igwt(NIGPOINT) ! ig point natural coords and weights
-  real(DP) :: coords(NDIM,NNODE) ! coordinates of the element nodes
+  real(DP) :: ig_xi(NDIM,NIGPOINT), ig_weight(NIGPOINT)
+  real(DP) :: coords(NDIM,NNODE)
   real(DP) :: theta ! orientation of element local coordinates
-  real(DP) :: u(NDOF) ! nodal disp. vector
-  logical  :: failure ! true for failure analysis
-  real(DP) :: fn(NNODE),dn(NNODE,NDIM) ! shape functions & their deriv. physical space
-  real(DP) :: jac(NDIM,NDIM),gn(NNODE,NDIM),detj ! jacobian & shape func. deriv. natural space
-  real(DP) :: bee(NSTRAIN,NDOF),beet(NDOF,NSTRAIN) ! b matrix and its transpose
-  real(DP) :: dee(NSTRAIN,NSTRAIN) ! d matrix
-  real(DP) :: btd(NDOF,NSTRAIN),btdb(NDOF,NDOF) ! b'*d & b'*d*b
-  real(DP) :: tmpx(NDIM),tmpu(NDIM),tmpstrain(NSTRAIN),tmpstress(NSTRAIN) ! temp. x, strain & stress arrays for intg pnts      
-  real(DP), allocatable :: xj(:),uj(:)! nodal vars extracted from glb lib_node array
+  real(DP) :: u(NDOF)
+  real(DP) :: fn(NNODE), dn(NNODE,NDIM), gn(NNODE,NDIM)
+  real(DP) :: jac(NDIM,NDIM), detj
+  real(DP) :: bee(NSTRAIN,NDOF), beet(NDOF,NSTRAIN)
+  real(DP) :: dee(NSTRAIN,NSTRAIN)
+  real(DP) :: btd(NDOF,NSTRAIN), btdb(NDOF,NDOF)
+  real(DP) :: tmpx(NDIM), tmpu(NDIM), tmpstrain(NSTRAIN), tmpstress(NSTRAIN)
+  real(DP), allocatable :: xj(:), uj(:)
+  real(DP) :: clength, ctip(2,2)
+  logical  :: nofail
+  integer  :: i,j,kig,igstat
+ 
   
-  integer :: i,j,kig,igstat
-  
-  ! variables used for calculating clength
-  real(DP)   :: clength,ctip(2,2)
-  
-  logical :: nofail
-  
-  ! initialize variables
-  allocate(K_matrix(NDOF,NDOF),F_vector(NDOF))
-  K_matrix=ZERO; F_vector=ZERO
+  ! initialize intent(out) and local variables
+  allocate(K_matrix(NDOF,NDOF), F_vector(NDOF))
+  K_matrix = ZERO
+  F_vector = ZERO
   
   i=0; j=0; kig=0
+  
   do i=1,NNODE
       call empty(nodes(i))
   end do
+  
   call empty(mat)
   curr_step=0; curr_inc=0
   
-  igxi=ZERO; igwt=ZERO
+  ig_xi=ZERO; ig_weight=ZERO
   coords=ZERO; theta=ZERO; u=ZERO
-  failure=.false.
   
   nofail=.false.
   if(present(nofailure)) nofail=nofailure
@@ -331,7 +344,7 @@ use glb_clock_module   ! global analysis progress (curr. step, inc, time, dtime)
   do j=1,NNODE
   
     ! extract useful values from nodes
-    call extract(nodes(j),x=xj,u=uj)
+    call extract(nodes(j), x=xj, u=uj)
     
     ! assign values to coords matrix and u vector
     if(allocated(xj)) then
@@ -382,7 +395,7 @@ use glb_clock_module   ! global analysis progress (curr. step, inc, time, dtime)
   
   
   ! update ig point xi and weight
-  call init_ig(igxi,igwt)
+  call init_ig(ig_xi,ig_weight)
   
   ! ZERO elem curr status for update
   elem%curr_status=ZERO
@@ -402,7 +415,7 @@ use glb_clock_module   ! global analysis progress (curr. step, inc, time, dtime)
     tmpx=ZERO; tmpu=ZERO; tmpstrain=ZERO; tmpstress=ZERO
     
     !- get shape matrix and derivatives
-    call init_shape(igxi(:,kig),fn,dn) 
+    call init_shape(ig_xi(:,kig),fn,dn) 
     
     !- calculate integration point physical coordinates (initial)
     tmpx=matmul(coords,fn)
@@ -458,11 +471,12 @@ use glb_clock_module   ! global analysis progress (curr. step, inc, time, dtime)
     select case (mattype)
             
       case ('lamina')
-    
-        ! check if failure analysis is needed (check if strength parameters are present)
-        call extract(lib_lamina(typekey),strength_active=failure)
         
-        if(nofail) failure=.false.
+        if(nofail) then
+        
+        else
+        
+        end if
         
         if(failure) then
             ! calculate D matrix, update tmpstress and sdv
@@ -489,7 +503,7 @@ use glb_clock_module   ! global analysis progress (curr. step, inc, time, dtime)
     ! integrate and update K matrix
     do i=1,NDOF
       do j=1,NDOF
-        K_matrix(i,j) = K_matrix(i,j)+btdb(i,j)*detj*igwt(kig) !-gauss integration
+        K_matrix(i,j) = K_matrix(i,j)+btdb(i,j)*detj*ig_weight(kig) !-gauss integration
       end do
     end do	
     
@@ -589,10 +603,10 @@ end subroutine init_ig
 
 
 
-pure subroutine init_shape (igxi, f, df)
+pure subroutine init_shape (ig_xi, f, df)
   
     real(DP),intent(inout) :: f(NNODE),df(NNODE,NDIM)
-    real(DP),intent(in) :: igxi(NDIM)
+    real(DP),intent(in) :: ig_xi(NDIM)
     
     real(DP) :: xi,eta,zeta ! local variables
     xi=ZERO
@@ -600,9 +614,9 @@ pure subroutine init_shape (igxi, f, df)
     zeta=ZERO
     
 
-    xi=igxi(1)
-    eta=igxi(2)
-    zeta=igxi(3)
+    xi=ig_xi(1)
+    eta=ig_xi(2)
+    zeta=ig_xi(3)
     
     f(1)=one_eighth*(one-xi)*(one-eta)*(one-zeta)
     f(2)=one_eighth*(one+xi)*(one-eta)*(one-zeta)

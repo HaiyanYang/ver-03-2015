@@ -48,6 +48,8 @@ real(DP)                      :: d_max
 
 character(len=20) :: display_fmt
 
+logical :: nofailure
+
 
 ! initialize local variables
 ! all derived types have been initialized in definition
@@ -60,6 +62,7 @@ emsg    = ''
 d_max   = ZERO
 
 display_fmt = ''
+nofailure   = .false.
 
 ! define values of input modulus
 modulus%E1   = 161000._DP
@@ -107,8 +110,21 @@ end if
 
 call display (this)
 
-call ddsdde (this, dee=dee, stress=stress, sdv=sdv, strain=strain, &
-& clength=clength, istat=istat, emsg=emsg, d_max=d_max)
+!nofailure = .true.
+nofailure = .false.
+
+if (nofailure) then
+  ! ddsdde_intact
+  call ddsdde (this, dee=dee, stress=stress, strain=strain, &
+  & istat=istat, emsg=emsg)
+
+else
+
+  call ddsdde (this, dee=dee, stress=stress, sdv=sdv, strain=strain, &
+  & clength=clength, istat=istat, emsg=emsg, d_max=d_max)
+
+end if
+
 
 if(istat == STAT_FAILURE) then
   write(*,*) emsg
