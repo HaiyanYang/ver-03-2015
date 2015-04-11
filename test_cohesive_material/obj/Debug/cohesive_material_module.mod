@@ -1,18 +1,20 @@
 GFORTRAN module version '10' created from C:\Users\User\Documents\GitHub\ver-03-2015\test_cohesive_material.f90
-MD5:94aa3a532d99df331436333de43353ea -- If you edit this, you'll get what you deserve.
+MD5:9af43c92c1fe0f980854d05d98cb58e5 -- If you edit this, you'll get what you deserve.
 
 (() () () () () () () () () () () () () () () () () () () () () () ()
 () () () ())
 
 ()
 
-(('cohesive_material' 'cohesive_material_module' 2) ('cohesive_modulus'
-'cohesive_material_module' 3) ('cohesive_sdv' 'cohesive_material_module'
-4) ('cohesive_strength' 'cohesive_material_module' 5) (
-'cohesive_toughness' 'cohesive_material_module' 6) ('ddsdde'
-'cohesive_material_module' 7 8) ('display' 'cohesive_material_module' 9
-10) ('empty' 'cohesive_material_module' 11) ('set'
-'cohesive_material_module' 12))
+(('cohesive_ig_point' 'cohesive_material_module' 2) ('cohesive_material'
+'cohesive_material_module' 3) ('cohesive_modulus'
+'cohesive_material_module' 4) ('cohesive_sdv' 'cohesive_material_module'
+5) ('cohesive_strength' 'cohesive_material_module' 6) (
+'cohesive_toughness' 'cohesive_material_module' 7) ('ddsdde'
+'cohesive_material_module' 8 9) ('display' 'cohesive_material_module' 10
+11 12) ('empty' 'cohesive_material_module' 13 14) ('extract'
+'cohesive_material_module' 15) ('set' 'cohesive_material_module' 16) (
+'update' 'cohesive_material_module' 17))
 
 ()
 
@@ -20,168 +22,251 @@ MD5:94aa3a532d99df331436333de43353ea -- If you edit this, you'll get what you de
 
 ()
 
-(2 'Cohesive_material' 'cohesive_material_module' '' 1 ((DERIVED
+(2 'Cohesive_ig_point' 'cohesive_material_module' '' 1 ((DERIVED
+UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0 ALLOC_COMP PRIVATE_COMP)
+(UNKNOWN 0 0 0 0 UNKNOWN ()) 0 0 () () 0 ((18 'x' (REAL 8 0 0 0 REAL ())
+(1 0 DEFERRED () ()) (UNKNOWN-FL UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN
+UNKNOWN 0 0 ALLOCATABLE DIMENSION) UNKNOWN-ACCESS ()) (19 'u' (REAL 8 0
+0 0 REAL ()) (1 0 DEFERRED () ()) (UNKNOWN-FL UNKNOWN-INTENT
+UNKNOWN-PROC UNKNOWN UNKNOWN 0 0 ALLOCATABLE DIMENSION) UNKNOWN-ACCESS ())
+(20 'stress' (REAL 8 0 0 0 REAL ()) (1 0 DEFERRED () ()) (UNKNOWN-FL
+UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0 ALLOCATABLE DIMENSION)
+UNKNOWN-ACCESS ()) (21 'strain' (REAL 8 0 0 0 REAL ()) (1 0 DEFERRED ()
+()) (UNKNOWN-FL UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
+ALLOCATABLE DIMENSION) UNKNOWN-ACCESS ()) (22 'sdv' (DERIVED 5 0 0 0
+DERIVED ()) (1 0 DEFERRED () ()) (UNKNOWN-FL UNKNOWN-INTENT UNKNOWN-PROC
+UNKNOWN UNKNOWN 0 0 ALLOCATABLE DIMENSION) UNKNOWN-ACCESS (STRUCTURE (
+DERIVED 5 0 0 0 DERIVED ()) 0 (((CONSTANT (REAL 8 0 0 0 REAL ()) 0
+'0.00000000000000@0') ()) ((CONSTANT (REAL 8 0 0 0 REAL ()) 0
+'0.00000000000000@0') ()) ((CONSTANT (REAL 8 0 0 0 REAL ()) 0
+'0.00000000000000@0') ()) ((CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '0')
+())) ()))) PRIVATE (() () () ()) () 0 0 36290388)
+3 'Cohesive_material' 'cohesive_material_module' '' 1 ((DERIVED
 UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0) (UNKNOWN 0 0 0 0
-UNKNOWN ()) 0 0 () () 0 ((13 'modulus' (DERIVED 3 0 0 0 DERIVED ()) () (
+UNKNOWN ()) 0 0 () () 0 ((23 'modulus' (DERIVED 4 0 0 0 DERIVED ()) () (
 UNKNOWN-FL UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0)
-UNKNOWN-ACCESS (STRUCTURE (DERIVED 3 0 0 0 DERIVED ()) 0 (((CONSTANT (
+UNKNOWN-ACCESS (STRUCTURE (DERIVED 4 0 0 0 DERIVED ()) 0 (((CONSTANT (
 REAL 8 0 0 0 REAL ()) 0 '0.00000000000000@0') ()) ((CONSTANT (REAL 8 0 0
 0 REAL ()) 0 '0.00000000000000@0') ()) ((CONSTANT (REAL 8 0 0 0 REAL ())
-0 '0.00000000000000@0') ())) ())) (14 'strength' (DERIVED 5 0 0 0
-DERIVED ()) () (UNKNOWN-FL UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN UNKNOWN 0
-0) UNKNOWN-ACCESS (STRUCTURE (DERIVED 5 0 0 0 DERIVED ()) 0 (((CONSTANT
-(REAL 8 0 0 0 REAL ()) 0 '0.00000000000000@0') ()) ((CONSTANT (REAL 8 0
-0 0 REAL ()) 0 '0.00000000000000@0') ()) ((CONSTANT (REAL 8 0 0 0 REAL ())
-0 '0.00000000000000@0') ())) ())) (15 'toughness' (DERIVED 6 0 0 0
+0 '0.00000000000000@0') ())) ())) (24 'strength' (DERIVED 6 0 0 0
 DERIVED ()) () (UNKNOWN-FL UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN UNKNOWN 0
 0) UNKNOWN-ACCESS (STRUCTURE (DERIVED 6 0 0 0 DERIVED ()) 0 (((CONSTANT
 (REAL 8 0 0 0 REAL ()) 0 '0.00000000000000@0') ()) ((CONSTANT (REAL 8 0
 0 0 REAL ()) 0 '0.00000000000000@0') ()) ((CONSTANT (REAL 8 0 0 0 REAL ())
+0 '0.00000000000000@0') ())) ())) (25 'toughness' (DERIVED 7 0 0 0
+DERIVED ()) () (UNKNOWN-FL UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN UNKNOWN 0
+0) UNKNOWN-ACCESS (STRUCTURE (DERIVED 7 0 0 0 DERIVED ()) 0 (((CONSTANT
+(REAL 8 0 0 0 REAL ()) 0 '0.00000000000000@0') ()) ((CONSTANT (REAL 8 0
+0 0 REAL ()) 0 '0.00000000000000@0') ()) ((CONSTANT (REAL 8 0 0 0 REAL ())
 0 '0.00000000000000@0') ()) ((CONSTANT (REAL 8 0 0 0 REAL ()) 0
 '0.00000000000000@0') ())) ()))) PUBLIC (() () () ()) () 0 0 23602284)
-3 'Cohesive_modulus' 'cohesive_material_module' '' 1 ((DERIVED
+4 'Cohesive_modulus' 'cohesive_material_module' '' 1 ((DERIVED
 UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0) (UNKNOWN 0 0 0 0
-UNKNOWN ()) 0 0 () () 0 ((16 'dnn' (REAL 8 0 0 0 REAL ()) () (
+UNKNOWN ()) 0 0 () () 0 ((26 'dnn' (REAL 8 0 0 0 REAL ()) () (
 UNKNOWN-FL UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0)
 UNKNOWN-ACCESS (CONSTANT (REAL 8 0 0 0 REAL ()) 0 '0.00000000000000@0'))
-(17 'dtt' (REAL 8 0 0 0 REAL ()) () (UNKNOWN-FL UNKNOWN-INTENT
+(27 'dtt' (REAL 8 0 0 0 REAL ()) () (UNKNOWN-FL UNKNOWN-INTENT
 UNKNOWN-PROC UNKNOWN UNKNOWN 0 0) UNKNOWN-ACCESS (CONSTANT (REAL 8 0 0 0
-REAL ()) 0 '0.00000000000000@0')) (18 'dll' (REAL 8 0 0 0 REAL ()) () (
+REAL ()) 0 '0.00000000000000@0')) (28 'dll' (REAL 8 0 0 0 REAL ()) () (
 UNKNOWN-FL UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0)
 UNKNOWN-ACCESS (CONSTANT (REAL 8 0 0 0 REAL ()) 0 '0.00000000000000@0')))
 PUBLIC (() () () ()) () 0 0 81670226)
-4 'Cohesive_sdv' 'cohesive_material_module' '' 1 ((DERIVED
+5 'Cohesive_sdv' 'cohesive_material_module' '' 1 ((DERIVED
 UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0) (UNKNOWN 0 0 0 0
-UNKNOWN ()) 0 0 () () 0 ((19 'dm' (REAL 8 0 0 0 REAL ()) () (UNKNOWN-FL
+UNKNOWN ()) 0 0 () () 0 ((29 'dm' (REAL 8 0 0 0 REAL ()) () (UNKNOWN-FL
 UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0) UNKNOWN-ACCESS (
-CONSTANT (REAL 8 0 0 0 REAL ()) 0 '0.00000000000000@0')) (20 'u0' (REAL
+CONSTANT (REAL 8 0 0 0 REAL ()) 0 '0.00000000000000@0')) (30 'u0' (REAL
 8 0 0 0 REAL ()) () (UNKNOWN-FL UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN
 UNKNOWN 0 0) UNKNOWN-ACCESS (CONSTANT (REAL 8 0 0 0 REAL ()) 0
-'0.00000000000000@0')) (21 'uf' (REAL 8 0 0 0 REAL ()) () (UNKNOWN-FL
+'0.00000000000000@0')) (31 'uf' (REAL 8 0 0 0 REAL ()) () (UNKNOWN-FL
 UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0) UNKNOWN-ACCESS (
-CONSTANT (REAL 8 0 0 0 REAL ()) 0 '0.00000000000000@0')) (22 'fstat' (
+CONSTANT (REAL 8 0 0 0 REAL ()) 0 '0.00000000000000@0')) (32 'fstat' (
 INTEGER 4 0 0 0 INTEGER ()) () (UNKNOWN-FL UNKNOWN-INTENT UNKNOWN-PROC
 UNKNOWN UNKNOWN 0 0) UNKNOWN-ACCESS (CONSTANT (INTEGER 4 0 0 0 INTEGER ())
 0 '0'))) PUBLIC (() () () ()) () 0 0 56786112)
-5 'Cohesive_strength' 'cohesive_material_module' '' 1 ((DERIVED
+6 'Cohesive_strength' 'cohesive_material_module' '' 1 ((DERIVED
 UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0) (UNKNOWN 0 0 0 0
-UNKNOWN ()) 0 0 () () 0 ((23 'tau_nc' (REAL 8 0 0 0 REAL ()) () (
+UNKNOWN ()) 0 0 () () 0 ((33 'tau_nc' (REAL 8 0 0 0 REAL ()) () (
 UNKNOWN-FL UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0)
 UNKNOWN-ACCESS (CONSTANT (REAL 8 0 0 0 REAL ()) 0 '0.00000000000000@0'))
-(24 'tau_tc' (REAL 8 0 0 0 REAL ()) () (UNKNOWN-FL UNKNOWN-INTENT
+(34 'tau_tc' (REAL 8 0 0 0 REAL ()) () (UNKNOWN-FL UNKNOWN-INTENT
 UNKNOWN-PROC UNKNOWN UNKNOWN 0 0) UNKNOWN-ACCESS (CONSTANT (REAL 8 0 0 0
-REAL ()) 0 '0.00000000000000@0')) (25 'tau_lc' (REAL 8 0 0 0 REAL ()) ()
+REAL ()) 0 '0.00000000000000@0')) (35 'tau_lc' (REAL 8 0 0 0 REAL ()) ()
 (UNKNOWN-FL UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0)
 UNKNOWN-ACCESS (CONSTANT (REAL 8 0 0 0 REAL ()) 0 '0.00000000000000@0')))
 PUBLIC (() () () ()) () 0 0 22276774)
-6 'Cohesive_toughness' 'cohesive_material_module' '' 1 ((DERIVED
+7 'Cohesive_toughness' 'cohesive_material_module' '' 1 ((DERIVED
 UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0) (UNKNOWN 0 0 0 0
-UNKNOWN ()) 0 0 () () 0 ((26 'gnc' (REAL 8 0 0 0 REAL ()) () (
+UNKNOWN ()) 0 0 () () 0 ((36 'gnc' (REAL 8 0 0 0 REAL ()) () (
 UNKNOWN-FL UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0)
 UNKNOWN-ACCESS (CONSTANT (REAL 8 0 0 0 REAL ()) 0 '0.00000000000000@0'))
-(27 'gtc' (REAL 8 0 0 0 REAL ()) () (UNKNOWN-FL UNKNOWN-INTENT
+(37 'gtc' (REAL 8 0 0 0 REAL ()) () (UNKNOWN-FL UNKNOWN-INTENT
 UNKNOWN-PROC UNKNOWN UNKNOWN 0 0) UNKNOWN-ACCESS (CONSTANT (REAL 8 0 0 0
-REAL ()) 0 '0.00000000000000@0')) (28 'glc' (REAL 8 0 0 0 REAL ()) () (
+REAL ()) 0 '0.00000000000000@0')) (38 'glc' (REAL 8 0 0 0 REAL ()) () (
 UNKNOWN-FL UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0)
 UNKNOWN-ACCESS (CONSTANT (REAL 8 0 0 0 REAL ()) 0 '0.00000000000000@0'))
-(29 'alpha' (REAL 8 0 0 0 REAL ()) () (UNKNOWN-FL UNKNOWN-INTENT
+(39 'alpha' (REAL 8 0 0 0 REAL ()) () (UNKNOWN-FL UNKNOWN-INTENT
 UNKNOWN-PROC UNKNOWN UNKNOWN 0 0) UNKNOWN-ACCESS (CONSTANT (REAL 8 0 0 0
 REAL ()) 0 '0.00000000000000@0'))) PUBLIC (() () () ()) () 0 0 93717485)
-30 'cohesive_material' 'cohesive_material_module' '' 1 ((PROCEDURE
+40 'cohesive_ig_point' 'cohesive_material_module' '' 1 ((PROCEDURE
 UNKNOWN-INTENT UNKNOWN-PROC DECL UNKNOWN 0 0 FUNCTION GENERIC) (UNKNOWN
 0 0 0 0 UNKNOWN ()) 0 0 () () 0 () () () 0 0)
-31 'cohesive_modulus' 'cohesive_material_module' '' 1 ((PROCEDURE
-UNKNOWN-INTENT UNKNOWN-PROC DECL UNKNOWN 0 0 FUNCTION GENERIC) (UNKNOWN
-0 0 0 0 UNKNOWN ()) 0 0 () () 31 () () () 0 0)
-32 'cohesive_sdv' 'cohesive_material_module' '' 1 ((PROCEDURE
+41 'cohesive_material' 'cohesive_material_module' '' 1 ((PROCEDURE
 UNKNOWN-INTENT UNKNOWN-PROC DECL UNKNOWN 0 0 FUNCTION GENERIC) (UNKNOWN
 0 0 0 0 UNKNOWN ()) 0 0 () () 0 () () () 0 0)
-33 'cohesive_strength' 'cohesive_material_module' '' 1 ((PROCEDURE
+42 'cohesive_modulus' 'cohesive_material_module' '' 1 ((PROCEDURE
 UNKNOWN-INTENT UNKNOWN-PROC DECL UNKNOWN 0 0 FUNCTION GENERIC) (UNKNOWN
-0 0 0 0 UNKNOWN ()) 0 0 () () 33 () () () 0 0)
-34 'cohesive_toughness' 'cohesive_material_module' '' 1 ((PROCEDURE
+0 0 0 0 UNKNOWN ()) 0 0 () () 42 () () () 0 0)
+43 'cohesive_sdv' 'cohesive_material_module' '' 1 ((PROCEDURE
 UNKNOWN-INTENT UNKNOWN-PROC DECL UNKNOWN 0 0 FUNCTION GENERIC) (UNKNOWN
-0 0 0 0 UNKNOWN ()) 0 0 () () 34 () () () 0 0)
-7 'ddsdde_cohesive_intact' 'cohesive_material_module' '' 1 ((PROCEDURE
+0 0 0 0 UNKNOWN ()) 0 0 () () 0 () () () 0 0)
+44 'cohesive_strength' 'cohesive_material_module' '' 1 ((PROCEDURE
+UNKNOWN-INTENT UNKNOWN-PROC DECL UNKNOWN 0 0 FUNCTION GENERIC) (UNKNOWN
+0 0 0 0 UNKNOWN ()) 0 0 () () 44 () () () 0 0)
+45 'cohesive_toughness' 'cohesive_material_module' '' 1 ((PROCEDURE
+UNKNOWN-INTENT UNKNOWN-PROC DECL UNKNOWN 0 0 FUNCTION GENERIC) (UNKNOWN
+0 0 0 0 UNKNOWN ()) 0 0 () () 45 () () () 0 0)
+8 'ddsdde_cohesive_intact' 'cohesive_material_module' '' 1 ((PROCEDURE
 UNKNOWN-INTENT MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE PURE
-ALWAYS_EXPLICIT) (UNKNOWN 0 0 0 0 UNKNOWN ()) 35 0 (36 37 38 39 40 41) ()
+ALWAYS_EXPLICIT) (UNKNOWN 0 0 0 0 UNKNOWN ()) 46 0 (47 48 49 50 51 52) ()
 0 () () () 0 0)
-8 'ddsdde_cohesive' 'cohesive_material_module' '' 1 ((PROCEDURE
+9 'ddsdde_cohesive' 'cohesive_material_module' '' 1 ((PROCEDURE
 UNKNOWN-INTENT MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE PURE
-ALWAYS_EXPLICIT) (UNKNOWN 0 0 0 0 UNKNOWN ()) 42 0 (43 44 45 46 47 48 49
-50) () 0 () () () 0 0)
-9 'display_cohesive_sdv' 'cohesive_material_module' '' 1 ((PROCEDURE
+ALWAYS_EXPLICIT) (UNKNOWN 0 0 0 0 UNKNOWN ()) 53 0 (54 55 56 57 58 59 60
+61) () 0 () () () 0 0)
+10 'display_cohesive_ig_point' 'cohesive_material_module' '' 1 ((
+PROCEDURE UNKNOWN-INTENT MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE) (
+UNKNOWN 0 0 0 0 UNKNOWN ()) 62 0 (63) () 0 () () () 0 0)
+11 'display_cohesive_sdv' 'cohesive_material_module' '' 1 ((PROCEDURE
 UNKNOWN-INTENT MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE) (UNKNOWN 0 0 0 0
-UNKNOWN ()) 51 0 (52) () 0 () () () 0 0)
-10 'display_cohesive' 'cohesive_material_module' '' 1 ((PROCEDURE
+UNKNOWN ()) 64 0 (65) () 0 () () () 0 0)
+12 'display_cohesive' 'cohesive_material_module' '' 1 ((PROCEDURE
 UNKNOWN-INTENT MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE) (UNKNOWN 0 0 0 0
-UNKNOWN ()) 53 0 (54) () 0 () () () 0 0)
-11 'empty_cohesive' 'cohesive_material_module' '' 1 ((PROCEDURE
+UNKNOWN ()) 66 0 (67) () 0 () () () 0 0)
+13 'empty_cohesive_ig_point' 'cohesive_material_module' '' 1 ((
+PROCEDURE UNKNOWN-INTENT MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE PURE) (
+UNKNOWN 0 0 0 0 UNKNOWN ()) 68 0 (69) () 0 () () () 0 0)
+14 'empty_cohesive' 'cohesive_material_module' '' 1 ((PROCEDURE
 UNKNOWN-INTENT MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE PURE) (UNKNOWN 0
-0 0 0 UNKNOWN ()) 55 0 (56) () 0 () () () 0 0)
-12 'set_cohesive' 'cohesive_material_module' '' 1 ((PROCEDURE
+0 0 0 UNKNOWN ()) 70 0 (71) () 0 () () () 0 0)
+15 'extract_cohesive_ig_point' 'cohesive_material_module' '' 1 ((
+PROCEDURE UNKNOWN-INTENT MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE PURE
+ALWAYS_EXPLICIT) (UNKNOWN 0 0 0 0 UNKNOWN ()) 72 0 (73 74 75 76 77 78) ()
+0 () () () 0 0)
+16 'set_cohesive' 'cohesive_material_module' '' 1 ((PROCEDURE
 UNKNOWN-INTENT MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE PURE) (UNKNOWN 0
-0 0 0 UNKNOWN ()) 57 0 (58 59 60 61 62 63) () 0 () () () 0 0)
-36 'this_mat' '' '' 35 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
-DUMMY) (DERIVED 2 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
-37 'dee' '' '' 35 ((VARIABLE INOUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
-DIMENSION DUMMY) (REAL 8 0 0 0 REAL ()) 0 0 () (2 0 ASSUMED_SHAPE (
-CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '1') () (CONSTANT (INTEGER 4 0 0
-0 INTEGER ()) 0 '1') ()) 0 () () () 0 0)
-38 'traction' '' '' 35 ((VARIABLE INOUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
-DIMENSION DUMMY) (REAL 8 0 0 0 REAL ()) 0 0 () (1 0 ASSUMED_SHAPE (
-CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '1') ()) 0 () () () 0 0)
-39 'separation' '' '' 35 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
-DIMENSION DUMMY) (REAL 8 0 0 0 REAL ()) 0 0 () (1 0 ASSUMED_SHAPE (
-CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '1') ()) 0 () () () 0 0)
-40 'istat' '' '' 35 ((VARIABLE OUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
-DUMMY) (INTEGER 4 0 0 0 INTEGER ()) 0 0 () () 0 () () () 0 0)
-41 'emsg' '' '' 35 ((VARIABLE OUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0 DUMMY)
-(CHARACTER 1 0 0 0 CHARACTER ((CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0
-'256'))) 0 0 () () 0 () () () 0 0)
-43 'this_mat' '' '' 42 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
-DUMMY) (DERIVED 2 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
-44 'dee' '' '' 42 ((VARIABLE INOUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
-DIMENSION DUMMY) (REAL 8 0 0 0 REAL ()) 0 0 () (2 0 ASSUMED_SHAPE (
-CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '1') () (CONSTANT (INTEGER 4 0 0
-0 INTEGER ()) 0 '1') ()) 0 () () () 0 0)
-45 'traction' '' '' 42 ((VARIABLE INOUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
-DIMENSION DUMMY) (REAL 8 0 0 0 REAL ()) 0 0 () (1 0 ASSUMED_SHAPE (
-CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '1') ()) 0 () () () 0 0)
-46 'sdv' '' '' 42 ((VARIABLE INOUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
-DUMMY) (DERIVED 4 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
-47 'separation' '' '' 42 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
-DIMENSION DUMMY) (REAL 8 0 0 0 REAL ()) 0 0 () (1 0 ASSUMED_SHAPE (
-CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '1') ()) 0 () () () 0 0)
-48 'istat' '' '' 42 ((VARIABLE OUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
-DUMMY) (INTEGER 4 0 0 0 INTEGER ()) 0 0 () () 0 () () () 0 0)
-49 'emsg' '' '' 42 ((VARIABLE OUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0 DUMMY)
-(CHARACTER 1 0 0 0 CHARACTER ((CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0
-'256'))) 0 0 () () 0 () () () 0 0)
-50 'd_max' '' '' 42 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
-OPTIONAL DUMMY) (REAL 8 0 0 0 REAL ()) 0 0 () () 0 () () () 0 0)
-52 'this_sdv' '' '' 51 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
-DUMMY) (DERIVED 4 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
-54 'this' '' '' 53 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0 DUMMY)
-(DERIVED 2 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
-56 'this' '' '' 55 ((VARIABLE INOUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
-DUMMY) (DERIVED 2 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
-58 'this' '' '' 57 ((VARIABLE INOUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
-DUMMY) (DERIVED 2 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
-59 'modulus' '' '' 57 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
+0 0 0 UNKNOWN ()) 79 0 (80 81 82 83 84 85) () 0 () () () 0 0)
+17 'update_cohesive_ig_point' 'cohesive_material_module' '' 1 ((
+PROCEDURE UNKNOWN-INTENT MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE PURE
+ALWAYS_EXPLICIT) (UNKNOWN 0 0 0 0 UNKNOWN ()) 86 0 (87 88 89 90 91 92 93
+94) () 0 () () () 0 0)
+47 'this_mat' '' '' 46 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
 DUMMY) (DERIVED 3 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
-60 'strength' '' '' 57 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
-DUMMY) (DERIVED 5 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
-61 'toughness' '' '' 57 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
-DUMMY) (DERIVED 6 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
-62 'istat' '' '' 57 ((VARIABLE OUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
+48 'dee' '' '' 46 ((VARIABLE INOUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
+DIMENSION DUMMY) (REAL 8 0 0 0 REAL ()) 0 0 () (2 0 ASSUMED_SHAPE (
+CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '1') () (CONSTANT (INTEGER 4 0 0
+0 INTEGER ()) 0 '1') ()) 0 () () () 0 0)
+49 'traction' '' '' 46 ((VARIABLE INOUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
+DIMENSION DUMMY) (REAL 8 0 0 0 REAL ()) 0 0 () (1 0 ASSUMED_SHAPE (
+CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '1') ()) 0 () () () 0 0)
+50 'separation' '' '' 46 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
+DIMENSION DUMMY) (REAL 8 0 0 0 REAL ()) 0 0 () (1 0 ASSUMED_SHAPE (
+CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '1') ()) 0 () () () 0 0)
+51 'istat' '' '' 46 ((VARIABLE OUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
 DUMMY) (INTEGER 4 0 0 0 INTEGER ()) 0 0 () () 0 () () () 0 0)
-63 'emsg' '' '' 57 ((VARIABLE OUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0 DUMMY)
+52 'emsg' '' '' 46 ((VARIABLE OUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0 DUMMY)
 (CHARACTER 1 0 0 0 CHARACTER ((CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0
 '256'))) 0 0 () () 0 () () () 0 0)
+54 'this_mat' '' '' 53 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
+DUMMY) (DERIVED 3 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
+55 'dee' '' '' 53 ((VARIABLE INOUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
+DIMENSION DUMMY) (REAL 8 0 0 0 REAL ()) 0 0 () (2 0 ASSUMED_SHAPE (
+CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '1') () (CONSTANT (INTEGER 4 0 0
+0 INTEGER ()) 0 '1') ()) 0 () () () 0 0)
+56 'traction' '' '' 53 ((VARIABLE INOUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
+DIMENSION DUMMY) (REAL 8 0 0 0 REAL ()) 0 0 () (1 0 ASSUMED_SHAPE (
+CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '1') ()) 0 () () () 0 0)
+57 'sdv' '' '' 53 ((VARIABLE INOUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
+DUMMY) (DERIVED 5 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
+58 'separation' '' '' 53 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
+DIMENSION DUMMY) (REAL 8 0 0 0 REAL ()) 0 0 () (1 0 ASSUMED_SHAPE (
+CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '1') ()) 0 () () () 0 0)
+59 'istat' '' '' 53 ((VARIABLE OUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
+DUMMY) (INTEGER 4 0 0 0 INTEGER ()) 0 0 () () 0 () () () 0 0)
+60 'emsg' '' '' 53 ((VARIABLE OUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0 DUMMY)
+(CHARACTER 1 0 0 0 CHARACTER ((CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0
+'256'))) 0 0 () () 0 () () () 0 0)
+61 'd_max' '' '' 53 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
+OPTIONAL DUMMY) (REAL 8 0 0 0 REAL ()) 0 0 () () 0 () () () 0 0)
+63 'this' '' '' 62 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0 DUMMY)
+(DERIVED 2 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
+65 'this_sdv' '' '' 64 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
+DUMMY) (DERIVED 5 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
+67 'this' '' '' 66 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0 DUMMY)
+(DERIVED 3 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
+69 'ig_point' '' '' 68 ((VARIABLE INOUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
+DUMMY) (DERIVED 2 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
+71 'this' '' '' 70 ((VARIABLE INOUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
+DUMMY) (DERIVED 3 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
+73 'ig_point' '' '' 72 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
+DUMMY) (DERIVED 2 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
+74 'x' '' '' 72 ((VARIABLE OUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
+ALLOCATABLE DIMENSION OPTIONAL DUMMY) (REAL 8 0 0 0 REAL ()) 0 0 () (1 0
+DEFERRED () ()) 0 () () () 0 0)
+75 'u' '' '' 72 ((VARIABLE OUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
+ALLOCATABLE DIMENSION OPTIONAL DUMMY) (REAL 8 0 0 0 REAL ()) 0 0 () (1 0
+DEFERRED () ()) 0 () () () 0 0)
+76 'stress' '' '' 72 ((VARIABLE OUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
+ALLOCATABLE DIMENSION OPTIONAL DUMMY) (REAL 8 0 0 0 REAL ()) 0 0 () (1 0
+DEFERRED () ()) 0 () () () 0 0)
+77 'strain' '' '' 72 ((VARIABLE OUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
+ALLOCATABLE DIMENSION OPTIONAL DUMMY) (REAL 8 0 0 0 REAL ()) 0 0 () (1 0
+DEFERRED () ()) 0 () () () 0 0)
+78 'sdv' '' '' 72 ((VARIABLE OUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
+ALLOCATABLE DIMENSION OPTIONAL DUMMY) (DERIVED 5 0 0 0 DERIVED ()) 0 0 ()
+(1 0 DEFERRED () ()) 0 () () () 0 0)
+80 'this' '' '' 79 ((VARIABLE INOUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
+DUMMY) (DERIVED 3 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
+81 'modulus' '' '' 79 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
+DUMMY) (DERIVED 4 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
+82 'strength' '' '' 79 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
+DUMMY) (DERIVED 6 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
+83 'toughness' '' '' 79 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
+DUMMY) (DERIVED 7 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
+84 'istat' '' '' 79 ((VARIABLE OUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
+DUMMY) (INTEGER 4 0 0 0 INTEGER ()) 0 0 () () 0 () () () 0 0)
+85 'emsg' '' '' 79 ((VARIABLE OUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0 DUMMY)
+(CHARACTER 1 0 0 0 CHARACTER ((CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0
+'256'))) 0 0 () () 0 () () () 0 0)
+87 'ig_point' '' '' 86 ((VARIABLE INOUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
+DUMMY) (DERIVED 2 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
+88 'x' '' '' 86 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0 DIMENSION
+OPTIONAL DUMMY) (REAL 8 0 0 0 REAL ()) 0 0 () (1 0 ASSUMED_SHAPE (
+CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '1') ()) 0 () () () 0 0)
+89 'u' '' '' 86 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0 DIMENSION
+OPTIONAL DUMMY) (REAL 8 0 0 0 REAL ()) 0 0 () (1 0 ASSUMED_SHAPE (
+CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '1') ()) 0 () () () 0 0)
+90 'istat' '' '' 86 ((VARIABLE OUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
+DUMMY) (INTEGER 4 0 0 0 INTEGER ()) 0 0 () () 0 () () () 0 0)
+91 'emsg' '' '' 86 ((VARIABLE OUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0 DUMMY)
+(CHARACTER 1 0 0 0 CHARACTER ((CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0
+'256'))) 0 0 () () 0 () () () 0 0)
+92 'stress' '' '' 86 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
+DIMENSION OPTIONAL DUMMY) (REAL 8 0 0 0 REAL ()) 0 0 () (1 0
+ASSUMED_SHAPE (CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '1') ()) 0 () ()
+() 0 0)
+93 'strain' '' '' 86 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
+DIMENSION OPTIONAL DUMMY) (REAL 8 0 0 0 REAL ()) 0 0 () (1 0
+ASSUMED_SHAPE (CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '1') ()) 0 () ()
+() 0 0)
+94 'sdv' '' '' 86 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
+DIMENSION OPTIONAL DUMMY) (DERIVED 5 0 0 0 DERIVED ()) 0 0 () (1 0
+ASSUMED_SHAPE (CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '1') ()) 0 () ()
+() 0 0)
 )
 
-('Cohesive_material' 0 2 'Cohesive_modulus' 0 3 'Cohesive_sdv' 0 4
-'Cohesive_strength' 0 5 'Cohesive_toughness' 0 6 'cohesive_material' 0
-30 'cohesive_modulus' 0 31 'cohesive_sdv' 0 32 'cohesive_strength' 0 33
-'cohesive_toughness' 0 34)
+('Cohesive_ig_point' 0 2 'Cohesive_material' 0 3 'Cohesive_modulus' 0 4
+'Cohesive_sdv' 0 5 'Cohesive_strength' 0 6 'Cohesive_toughness' 0 7
+'cohesive_ig_point' 0 40 'cohesive_material' 0 41 'cohesive_modulus' 0
+42 'cohesive_sdv' 0 43 'cohesive_strength' 0 44 'cohesive_toughness' 0
+45)

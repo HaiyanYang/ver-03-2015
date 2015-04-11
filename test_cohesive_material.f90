@@ -10,17 +10,15 @@ program test_cohesive_material
 !    Date      Programmer            Description of change
 !    ========  ====================  ========================================
 !    06/04/15  B. Y. Chen            Original code
+!    11/04/15  B. Y. Chen            added testing of cohesive_ig_point
 !
 !
 use parameter_module
-use cohesive_material_module, only : cohesive_modulus, cohesive_strength,   &
-                                   & cohesive_toughness, cohesive_material, &
-                                   & cohesive_sdv, empty, set, display,     &
-                                   & ddsdde
+use cohesive_material_module
 
 implicit none
 
-integer, parameter :: NST = 3
+integer, parameter :: NDIM=3, NST = 3
 
 ! declare variables:
 ! this
@@ -45,6 +43,10 @@ integer                       :: istat
 character(MSGLENGTH)          :: emsg
 real(DP)                      :: d_max
 
+type(cohesive_ig_point)         :: ig_point
+real(DP), allocatable           :: igx(:), igu(:), igstress(:), igstrain(:)
+type(cohesive_sdv), allocatable :: igsdv(:)
+
 character(len=20) :: display_fmt
 
 logical :: nofailure
@@ -61,6 +63,12 @@ d_max       = ZERO
 
 display_fmt = ''
 nofailure   = .false.
+
+allocate(igx(NDIM),igu(NDIM),igstress(NST),igstrain(NST),igsdv(2))
+igx      = ZERO
+igu      = ZERO
+igstress = ZERO
+igstrain = ZERO
 
 ! define values of input modulus
 modulus%Dnn  = 1000000._DP
@@ -146,5 +154,36 @@ write(*,'(A)') 'display the status and message:'
 write(*,*) istat
 write(*,*) emsg
 write(*,'(A)') ''
+
+
+
+
+write(*,'(A)') ''
+write(*,'(A)') 'test cohesive_ig_point:'
+write(*,'(A)') ''
+write(*,'(A)') 'display the cohesive_ig_point before any update:'
+call display(ig_point)
+
+call update(ig_point, istat=istat, emsg=emsg, x=igx, u=igu)
+if(istat == STAT_FAILURE) then
+  write(*,*) emsg
+  return
+end if
+write(*,'(A)') 'display the cohesive_ig_point after updates on x and u:'
+call display(ig_point)
+
+call update(ig_point, istat=istat, emsg=emsg, stress=igstress, strain=igstrain, sdv=igsdv)
+if(istat == STAT_FAILURE) then
+  write(*,*) emsg
+  return
+end if
+write(*,'(A)') 'display the cohesive_ig_point after all updates:'
+call display(ig_point)
+
+call empty(ig_point)
+write(*,'(A)') 'display the cohesive_ig_point after being emptied:'
+call display(ig_point)
+
+
 
 end program test_cohesive_material

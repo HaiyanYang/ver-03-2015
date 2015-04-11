@@ -31,10 +31,10 @@ type, public :: global_matkey
   ! type components:
   ! matname           : user-given name from input
   ! mattype           : defined material types: lamina or cohesive
-  ! type_array_index  : index in the array of the material type
-  character(len=MATNAMELENGTH) :: matname           = ''  
-  character(len=MATTYPELENGTH) :: mattype           = ''  
-  integer                      :: type_array_index  = 0
+  ! type_list_index   : index in the array of the material type
+  character(len=MATNAMELENGTH) :: matname          = ''  
+  character(len=MATTYPELENGTH) :: mattype          = ''  
+  integer                      :: type_list_index  = 0
 end type
 
 interface empty
@@ -69,13 +69,13 @@ contains
     
     this%matname = ''
     this%mattype = ''
-    this%type_array_index = 0
+    this%type_list_index = 0
 
   end subroutine empty_global_matkey
 
 
 
-  pure subroutine set_global_matkey (this, matname, mattype, type_array_index, &
+  pure subroutine set_global_matkey (this, matname, mattype, type_list_index, &
   & istat, emsg)
   ! Purpose:
   ! this subroutine is used in the preprocessing to fill in the
@@ -88,7 +88,7 @@ contains
     type(global_matkey),      intent(inout) :: this
     character(len=*),         intent(in)    :: matname 
     character(len=*),         intent(in)    :: mattype 
-    integer,                  intent(in)    :: type_array_index
+    integer,                  intent(in)    :: type_list_index
     integer,                  intent(out)   :: istat
     character(len=MSGLENGTH), intent(out)   :: emsg
     
@@ -98,7 +98,7 @@ contains
     
     this%matname = matname
     this%mattype = mattype
-    this%type_array_index = type_array_index
+    this%type_list_index = type_list_index
     
     ! check this_mat properties
     call check_prop (this, istat, emsg)
@@ -139,12 +139,12 @@ contains
     end select
     
     
-    ! check the material type_array_index, see if it is legal
-    if (.not. (this%type_array_index > 0)) then
-    ! type array index must be larger than 0
+    ! check the material type_list_index, see if it is legal
+    if (.not. (this%type_list_index > 0)) then
+    ! type list index must be larger than 0
     ! flag error status and message and exit
       istat = STAT_FAILURE
-      emsg  = 'material type array index must be > 0, global_matkey_module'
+      emsg  = 'material type list index must be > 0, global_matkey_module'
       return
     end if
   
@@ -153,17 +153,17 @@ contains
 
 
   pure subroutine extract_global_matkey (this, matname, mattype, &
-  & type_array_index)
+  & type_list_index)
   ! Purpose:
   ! this subroutine is used anywhere to extract material information
     type(global_matkey),                    intent(in)  :: this
     character(len=MATNAMELENGTH), optional, intent(out) :: matname 
     character(len=MATTYPELENGTH), optional, intent(out) :: mattype 
-    integer,                      optional, intent(out) :: type_array_index
+    integer,                      optional, intent(out) :: type_list_index
     
-    if (present(matname))           matname = this%matname
-    if (present(mattype))           mattype = this%mattype
-    if (present(type_array_index))  type_array_index = this%type_array_index
+    if (present(matname))          matname = this%matname
+    if (present(mattype))          mattype = this%mattype
+    if (present(type_list_index))  type_list_index = this%type_list_index
 
   end subroutine extract_global_matkey
   
@@ -190,8 +190,8 @@ contains
     ! A for string, I for integer, 2 for width of the number
     display_fmt = '(1X, A, I10)' 
     
-    write(*,display_fmt) "the material's index in its type array is: ",&
-    &this%type_array_index
+    write(*,display_fmt) "the material's index in its type list is: ",&
+    &this%type_list_index
     write(*,'(1X, A)') ''
 
   end subroutine display_global_matkey

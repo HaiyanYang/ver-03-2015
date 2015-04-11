@@ -1,36 +1,31 @@
-    !***************************************!                  
-    !   the global library of materials     !                  
-    !***************************************!                  
-                                                               
-    include "materials/isotropic_type_module.f90"              
-    include "materials/lamina_type_module.f90"                 
-    include "materials/interface_type_module.f90"              
-    include "materials/material_module.f90"                    
-                                                               
-    module lib_mat_module                                      
-    use parameter_module                                       
-    use isotropic_type_module                                  
-    use lamina_type_module                                     
-    use interface_type_module                                  
-    use material_module                                        
-                                                               
-    implicit none                                              
-    save                                                       
-                                                               
-    type(material),       allocatable    :: lib_mat(:)         
-    type(isotropic_type), allocatable    :: lib_iso(:)         
-    type(lamina_type),    allocatable    :: lib_lamina(:)      
-    type(interface_type), allocatable    :: lib_interface(:)   
-    
-    contains
-    
-    subroutine empty_lib_mat()  
-                              
-    if(allocated(lib_mat)) deallocate(lib_mat)
-    if(allocated(lib_iso)) deallocate(lib_iso)
-    if(allocated(lib_lamina)) deallocate(lib_lamina)
-    if(allocated(lib_interface)) deallocate(lib_interface)
+!***************************************!                  
+!   the global library of materials     !                  
+!***************************************!                  
+                                                                      
+include "materials/lamina_material_module.f90"                 
+include "materials/cohesive_material_module.f90"              
+include "materials/global_matkey_module.f90"                    
+                                                           
+module lib_mat_module                                      
+use lamina_material_module                                     
+use cohesive_material_module                                  
+use global_matkey_module                                        
+                                                           
+implicit none                                              
+save                                                       
+                                                           
+type(global_matkey),     allocatable :: list_matkey(:)
+type(lamina_material),   allocatable :: list_lamina_mat(:)
+type(cohesive_material), allocatable :: list_cohesive_mat(:)   
 
-    end subroutine empty_lib_mat
-    
-    end module lib_mat_module                  
+contains
+
+  subroutine empty_lib_mat()  
+                            
+    if(allocated(list_matkey))       deallocate(list_matkey)
+    if(allocated(list_lamina_mat))   deallocate(list_lamina_mat)
+    if(allocated(list_cohesive_mat)) deallocate(list_cohesive_mat)
+
+  end subroutine empty_lib_mat
+
+end module lib_mat_module                  

@@ -1,16 +1,22 @@
 module lamina_material_module
 !
 !  Purpose:
+!    for 3D problems only
 !    define an object to represent a lamina material
 !    with the associated procedures to empty, set, and display
 !    its components, to integrate local stiffness matrix, and
 !    to update local solution-dependent variables (damage variables)
+!    
+!    this module also defines an integration point object of this material
+!    and its associated procedures empty, update, extract and display
 !    
 !
 !  Record of revision:
 !    Date      Programmer            Description of change
 !    ========  ====================  ========================================
 !    30/03/15  B. Y. Chen            Original code
+!    11/04/15  B. Y. Chen            Added lamina_ig_point object and its assoc.
+!                                    procedures
 !
 
 ! list out ALL the parameter used, no matter how long:
@@ -32,32 +38,41 @@ use parameter_module, only : DP, ZERO, ONE, TWO, SMALLNUM, RESIDUAL_MODULUS, &
 implicit none
 private
 
+! define private module parameters:
+! - NDIM : no. of dimension
+! - NST  : no. of stress/strain components
+integer, parameter :: NDIM = 3, NST = 6
+
 ! elastic moduli, standard notations
 type, public :: lamina_modulus
   real(DP) :: E1   = ZERO, E2   = ZERO 
   real(DP) :: G12  = ZERO, G23  = ZERO
   real(DP) :: nu12 = ZERO, nu23 = ZERO
-end type
+end type lamina_modulus
+
 
 ! strength properties (Hashin or Pinho criterion)
 type, public :: lamina_strength
   real(DP) :: Xt = ZERO, Xc = ZERO ! fibre tens. & comp. strengths
   real(DP) :: Yt = ZERO, Yc = ZERO ! matrix tens. & comp. strengths
   real(DP) :: Sl = ZERO, St = ZERO ! matrix long. & trans. shear strengths
-end type
+end type lamina_strength
+
 
 ! fibre toughness properties
 ! mode I toughness, tensile (GfcT) and compressive (GfcC)
 type, public :: lamina_fibreToughness
   real(DP) :: GfcT = ZERO, GfcC = ZERO 
-end type
+end type lamina_fibreToughness
+
 
 ! lamina material object definition
 type, public :: lamina_material
   type(lamina_modulus)          :: modulus
   type(lamina_strength)         :: strength
   type(lamina_fibreToughness)   :: fibreToughness
-end type
+end type lamina_material
+
 
 ! lamina material solution-dependent variables
 ! df     : fibre modulus degradation factor
@@ -68,31 +83,51 @@ end type
 type, public :: lamina_sdv
   real(DP) :: df    = ZERO,   u0     = ZERO,   uf     = ZERO
   integer  :: fstat = INTACT, ffstat = INTACT, mfstat = INTACT
-end type
+end type lamina_sdv
+
+
+! lamina material integration point object
+! stores everything needed for the integration of lamina material in elements
+type, public :: lamina_ig_point
+  private
+  real(DP), allocatable :: x(:)       ! physical coordinates
+  real(DP), allocatable :: u(:)       ! displacement
+  real(DP), allocatable :: stress(:)  ! stress for output
+  real(DP), allocatable :: strain(:)  ! strain for output
+  type(lamina_sdv), allocatable :: sdv(:) ! sdv
+end type lamina_ig_point
+
 
 interface empty
   module procedure empty_lamina
-end interface
+  module procedure empty_lamina_ig_point
+end interface empty
 
 interface set
   module procedure set_lamina
-end interface
+end interface set
 
 interface display
   module procedure display_lamina
-end interface
-
-interface display
-    module procedure display_lamina_sdv
-end interface
+  module procedure display_lamina_sdv
+  module procedure display_lamina_ig_point
+end interface display
 
 interface ddsdde
-    module procedure ddsdde_lamina
-    module procedure ddsdde_lamina_intact
-end interface
+  module procedure ddsdde_lamina
+  module procedure ddsdde_lamina_intact
+end interface ddsdde
+
+interface update
+  module procedure update_lamina_ig_point
+end interface update
+
+interface extract
+  module procedure extract_lamina_ig_point
+end interface extract
 
 
-public :: empty, set, display, ddsdde
+public :: empty, set, display, ddsdde, update, extract
 
 
 
@@ -356,21 +391,21 @@ contains
     ! check validity of dummy arguments with intent(in) or (inout)
     
     ! check dee, stress and strain size
-    if (.not. (size(dee(:,1)) == 6 .and. size(dee(1,:)) == 6)) then
+    if (.not. (size(dee(:,1)) == NST .and. size(dee(1,:)) == NST)) then
       istat = STAT_FAILURE
       emsg  = 'size of dee is not supported for ddsdde_lamina, &
       &lamina_material_module!'
       return
     end if
     
-    if (.not. (size(stress) == 6)) then
+    if (.not. (size(stress) == NST)) then
       istat = STAT_FAILURE
       emsg  = 'size of stress is not supported for ddsdde_lamina, &
       &lamina_material_module!'
       return
     end if
     
-    if (.not. (size(strain) == 6)) then
+    if (.not. (size(strain) == NST)) then
       istat = STAT_FAILURE
       emsg  = 'size of strain is not supported for ddsdde_lamina, &
       &lamina_material_module!'
@@ -447,21 +482,21 @@ contains
     ! check validity of dummy arguments with intent(in) or (inout)
     
     ! check dee, stress and strain size
-    if (.not. (size(dee(:,1)) == 6 .and. size(dee(1,:)) == 6)) then
+    if (.not. (size(dee(:,1)) == NST .and. size(dee(1,:)) == NST)) then
       istat = STAT_FAILURE
       emsg  = 'size of dee is not supported for ddsdde_lamina, &
       &lamina_material_module!'
       return
     end if
     
-    if (.not. (size(stress) == 6)) then
+    if (.not. (size(stress) == NST)) then
       istat = STAT_FAILURE
       emsg  = 'size of stress is not supported for ddsdde_lamina, &
       &lamina_material_module!'
       return
     end if
     
-    if (.not. (size(strain) == 6)) then
+    if (.not. (size(strain) == NST)) then
       istat = STAT_FAILURE
       emsg  = 'size of strain is not supported for ddsdde_lamina, &
       &lamina_material_module!'
@@ -1120,6 +1155,277 @@ contains
     
   end subroutine matrix_failure_criterion_3d
     
+  
+
+
+! the rest are standard procedures associated with the lamina_ig_point object
+
+
+
+  pure subroutine empty_lamina_ig_point (ig_point)
+  
+    type(lamina_ig_point), intent(inout) :: ig_point
     
+    if(allocated(ig_point%x))       deallocate(ig_point%x)
+    if(allocated(ig_point%u))       deallocate(ig_point%u)
+    if(allocated(ig_point%stress))  deallocate(ig_point%stress)
+    if(allocated(ig_point%strain))  deallocate(ig_point%strain)
+    if(allocated(ig_point%sdv))     deallocate(ig_point%sdv)
+
+  end subroutine empty_lamina_ig_point
+
+
+
+  pure subroutine update_lamina_ig_point (ig_point, istat, emsg, x, u, &
+  & stress, strain, sdv)
+  
+      type(lamina_ig_point),      intent(inout) :: ig_point
+      integer,                    intent(out)   :: istat
+      character(len=MSGLENGTH),   intent(out)   :: emsg
+      real(DP),         optional, intent(in)    :: x(:), u(:)
+      real(DP),         optional, intent(in)    :: stress(:), strain(:)
+      type(lamina_sdv), optional, intent(in)    :: sdv(:)
+      
+      ! initialize intent(out) & local variables
+      istat = STAT_SUCCESS  ! default
+      emsg  = ''
+      
+      if(present(x)) then
+        if(size(x) /= NDIM) then
+          istat = STAT_FAILURE
+          emsg = 'dimension of x is incorrect for lamina_ig_point, &
+          &lamina_material_module'
+          return
+        end if
+        if(allocated(ig_point%x)) then
+          if(size(x)==size(ig_point%x)) then
+            ig_point%x=x
+          else
+            deallocate(ig_point%x)
+            allocate(ig_point%x(size(x)))
+            ig_point%x=x
+          end if
+        else
+          allocate(ig_point%x(size(x)))
+          ig_point%x=x
+        end if
+      end if 
+
+      if(present(u)) then
+        if(size(u) /= NDIM) then
+          istat = STAT_FAILURE
+          emsg = 'dimension of u is incorrect for lamina_ig_point, &
+          &lamina_material_module'
+          return
+        end if
+        if(allocated(ig_point%u)) then
+          if(size(u)==size(ig_point%u)) then
+            ig_point%u=u
+          else
+            deallocate(ig_point%u)
+            allocate(ig_point%u(size(u)))
+            ig_point%u=u
+          end if
+        else
+          allocate(ig_point%u(size(u)))
+          ig_point%u=u
+        end if
+      end if
+      
+      if(present(stress)) then
+        if(size(stress) /= NST) then
+          istat = STAT_FAILURE
+          emsg = 'dimension of stress is incorrect for lamina_ig_point, &
+          &lamina_material_module'
+          return
+        end if
+        if(allocated(ig_point%stress)) then
+          if(size(stress)==size(ig_point%stress)) then
+            ig_point%stress=stress
+          else
+            deallocate(ig_point%stress)
+            allocate(ig_point%stress(size(stress)))
+            ig_point%stress=stress
+          end if
+        else
+          allocate(ig_point%stress(size(stress)))
+          ig_point%stress=stress
+        end if
+      end if 
+      
+      if(present(strain)) then
+        if(size(strain) /= NST) then
+          istat = STAT_FAILURE
+          emsg = 'dimension of strain is incorrect for lamina_ig_point, &
+          &lamina_material_module'
+          return
+        end if
+        if(allocated(ig_point%strain)) then
+          if(size(strain)==size(ig_point%strain)) then
+            ig_point%strain=strain
+          else
+            deallocate(ig_point%strain)
+            allocate(ig_point%strain(size(strain)))
+            ig_point%strain=strain
+          end if
+        else
+          allocate(ig_point%strain(size(strain)))
+          ig_point%strain=strain
+        end if
+      end if    
+
+      if(present(sdv)) then        
+        if(allocated(ig_point%sdv)) then
+          if(size(sdv)==size(ig_point%sdv)) then
+            ig_point%sdv=sdv
+          else
+            deallocate(ig_point%sdv)
+            allocate(ig_point%sdv(size(sdv)))
+            ig_point%sdv=sdv
+          end if
+        else
+          allocate(ig_point%sdv(size(sdv)))
+          ig_point%sdv=sdv
+        end if
+      end if
+
+  end subroutine update_lamina_ig_point
+
+
+
+  pure subroutine extract_lamina_ig_point (ig_point, x, u, stress, strain, sdv)
+  
+      type(lamina_ig_point),           intent(in)  :: ig_point
+      real(DP), allocatable, optional, intent(out) :: x(:), u(:)
+      real(DP), allocatable, optional, intent(out) :: stress(:), strain(:)
+      type(lamina_sdv), allocatable, optional, intent(out) :: sdv(:)
+       
+      
+      if(present(x)) then        
+          if(allocated(ig_point%x)) then
+              allocate(x(size(ig_point%x)))
+              x=ig_point%x
+          end if
+      end if
+      
+      if(present(u)) then        
+          if(allocated(ig_point%u)) then
+              allocate(u(size(ig_point%u)))
+              u=ig_point%u
+          end if
+      end if
+      
+      if(present(stress)) then        
+          if(allocated(ig_point%stress)) then
+              allocate(stress(size(ig_point%stress)))
+              stress=ig_point%stress
+          end if
+      end if 
+      
+      if(present(strain)) then        
+          if(allocated(ig_point%strain)) then
+              allocate(strain(size(ig_point%strain)))
+              strain=ig_point%strain
+          end if
+      end if
+              
+      if(present(sdv)) then        
+          if(allocated(ig_point%sdv)) then
+              allocate(sdv(size(ig_point%sdv)))
+              sdv=ig_point%sdv
+          end if
+      end if
+
+  end subroutine extract_lamina_ig_point
+
+
+  
+  subroutine display_lamina_ig_point (this)
+  ! Purpose:
+  ! to display this lamina_ig_point's components on cmd window
+  ! this is useful for debugging
+  
+    type(lamina_ig_point), intent(in) :: this
+  
+    ! local variable to set the output format
+    character(len=20) :: display_fmt
+    integer           :: i
+    
+    ! initialize local variable
+    display_fmt = '' 
+    i = 0
+
+    ! set display format for real
+    ! ES for real (scientific notation)
+    ! 10 is width, 3 is no. of digits aft decimal point
+    ! note that for scientific real, ESw.d, w>=d+7
+    display_fmt = '(ES10.3)' 
+    
+    write(*,'(1X, A)') ''
+    write(*,'(1X, A)') 'Display the components of the inquired lamina_ig_point &
+                       &object :'
+    write(*,'(1X, A)') ''
+    
+    write(*,'(1X, A)') '- x of this lamina_ig_point is: '
+    if (allocated(this%x)) then
+      do i = 1, size(this%x)
+        write(*,display_fmt,advance="no") this%x(i) 
+      end do
+      write(*,'(1X, A)') ''
+    else
+      write(*,'(1X, A)') 'x of this lamina_ig_point is not allocated'
+    end if
+    write(*,'(1X, A)') ''
+    
+    write(*,'(1X, A)') '- u of this lamina_ig_point is: '
+    if (allocated(this%u)) then
+      do i = 1, size(this%u)
+        write(*,display_fmt,advance="no") this%u(i)
+      end do
+      write(*,'(1X, A)') ''
+    else
+      write(*,'(1X, A)') 'u of this lamina_ig_point is not allocated'
+    end if
+    write(*,'(1X, A)') ''
+
+    write(*,'(1X, A)') '- stress of this lamina_ig_point is: '
+    if (allocated(this%stress)) then
+      do i = 1, size(this%stress)
+        write(*,display_fmt,advance="no") this%stress(i)
+      end do
+      write(*,'(1X, A)') ''
+    else
+      write(*,'(1X, A)') 'stress of this lamina_ig_point is not allocated'
+    end if
+    write(*,'(1X, A)') ''
+    
+    write(*,'(1X, A)') '- strain of this lamina_ig_point is: '
+    if (allocated(this%strain)) then
+      do i = 1, size(this%strain)
+        write(*,display_fmt,advance="no") this%strain(i)
+      end do
+      write(*,'(1X, A)') ''
+    else
+      write(*,'(1X, A)') 'strain of this lamina_ig_point is not allocated'
+    end if
+    write(*,'(1X, A)') ''
+    
+    write(*,'(1X, A)') '- lamina_sdv of this lamina_ig_point is: '
+    if (allocated(this%sdv)) then
+      do i = 1, size(this%sdv)
+        call display_lamina_sdv(this%sdv(i))
+      end do
+      write(*,'(1X, A)') ''
+    else
+      write(*,'(1X, A)') 'lamina_sdv of this lamina_ig_point is not allocated'
+    end if
+    write(*,'(1X, A)') ''
+  
+  end subroutine display_lamina_ig_point
+  
+  
+
+
+
     
 end module lamina_material_module

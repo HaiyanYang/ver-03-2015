@@ -3,7 +3,7 @@ module xnode_module
 !  Purpose:
 !   this module defines an extended node object, which contains coordinates,
 !   displacement and its increment, velocity, acceleration, and extra dof and
-!   its increment, ddof
+!   its increment, ddof; this module can be used for analysis of any dimension
 !
 !  Record of revision:
 !    Date      Programmer            Description of change
@@ -316,11 +316,12 @@ contains
     if(present(du)) then
       ! check if du dimension matches u dimension
       if(.not.allocated(this_xnode%u)) then
-        emsg = "**u must be allocated before du in update_xnode**"
+        emsg = "u must be allocated before du in update_xnode, xnode module"
         istat = STAT_FAILURE
         return
       else if(size(du)/=size(this_xnode%u)) then
-        emsg = "**du size must be consistent with u size in update_xnode**"
+        emsg = "du size must be consistent with u size in update_xnode,&
+        &xnode module"
         istat = STAT_FAILURE
         return
       end if           
@@ -343,11 +344,12 @@ contains
     if(present(v)) then
       ! check if v dimension matches u dimension
       if(.not.allocated(this_xnode%u)) then
-        emsg = "**u must be allocated before v in update_xnode**"
+        emsg = "u must be allocated before v in update_xnode, xnode module"
         istat = STAT_FAILURE
         return
       else if(size(v)/=size(this_xnode%u)) then
-        emsg = "**v size must be consistent with u size in update_xnode**"
+        emsg = "v size must be consistent with u size in update_xnode, &
+        &xnode module"
         istat = STAT_FAILURE
         return
       end if           
@@ -370,11 +372,12 @@ contains
     if(present(a)) then
       ! check if a dimension matches v dimension
       if(.not.allocated(this_xnode%v)) then
-        emsg = "**v must be allocated before a in update_xnode**"
+        emsg = "v must be allocated before a in update_xnode, xnode module"
         istat = STAT_FAILURE
         return
       else if(size(a)/=size(this_xnode%v)) then
-        emsg = "**a size must be consistent with v size in update_xnode**"
+        emsg = "a size must be consistent with v size in update_xnode, &
+        &xnode module"
         istat = STAT_FAILURE
         return
       end if           
@@ -413,11 +416,12 @@ contains
     if(present(ddof)) then
       ! check if ddof dimension matches dof dimension
       if(.not.allocated(this_xnode%dof)) then
-        emsg = "**dof must be allocated before ddof in update_xnode**"
+        emsg = "dof must be allocated before ddof in update_xnode, xnode module"
         istat = STAT_FAILURE
         return
       else if(size(ddof)/=size(this_xnode%dof)) then
-        emsg = "**ddof size must be consistent with dof size in update_xnode**"
+        emsg = "ddof size must be consistent with dof size in update_xnode, &
+        &xnode module"
         istat = STAT_FAILURE
         return
       end if           

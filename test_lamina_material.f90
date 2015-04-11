@@ -10,16 +10,15 @@ program test_lamina_material
 !    Date      Programmer            Description of change
 !    ========  ====================  ========================================
 !    03/04/15  B. Y. Chen            Original code
+!    11/04/15  B. Y. Chen            added testing of lamina_ig_point
 !
 !
 use parameter_module
-use lamina_material_module, only : lamina_modulus, lamina_strength,        &
-                                 & lamina_fibreToughness, lamina_material, &
-                                 & lamina_sdv, empty, set, display, ddsdde
+use lamina_material_module
 
 implicit none
 
-integer, parameter :: NST = 6
+integer, parameter :: NDIM=3, NST = 6
 
 ! declare variables:
 ! this
@@ -46,6 +45,10 @@ integer                       :: istat
 character(MSGLENGTH)          :: emsg
 real(DP)                      :: d_max
 
+type(lamina_ig_point)         :: ig_point
+real(DP), allocatable         :: igx(:), igu(:), igstress(:), igstrain(:)
+type(lamina_sdv), allocatable :: igsdv(:)
+
 character(len=20) :: display_fmt
 
 logical :: nofailure
@@ -63,6 +66,12 @@ d_max   = ZERO
 
 display_fmt = ''
 nofailure   = .false.
+
+allocate(igx(NDIM),igu(NDIM),igstress(NST),igstrain(NST),igsdv(2))
+igx      = ZERO
+igu      = ZERO
+igstress = ZERO
+igstrain = ZERO
 
 ! define values of input modulus
 modulus%E1   = 161000._DP
@@ -157,5 +166,31 @@ write(*,'(A)') 'display the status and message:'
 write(*,*) istat
 write(*,*) emsg
 write(*,'(A)') ''
+
+write(*,'(A)') ''
+write(*,'(A)') 'test lamina_ig_point:'
+write(*,'(A)') ''
+write(*,'(A)') 'display the lamina_ig_point before any update:'
+call display(ig_point)
+
+call update(ig_point, istat=istat, emsg=emsg, x=igx, u=igu)
+if(istat == STAT_FAILURE) then
+  write(*,*) emsg
+  return
+end if
+write(*,'(A)') 'display the lamina_ig_point after updates on x and u:'
+call display(ig_point)
+
+call update(ig_point, istat=istat, emsg=emsg, stress=igstress, strain=igstrain, sdv=igsdv)
+if(istat == STAT_FAILURE) then
+  write(*,*) emsg
+  return
+end if
+write(*,'(A)') 'display the lamina_ig_point after all updates:'
+call display(ig_point)
+
+call empty(ig_point)
+write(*,'(A)') 'display the lamina_ig_point after being emptied:'
+call display(ig_point)
 
 end program test_lamina_material
