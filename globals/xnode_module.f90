@@ -41,6 +41,10 @@ interface extract
   module procedure extract_xnode
 end interface
 
+interface display
+  module procedure display_xnode
+end interface
+
 interface operator(+)
   module procedure plus_xnode
 end interface
@@ -54,7 +58,8 @@ interface operator(*)
 end interface
 
 
-public :: empty, update, extract, operator(+), operator(-), operator(*)
+public :: empty, update, extract, display, &
+        & operator(+), operator(-), operator(*)
 
 
 
@@ -65,8 +70,10 @@ contains
 
   
   pure subroutine empty_xnode(this_xnode)
+  ! Purpose:
+  ! to deallocate all the components of this object
   
-    type(xnode), intent(out) :: this_xnode
+    type(xnode), intent(inout) :: this_xnode
     
     if(allocated(this_xnode%x))     deallocate(this_xnode%x)
     if(allocated(this_xnode%u))     deallocate(this_xnode%u)
@@ -81,6 +88,8 @@ contains
 
   
   pure function plus_xnode(xnode1, xnode2) result(xnode3)
+  ! Purpose:
+  ! to add two xnode objects, component by component
   
     type(xnode), intent(in) :: xnode1, xnode2
     type(xnode)             :: xnode3
@@ -142,6 +151,8 @@ contains
 
   
   pure function minus_xnode(xnode1, xnode2) result(xnode3)
+  ! Purpose:
+  ! to subtract two xnode objects (second from first), component by component
   
     type(xnode), intent(in) :: xnode1, xnode2
     type(xnode)             :: xnode3
@@ -204,6 +215,8 @@ contains
 
   
   pure function ratio_xnode(r, xnode1) result(xnode3)
+  ! Purpose:
+  ! to multiply all the components of an xnode object by a constant
   
     type(xnode), intent(in) :: xnode1
     real(DP),    intent(in) :: r
@@ -255,7 +268,8 @@ contains
   ! Purpose:
   ! to update the components of this xnode; it is used both before and during
   ! analysis to set the initial component values and update the runtime 
-  ! component values, respectively.
+  ! component values, respectively. status and error messages are needed to 
+  ! flag an error when inputs are not valid
   
     type(xnode),              intent(inout) :: this_xnode
     integer,                  intent(out)   :: istat
@@ -427,6 +441,8 @@ contains
   
 
   pure subroutine extract_xnode (this_xnode, x, u, du, v, a, dof, ddof)
+  ! Purpose:
+  ! to extract all the components of this xnode
   
     type(xnode),                     intent(in)  :: this_xnode
     real(DP), allocatable, optional, intent(out) :: x(:),  u(:)
@@ -487,6 +503,115 @@ contains
 end subroutine extract_xnode 
   
   
+
+  
+  subroutine display_xnode (this)
+  ! Purpose:
+  ! to display this xnode object's components on cmd window
+  ! this is useful for debugging
+ 
+    type(xnode), intent(in) :: this
+    
+    ! local variable to set the output format
+    character(len=20) :: display_fmt
+    integer :: i
+    
+    ! initialize local variable
+    display_fmt = ''
+    i = 0
+
+    ! set display format for real
+    ! ES for real (scientific notation)
+    ! 10 is width, 3 is no. of digits aft decimal point
+    ! note that for scientific real, ESw.d, w>=d+7
+    display_fmt = '(ES10.3)' 
+    
+    write(*,'(1X, A)') ''
+    write(*,'(1X, A)') 'Display the components of the inquired xnode object :'
+    write(*,'(1X, A)') ''
+    
+    write(*,'(1X, A)') '- x of this node is: '
+    if (allocated(this%x)) then
+      do i = 1, size(this%x)
+        write(*,display_fmt,advance="no") this%x(i) 
+      end do
+      write(*,'(1X, A)') ''
+    else
+      write(*,'(1X, A)') 'x of this node is not allocated'
+    end if
+    write(*,'(1X, A)') ''
+    
+    write(*,'(1X, A)') '- u of this node is: '
+    if (allocated(this%u)) then
+      do i = 1, size(this%u)
+        write(*,display_fmt,advance="no") this%u(i)
+      end do
+      write(*,'(1X, A)') ''
+    else
+      write(*,'(1X, A)') 'u of this node is not allocated'
+    end if
+    write(*,'(1X, A)') ''
+
+    write(*,'(1X, A)') '- du of this node is: '
+    if (allocated(this%du)) then
+      do i = 1, size(this%du)
+        write(*,display_fmt,advance="no") this%du(i)
+      end do
+      write(*,'(1X, A)') ''
+    else
+      write(*,'(1X, A)') 'du of this node is not allocated'
+    end if
+    write(*,'(1X, A)') ''
+    
+    write(*,'(1X, A)') '- v of this node is: '
+    if (allocated(this%v)) then
+      do i = 1, size(this%v)
+        write(*,display_fmt,advance="no") this%v(i)
+      end do
+      write(*,'(1X, A)') ''
+    else
+      write(*,'(1X, A)') 'v of this node is not allocated'
+    end if
+    write(*,'(1X, A)') ''
+    
+    write(*,'(1X, A)') '- a of this node is: '
+    if (allocated(this%a)) then
+      do i = 1, size(this%a)
+        write(*,display_fmt,advance="no") this%a(i)
+      end do
+      write(*,'(1X, A)') ''
+    else
+      write(*,'(1X, A)') 'a of this node is not allocated'
+    end if
+    write(*,'(1X, A)') ''
+    
+    write(*,'(1X, A)') '- dof of this node is: '
+    if (allocated(this%dof)) then
+      do i = 1, size(this%dof)
+        write(*,display_fmt,advance="no") this%dof(i)
+      end do
+      write(*,'(1X, A)') ''
+    else
+      write(*,'(1X, A)') 'dof of this node is not allocated'
+    end if
+    write(*,'(1X, A)') ''
+    
+    write(*,'(1X, A)') '- ddof of this node is: '
+    if (allocated(this%ddof)) then
+      do i = 1, size(this%ddof)
+        write(*,display_fmt,advance="no") this%ddof(i)
+      end do
+      write(*,'(1X, A)') ''
+    else
+      write(*,'(1X, A)') 'ddof of this node is not allocated'
+    end if
+    write(*,'(1X, A)') ''
+
+  end subroutine display_xnode
+  
+  
+
+
 
 
 end module xnode_module
