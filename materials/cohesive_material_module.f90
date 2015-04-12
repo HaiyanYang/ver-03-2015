@@ -31,19 +31,17 @@ module cohesive_material_module
 ! INTACT            : integer value for generic intact state
 ! COH_MAT_ONSET     : integer value for cohesive material failure onset state
 ! COH_MAT_FAILED    : integer value for cohesive material total failure state
+! NDIM              : no. of dimensions
+! NST               : no. of stress (traction) terms
 use parameter_module, only : DP, ZERO, ONE, TWO, HALF,              &
                            & SMALLNUM, RESIDUAL_MODULUS,            &
                            & MSGLENGTH, STAT_SUCCESS, STAT_FAILURE, &
-                           & INTACT, COH_MAT_ONSET, COH_MAT_FAILED
+                           & INTACT, COH_MAT_ONSET, COH_MAT_FAILED, &
+                           & NDIM, NST => NST_COHESIVE
 
 
 implicit none
 private
-
-! define private module parameters
-! - NDIM : no. of dimension
-! - NST  : no. of stress/strain components
-integer, parameter :: NDIM = 3, NST = 3
 
 ! penalty stiffness, normal and two shear directions
 type,public :: cohesive_modulus
@@ -90,11 +88,12 @@ end type cohesive_sdv
 ! stores everything needed for the integration of cohesive material in elements
 type, public :: cohesive_ig_point
   private
-  real(DP), allocatable :: x(:)       ! physical coordinates
-  real(DP), allocatable :: u(:)       ! displacement
-  real(DP), allocatable :: stress(:)  ! stress for output
-  real(DP), allocatable :: strain(:)  ! strain for output
-  type(cohesive_sdv), allocatable :: sdv(:) ! sdv
+  real(DP) :: x(NDIM)         = ZERO ! physical coordinates
+  real(DP) :: u(NDIM)         = ZERO ! displacement
+  real(DP) :: traction(NST)   = ZERO ! traction for output
+  real(DP) :: separation(NST) = ZERO ! separation for output
+  type(cohesive_sdv) :: equilibrium_sdv ! sdv at incremental equilibrium
+  type(cohesive_sdv) :: iterating_sdv   ! sdv during iterations
 end type cohesive_ig_point
 
 
@@ -267,7 +266,7 @@ contains
 
 
   
-  subroutine display_cohesive(this)
+  subroutine display_cohesive (this)
   ! Purpose:
   ! to display this cohesive object's components on cmd window
   ! this is useful for debugging
@@ -308,7 +307,7 @@ contains
   
   
   
-  subroutine display_cohesive_sdv(this_sdv)
+  subroutine display_cohesive_sdv (this_sdv)
   ! Purpose:
   ! to display this cohesive_sdv's components on cmd window
   ! this is useful for debugging
@@ -342,7 +341,6 @@ contains
   
   end subroutine display_cohesive_sdv
   
-
 
 
   pure subroutine ddsdde_cohesive_intact (this_mat, dee, traction, separation, &
@@ -406,8 +404,6 @@ contains
   end subroutine ddsdde_cohesive_intact 
   
  
-
-
 
   pure subroutine ddsdde_cohesive (this_mat, dee, traction, sdv, separation, &
   & istat, emsg, d_max)
@@ -1027,175 +1023,59 @@ contains
   
     type(cohesive_ig_point), intent(inout) :: ig_point
     
-    if(allocated(ig_point%x))       deallocate(ig_point%x)
-    if(allocated(ig_point%u))       deallocate(ig_point%u)
-    if(allocated(ig_point%stress))  deallocate(ig_point%stress)
-    if(allocated(ig_point%strain))  deallocate(ig_point%strain)
-    if(allocated(ig_point%sdv))     deallocate(ig_point%sdv)
-
+    ! local varibale; derived type is initialized upon declaration
+    type(cohesive_ig_point) :: ig_point_lcl
+    
+    ! reset the dummy arg. to initial values
+    ig_point = ig_point_lcl
+    
   end subroutine empty_cohesive_ig_point
 
 
 
-  pure subroutine update_cohesive_ig_point (ig_point, x, u, istat, emsg, &
-  & stress, strain, sdv)
-  
-      type(cohesive_ig_point),      intent(inout) :: ig_point
-      integer,                      intent(out)   :: istat
-      character(len=MSGLENGTH),     intent(out)   :: emsg
-      real(DP),           optional, intent(in)    :: x(:), u(:)
-      real(DP),           optional, intent(in)    :: stress(:), strain(:)
-      type(cohesive_sdv), optional, intent(in)    :: sdv(:)
-      
-      ! initialize intent(out) & local variables
-      istat = STAT_SUCCESS  ! default
-      emsg  = ''
-      
-      if(present(x)) then        
-        if(size(x) /= NDIM) then
-          istat = STAT_FAILURE
-          emsg = 'dimension of x is incorrect for cohesive_ig_point, &
-          &cohesive_material_module'
-          return
-        end if
-        if(allocated(ig_point%x)) then
-          if(size(x)==size(ig_point%x)) then
-            ig_point%x=x
-          else
-            deallocate(ig_point%x)
-            allocate(ig_point%x(size(x)))
-            ig_point%x=x
-          end if
-        else
-          allocate(ig_point%x(size(x)))
-          ig_point%x=x
-        end if
-      end if 
+  pure subroutine update_cohesive_ig_point (ig_point, x, u, &
+  & traction, separation, equilibrium_sdv, iterating_sdv)
 
-      if(present(u)) then        
-        if(size(u) /= NDIM) then
-          istat = STAT_FAILURE
-          emsg = 'dimension of u is incorrect for cohesive_ig_point, &
-          &cohesive_material_module'
-          return
-        end if
-        if(allocated(ig_point%u)) then
-          if(size(u)==size(ig_point%u)) then
-            ig_point%u=u
-          else
-            deallocate(ig_point%u)
-            allocate(ig_point%u(size(u)))
-            ig_point%u=u
-          end if
-        else
-          allocate(ig_point%u(size(u)))
-          ig_point%u=u
-        end if
-      end if
-      
-      if(present(stress)) then        
-        if(size(stress) /= NST) then
-          istat = STAT_FAILURE
-          emsg = 'dimension of stress is incorrect for cohesive_ig_point, &
-          &cohesive_material_module'
-          return
-        end if
-        if(allocated(ig_point%stress)) then
-          if(size(stress)==size(ig_point%stress)) then
-            ig_point%stress=stress
-          else
-            deallocate(ig_point%stress)
-            allocate(ig_point%stress(size(stress)))
-            ig_point%stress=stress
-          end if
-        else
-          allocate(ig_point%stress(size(stress)))
-          ig_point%stress=stress
-        end if
-      end if 
-      
-      if(present(strain)) then        
-        if(size(strain) /= NST) then
-          istat = STAT_FAILURE
-          emsg = 'dimension of strain is incorrect for cohesive_ig_point, &
-          &cohesive_material_module'
-          return
-        end if
-        if(allocated(ig_point%strain)) then
-          if(size(strain)==size(ig_point%strain)) then
-            ig_point%strain=strain
-          else
-            deallocate(ig_point%strain)
-            allocate(ig_point%strain(size(strain)))
-            ig_point%strain=strain
-          end if
-        else
-          allocate(ig_point%strain(size(strain)))
-          ig_point%strain=strain
-        end if
-      end if    
-
-      if(present(sdv)) then        
-        if(allocated(ig_point%sdv)) then
-          if(size(sdv)==size(ig_point%sdv)) then
-            ig_point%sdv=sdv
-          else
-            deallocate(ig_point%sdv)
-            allocate(ig_point%sdv(size(sdv)))
-            ig_point%sdv=sdv
-          end if
-        else
-          allocate(ig_point%sdv(size(sdv)))
-          ig_point%sdv=sdv
-        end if
-      end if
+    type(cohesive_ig_point),      intent(inout) :: ig_point
+    real(DP),           optional, intent(in)    :: x(NDIM), u(NDIM)
+    real(DP),           optional, intent(in)    :: traction(NST)
+    real(DP),           optional, intent(in)    :: separation(NST)
+    type(cohesive_sdv), optional, intent(in)    :: equilibrium_sdv
+    type(cohesive_sdv), optional, intent(in)    :: iterating_sdv
+    
+    if(present(x))                ig_point%x = x
+    if(present(u))                ig_point%u = u
+    if(present(traction))         ig_point%traction   = traction
+    if(present(separation))       ig_point%separation = separation
+    if(present(equilibrium_sdv))  ig_point%equilibrium_sdv = equilibrium_sdv
+    if(present(iterating_sdv))    ig_point%iterating_sdv   = iterating_sdv
 
   end subroutine update_cohesive_ig_point
 
 
 
-  pure subroutine extract_cohesive_ig_point (ig_point, x, u, stress, strain, sdv)
-  
-      type(cohesive_ig_point),         intent(in)  :: ig_point
-      real(DP), allocatable, optional, intent(out) :: x(:), u(:)
-      real(DP), allocatable, optional, intent(out) :: stress(:), strain(:)
-      type(cohesive_sdv), allocatable, optional, intent(out) :: sdv(:)
-       
-      
-      if(present(x)) then        
-          if(allocated(ig_point%x)) then
-              allocate(x(size(ig_point%x)))
-              x=ig_point%x
-          end if
-      end if
-      
-      if(present(u)) then        
-          if(allocated(ig_point%u)) then
-              allocate(u(size(ig_point%u)))
-              u=ig_point%u
-          end if
-      end if
-      
-      if(present(stress)) then        
-          if(allocated(ig_point%stress)) then
-              allocate(stress(size(ig_point%stress)))
-              stress=ig_point%stress
-          end if
-      end if 
-      
-      if(present(strain)) then        
-          if(allocated(ig_point%strain)) then
-              allocate(strain(size(ig_point%strain)))
-              strain=ig_point%strain
-          end if
-      end if
-              
-      if(present(sdv)) then        
-          if(allocated(ig_point%sdv)) then
-              allocate(sdv(size(ig_point%sdv)))
-              sdv=ig_point%sdv
-          end if
-      end if
+  pure subroutine extract_cohesive_ig_point (ig_point, x, u, &
+  & traction, separation, equilibrium_sdv, iterating_sdv)
+
+    type(cohesive_ig_point),      intent(in)  :: ig_point
+    real(DP),           optional, intent(out) :: x(NDIM), u(NDIM)
+    real(DP),           optional, intent(out) :: traction(NST), separation(NST)
+    type(cohesive_sdv), optional, intent(out) :: equilibrium_sdv
+    type(cohesive_sdv), optional, intent(out) :: iterating_sdv 
+    
+    ! initialize intent(out) variables
+    x = ZERO
+    u = ZERO
+    traction   = ZERO
+    separation = ZERO
+    ! derived types are automatically initialized upon declaration
+    
+    if(present(x))               x               = ig_point%x
+    if(present(u))               u               = ig_point%u
+    if(present(traction))        traction        = ig_point%traction
+    if(present(separation))      separation      = ig_point%separation
+    if(present(equilibrium_sdv)) equilibrium_sdv = ig_point%equilibrium_sdv
+    if(present(iterating_sdv))   iterating_sdv   = ig_point%iterating_sdv
 
   end subroutine extract_cohesive_ig_point
 
@@ -1228,58 +1108,39 @@ contains
     write(*,'(1X, A)') ''
     
     write(*,'(1X, A)') '- x of this cohesive_ig_point is: '
-    if (allocated(this%x)) then
-      do i = 1, size(this%x)
-        write(*,display_fmt,advance="no") this%x(i) 
-      end do
-      write(*,'(1X, A)') ''
-    else
-      write(*,'(1X, A)') 'x of this cohesive_ig_point is not allocated'
-    end if
+    do i = 1, NDIM
+      write(*,display_fmt,advance="no") this%x(i) 
+    end do
+    write(*,'(1X, A)') ''
     write(*,'(1X, A)') ''
     
     write(*,'(1X, A)') '- u of this cohesive_ig_point is: '
-    if (allocated(this%u)) then
-      do i = 1, size(this%u)
-        write(*,display_fmt,advance="no") this%u(i)
-      end do
-      write(*,'(1X, A)') ''
-    else
-      write(*,'(1X, A)') 'u of this cohesive_ig_point is not allocated'
-    end if
+    do i = 1, NDIM
+      write(*,display_fmt,advance="no") this%u(i)
+    end do
+    write(*,'(1X, A)') ''
     write(*,'(1X, A)') ''
 
-    write(*,'(1X, A)') '- stress of this cohesive_ig_point is: '
-    if (allocated(this%stress)) then
-      do i = 1, size(this%stress)
-        write(*,display_fmt,advance="no") this%stress(i)
-      end do
-      write(*,'(1X, A)') ''
-    else
-      write(*,'(1X, A)') 'stress of this cohesive_ig_point is not allocated'
-    end if
+    write(*,'(1X, A)') '- traction at this cohesive_ig_point is: '
+    do i = 1, NST
+      write(*,display_fmt,advance="no") this%traction(i)
+    end do
+    write(*,'(1X, A)') ''
     write(*,'(1X, A)') ''
     
-    write(*,'(1X, A)') '- strain of this cohesive_ig_point is: '
-    if (allocated(this%strain)) then
-      do i = 1, size(this%strain)
-        write(*,display_fmt,advance="no") this%strain(i)
-      end do
-      write(*,'(1X, A)') ''
-    else
-      write(*,'(1X, A)') 'strain of this cohesive_ig_point is not allocated'
-    end if
+    write(*,'(1X, A)') '- separation at this cohesive_ig_point is: '
+    do i = 1, NST
+      write(*,display_fmt,advance="no") this%separation(i)
+    end do
+    write(*,'(1X, A)') ''
     write(*,'(1X, A)') ''
     
-    write(*,'(1X, A)') '- cohesive_sdv of this cohesive_ig_point is: '
-    if (allocated(this%sdv)) then
-      do i = 1, size(this%sdv)
-        call display_cohesive_sdv(this%sdv(i))
-      end do
-      write(*,'(1X, A)') ''
-    else
-      write(*,'(1X, A)') 'cohesive_sdv of this cohesive_ig_point is not allocated'
-    end if
+    write(*,'(1X, A)') '- equilibrium cohesive_sdv of this cohesive_ig_point is:'
+    call display_cohesive_sdv(this%equilibrium_sdv)
+    write(*,'(1X, A)') ''
+
+    write(*,'(1X, A)') '- iterating cohesive_sdv of this cohesive_ig_point is: '
+    call display_cohesive_sdv(this%iterating_sdv)
     write(*,'(1X, A)') ''
   
   end subroutine display_cohesive_ig_point

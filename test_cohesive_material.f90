@@ -13,12 +13,10 @@ program test_cohesive_material
 !    11/04/15  B. Y. Chen            added testing of cohesive_ig_point
 !
 !
-use parameter_module
+use parameter_module, NST => NST_COHESIVE
 use cohesive_material_module
 
 implicit none
-
-integer, parameter :: NDIM=3, NST = 3
 
 ! declare variables:
 ! this
@@ -43,11 +41,12 @@ integer                       :: istat
 character(MSGLENGTH)          :: emsg
 real(DP)                      :: d_max
 
-type(cohesive_ig_point)         :: ig_point
-real(DP), allocatable           :: igx(:), igu(:), igstress(:), igstrain(:)
-type(cohesive_sdv), allocatable :: igsdv(:)
+type(cohesive_ig_point) :: ig_point
+real(DP)           :: igx(NDIM), igu(NDIM), igtract(NST), igsepar(NST)
+type(cohesive_sdv) :: igsdv1, igsdv2
 
 character(len=20) :: display_fmt
+character(len=10) :: cndim, cnst
 
 logical :: nofailure
 
@@ -62,13 +61,15 @@ emsg        = ''
 d_max       = ZERO
 
 display_fmt = ''
+cndim = ''
+cnst  = ''
+
 nofailure   = .false.
 
-allocate(igx(NDIM),igu(NDIM),igstress(NST),igstrain(NST),igsdv(2))
-igx      = ZERO
-igu      = ZERO
-igstress = ZERO
-igstrain = ZERO
+igx     = ZERO
+igu     = ZERO
+igtract = ZERO
+igsepar = ZERO
 
 ! define values of input modulus
 modulus%Dnn  = 1000000._DP
@@ -94,6 +95,9 @@ separation(3) = 0.02_DP
 ! define d_max
 d_max = ONE
 
+! store ndim and nst as strings in cndim and cnst
+write(cndim,'(i5)') NDIM
+write(cnst,'(i5)') NST
 
 ! call all public procedures, test their correctness
 
@@ -164,21 +168,46 @@ write(*,'(A)') ''
 write(*,'(A)') 'display the cohesive_ig_point before any update:'
 call display(ig_point)
 
-call update(ig_point, istat=istat, emsg=emsg, x=igx, u=igu)
-if(istat == STAT_FAILURE) then
-  write(*,*) emsg
-  return
-end if
+igx = ONE
+igu = ONE
+
+call update(ig_point, x=igx, u=igu)
 write(*,'(A)') 'display the cohesive_ig_point after updates on x and u:'
 call display(ig_point)
 
-call update(ig_point, istat=istat, emsg=emsg, stress=igstress, strain=igstrain, sdv=igsdv)
-if(istat == STAT_FAILURE) then
-  write(*,*) emsg
-  return
-end if
+igtract = ONE
+igsepar = ONE
+igsdv1=cohesive_sdv(dm=0.5_DP, u0=0.5_DP, uf=1.5_DP, fstat=COH_MAT_ONSET)
+igsdv2=cohesive_sdv(dm=0.9_DP, u0=0.5_DP, uf=1.5_DP, fstat=COH_MAT_FAILED)
+
+call update(ig_point, traction=igtract, separation=igsepar, &
+& equilibrium_sdv=igsdv1, iterating_sdv=igsdv2)
 write(*,'(A)') 'display the cohesive_ig_point after all updates:'
 call display(ig_point)
+
+write(*,'(A)') ''
+write(*,'(A)') 'check extracted values from ig_point'
+
+igx      = ZERO
+igu      = ZERO
+igtract = ZERO
+igsepar = ZERO
+igsdv1 = cohesive_sdv(ZERO, ZERO, ZERO, INTACT)
+igsdv2 = cohesive_sdv(ZERO, ZERO, ZERO, INTACT)
+
+call extract(ig_point, x=igx, u=igu, traction=igtract, separation=igsepar, &
+& equilibrium_sdv=igsdv1, iterating_sdv=igsdv2)
+
+write(*,'(A)') ''
+write(*,'(A)') 'display extracted values from ig_point'
+display_fmt = '(1X, A,'//trim(adjustl(cndim))//'ES10.3)'
+write(*,display_fmt) '- x          :', igx
+write(*,display_fmt) '- u          :', igu
+display_fmt = '(1X, A,'//trim(adjustl(cnst))//'ES10.3)'
+write(*,display_fmt) '- traction   :', igtract
+write(*,display_fmt) '- separation :', igsepar
+call display(igsdv1)
+call display(igsdv2)
 
 call empty(ig_point)
 write(*,'(A)') 'display the cohesive_ig_point after being emptied:'

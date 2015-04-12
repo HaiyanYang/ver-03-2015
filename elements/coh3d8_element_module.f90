@@ -33,8 +33,8 @@ module coh3d8_element_module
 !    08/04/15  B. Y. Chen            Original code
 !
 use parameter_module, only : DP, SDV_ARRAY, ZERO,
-use integration_point_module
 use global_clock_module
+use cohesive_material_module
 
 implicit none
 private
@@ -53,23 +53,21 @@ type, public :: coh3d8_element
   private
   ! list of type components:
   ! curr_status : element current status
-  ! ID_elem   : index of this element in the global element array
   ! connec    : indices of element nodes in the global node array
   ! ID_matkey : index of element material in the global matkey array
   ! traction  : traction on the interface, for output
   ! ig_point  : x, xi, weight, stress, strain, sdv; initialize in set procedure
-  ! local_clock : locally-saved program clock
-  ! sdv       : element solution dependent variables
+  ! local_clock     : locally-saved program clock
+  ! equilibrium_sdv : element cohesive_sdv at each incremental equilibrium 
+  ! iterating_sdv   : element cohesive_sdv during iterations of increments
   integer  :: curr_status   = 0
-  integer  :: ID_elem       = 0
   integer  :: connec(NNODE) = 0
   integer  :: ID_matkey     = 0
   real(DP) :: traction(NSTRAIN) = ZERO
-  
-  type(integration_point)       :: ig_point(NIGPOINT)
-  type(program_clock)           :: local_clock
-  type(sdv_array), allocatable  :: sdv(:)
-    
+  type(program_clock)     :: local_clock
+  type(cohesive_ig_point) :: ig_point(NIGPOINT)
+  type(cohesive_sdv)      :: equilibrium_sdv
+  type(cohesive_sdv)      :: iterating_sdv     
 end type
 
 
@@ -115,7 +113,6 @@ pure subroutine empty_coh3d8_element (elem)
   i = 0
   
   elem%curr_status = 0
-  elem%ID_elem     = 0
   elem%connec      = 0
   elem%ID_matkey   = 0
 
@@ -131,14 +128,14 @@ end subroutine empty_coh3d8_element
 
 
 
-pure subroutine set_coh3d8_element (elem, ID_elem, connec, ID_matkey)
+pure subroutine set_coh3d8_element (elem, connec, ID_matkey)
 ! Purpose:
 ! this subroutine is used to set the components of the element
 ! it is used in the initialize_lib_elem procedure in the lib_elem module
 
   type(coh3d8_element),   intent(inout)   :: elem
   integer,                intent(in)      :: connec(NNODE)
-  integer,                intent(in)      :: ID_elem, ID_matkey
+  integer,                intent(in)      :: ID_matkey
   
   ! local variables
   real(DP) :: x(NDIM), u(NDIM), stress(NSTRAIN), strain(NSTRAIN)
@@ -151,7 +148,6 @@ pure subroutine set_coh3d8_element (elem, ID_elem, connec, ID_matkey)
   strain = ZERO
   i      = 0
   
-  elem%ID_elem   = ID_elem
   elem%connec    = connec
   elem%ID_matkey = ID_matkey
   
@@ -165,14 +161,13 @@ end subroutine set_coh3d8_element
 
 
 
-pure subroutine extract_coh3d8_element (elem, curr_status, ID_elem, connec, &
+pure subroutine extract_coh3d8_element (elem, curr_status, connec, &
 & ID_matkey, ig_point, local_clock, sdv)
 ! Purpose:
 ! to extract the components of this element
 
   type(coh3d8_element),           intent(in)  :: elem
   integer,              optional, intent(out) :: curr_status
-  integer,              optional, intent(out) :: ID_elem
   integer, allocatable, optional, intent(out) :: connec(:)
   integer,              optional, intent(out) :: ID_matkey
   type(integration_point), allocatable, optional, intent(out) :: ig_point(:)
@@ -180,8 +175,6 @@ pure subroutine extract_coh3d8_element (elem, curr_status, ID_elem, connec, &
   type(sdv_array),         allocatable, optional, intent(out) :: sdv(:)
   
   if (present(curr_status)) curr_status = elem%curr_status
-  
-  if (present(ID_elem))     ID_elem     = elem%ID_elem
   
   if (present(ID_matkey))   ID_matkey   = elem%ID_matkey
   

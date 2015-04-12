@@ -38,8 +38,8 @@ module wedge_element_module
 !    08/04/15  B. Y. Chen            Original code
 !
 use parameter_module, only : DP, SDV_ARRAY, ZERO,
-use integration_point_module
 use global_clock_module
+use lamina_material_module
 
 implicit none
 private
@@ -72,27 +72,25 @@ type, public :: wedge_element
   private
   ! list of type components:
   ! curr_status : element current status
-  ! ID_elem   : index of this element in the global element array
   ! connec    : indices of element nodes in the global node array
   ! ID_matkey : index of element material in the global matkey array
   ! ply_angle : ply angle for composite lamina (rotation around z axis)
   ! stress    : stresses for output
   ! strain    : strains for output
   ! ig_point  : x, xi, weight, stress, strain, sdv; initialize in set procedure
-  ! local_clock : locally-saved program clock
-  ! sdv       : element solution dependent variables
+  ! local_clock     : locally-saved program clock
+  ! equilibrium_sdv : element lamina_sdv at each incremental equilibrium 
+  ! iterating_sdv   : element lamina_sdv during iterations of increments
   integer  :: curr_status     = 0
-  integer  :: ID_elem         = 0
   integer  :: connec(NNODE)   = 0
   integer  :: ID_matkey       = 0 
   real(DP) :: ply_angle       = ZERO
   real(DP) :: stress(NSTRAIN) = ZERO
   real(DP) :: strain(NSTRAIN) = ZERO
-  
-  type(integration_point)       :: ig_point(NIGPOINT)
-  type(program_clock)           :: local_clock
-  type(sdv_array), allocatable  :: sdv(:)
-
+  type(program_clock)   :: local_clock
+  type(lamina_ig_point) :: ig_point(NIGPOINT)
+  type(lamina_sdv)      :: equilibrium_sdv
+  type(lamina_sdv)      :: iterating_sdv
 end type
 
 
@@ -138,7 +136,6 @@ pure subroutine empty_wedge_element (elem)
   i = 0
   
   elem%curr_status = 0
-  elem%ID_elem     = 0
   elem%connec      = 0
   elem%ID_matkey   = 0
   elem%ply_angle   = ZERO
@@ -157,14 +154,14 @@ end subroutine empty_wedge_element
 
 
 
-pure subroutine set_wedge_element (elem, ID_elem, connec, ID_matkey, ply_angle)
+pure subroutine set_wedge_element (elem, connec, ID_matkey, ply_angle)
 ! Purpose:
 ! this subroutine is used to set the components of the element
 ! it is used in the initialize_lib_elem procedure in the lib_elem module
 
   type(wedge_element),    intent(inout)   :: elem
   integer,                intent(in)      :: connec(NNODE)
-  integer,                intent(in)      :: ID_elem, ID_matkey
+  integer,                intent(in)      :: ID_matkey
   real(DP),               intent(in)      :: ply_angle
   
   ! local variables
@@ -178,7 +175,6 @@ pure subroutine set_wedge_element (elem, ID_elem, connec, ID_matkey, ply_angle)
   strain = ZERO
   i      = 0
   
-  elem%ID_elem   = ID_elem
   elem%connec    = connec
   elem%ID_matkey = ID_matkey
   elem%ply_angle = ply_angle
@@ -193,14 +189,13 @@ end subroutine set_wedge_element
 
 
 
-pure subroutine extract_wedge_element (elem, curr_status, ID_elem, connec, &
+pure subroutine extract_wedge_element (elem, curr_status, connec, &
 & ID_matkey, ply_angle, stress, strain, ig_point, local_clock, sdv)
 ! Purpose:
 ! to extract the components of this element
 
   type(wedge_element),             intent(in)  :: elem  
   integer,               optional, intent(out) :: curr_status
-  integer,               optional, intent(out) :: ID_elem
   integer,  allocatable, optional, intent(out) :: connec(:)
   integer,               optional, intent(out) :: ID_matkey
   real(DP),              optional, intent(out) :: ply_angle
@@ -211,8 +206,6 @@ pure subroutine extract_wedge_element (elem, curr_status, ID_elem, connec, &
   type(SDV_ARRAY),         allocatable, optional, intent(out) :: sdv(:)
   
   if (present(curr_status)) curr_status = elem%curr_status
-  
-  if (present(ID_elem))     ID_elem     = elem%ID_elem
   
   if (present(ID_matkey))   ID_matkey   = elem%ID_matkey
   

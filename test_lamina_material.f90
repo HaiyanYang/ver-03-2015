@@ -13,12 +13,10 @@ program test_lamina_material
 !    11/04/15  B. Y. Chen            added testing of lamina_ig_point
 !
 !
-use parameter_module
+use parameter_module, NST => NST_STANDARD
 use lamina_material_module
 
 implicit none
-
-integer, parameter :: NDIM=3, NST = 6
 
 ! declare variables:
 ! this
@@ -45,11 +43,12 @@ integer                       :: istat
 character(MSGLENGTH)          :: emsg
 real(DP)                      :: d_max
 
-type(lamina_ig_point)         :: ig_point
-real(DP), allocatable         :: igx(:), igu(:), igstress(:), igstrain(:)
-type(lamina_sdv), allocatable :: igsdv(:)
+type(lamina_ig_point) :: ig_point
+real(DP)              :: igx(NDIM), igu(NDIM), igstress(NST), igstrain(NST)
+type(lamina_sdv)      :: igsdv1, igsdv2
 
 character(len=20) :: display_fmt
+character(len=10) :: cndim, cnst
 
 logical :: nofailure
 
@@ -65,9 +64,11 @@ emsg    = ''
 d_max   = ZERO
 
 display_fmt = ''
+cndim = ''
+cnst  = ''
+
 nofailure   = .false.
 
-allocate(igx(NDIM),igu(NDIM),igstress(NST),igstrain(NST),igsdv(2))
 igx      = ZERO
 igu      = ZERO
 igstress = ZERO
@@ -101,6 +102,10 @@ clength = 0.5_DP
 
 ! define d_max
 d_max = ONE
+
+! store ndim and nst as strings in cndim and cnst
+write(cndim,'(i5)') NDIM
+write(cnst,'(i5)') NST
 
 
 ! call all public procedures, test their correctness
@@ -173,21 +178,48 @@ write(*,'(A)') ''
 write(*,'(A)') 'display the lamina_ig_point before any update:'
 call display(ig_point)
 
-call update(ig_point, istat=istat, emsg=emsg, x=igx, u=igu)
-if(istat == STAT_FAILURE) then
-  write(*,*) emsg
-  return
-end if
+igx      = ONE
+igu      = ONE
+
+call update(ig_point, x=igx, u=igu)
 write(*,'(A)') 'display the lamina_ig_point after updates on x and u:'
 call display(ig_point)
 
-call update(ig_point, istat=istat, emsg=emsg, stress=igstress, strain=igstrain, sdv=igsdv)
-if(istat == STAT_FAILURE) then
-  write(*,*) emsg
-  return
-end if
+igstress = ONE
+igstrain = ONE
+igsdv1=lamina_sdv(df=0.5_DP, u0=0.5_DP, uf=1.5_DP, &
+     & fstat=FIBRE_ONSET, ffstat=FIBRE_ONSET, mfstat=MATRIX_ONSET)
+igsdv2=lamina_sdv(df=0.9_DP, u0=0.5_DP, uf=1.5_DP, &
+     & fstat=FIBRE_FAILED, ffstat=FIBRE_FAILED, mfstat=MATRIX_ONSET)
+
+call update(ig_point, stress=igstress, strain=igstrain, &
+& equilibrium_sdv=igsdv1, iterating_sdv=igsdv2)
 write(*,'(A)') 'display the lamina_ig_point after all updates:'
 call display(ig_point)
+
+write(*,'(A)') ''
+write(*,'(A)') 'check extracted values from ig_point'
+
+igx      = ZERO
+igu      = ZERO
+igstress = ZERO
+igstrain = ZERO
+igsdv1 = lamina_sdv(ZERO, ZERO, ZERO, INTACT, INTACT, INTACT)
+igsdv2 = lamina_sdv(ZERO, ZERO, ZERO, INTACT, INTACT, INTACT)
+
+call extract(ig_point, x=igx, u=igu, stress=igstress, strain=igstrain, &
+& equilibrium_sdv=igsdv1, iterating_sdv=igsdv2)
+
+write(*,'(A)') ''
+write(*,'(A)') 'display extracted values from ig_point'
+display_fmt = '(1X, A,'//trim(adjustl(cndim))//'ES10.3)'
+write(*,display_fmt) '- x      :', igx
+write(*,display_fmt) '- u      :', igu
+display_fmt = '(1X, A,'//trim(adjustl(cnst))//'ES10.3)'
+write(*,display_fmt) '- stress :', igstress
+write(*,display_fmt) '- strain :', igstrain
+call display(igsdv1)
+call display(igsdv2)
 
 call empty(ig_point)
 write(*,'(A)') 'display the lamina_ig_point after being emptied:'
