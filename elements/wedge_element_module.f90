@@ -37,7 +37,7 @@ module wedge_element_module
 !    ========  ====================  ========================================
 !    08/04/15  B. Y. Chen            Original code
 !
-use parameter_module, only : DP, SDV_ARRAY, ZERO,
+use parameter_module, only : NDIM, NST => NST_STANDARD, DP, SDV_ARRAY, ZERO,
 use global_clock_module
 use lamina_material_module
 
@@ -45,9 +45,6 @@ implicit none
 private
 
 ! list of private parameters in this module:
-!
-! NDIM          : dimension of this element
-! NSTRAIN       : no. of strains
 ! NNODE         : no. of nodes in this element
 ! NEDGE_BOTTOM  : no. of edges in this element on the bottom surface
 ! NIGPOINT      : no. of integration points in this element
@@ -63,8 +60,7 @@ private
 !          connec can be derived as:
 !          NODE_ON_TOP_EDGE(i,j) = NODE_ON_BOTTOM_EDGE(i,j) + NNODE/2
 !
-integer, parameter :: NDIM=3, NSTRAIN=6, NIGPOINT=6, NNODE=6, NEDGE_BOTTOM=3, &
-                    & NDOF=NDIM*NNODE
+integer, parameter :: NIGPOINT=6, NNODE=6, NEDGE_BOTTOM=3, NDOF=NDIM*NNODE
 integer, parameter :: NODE_ON_BOTTOM_EDGE(2, NEDGE_BOTTOM) = &
                     & reshape([ 1,2, 2,3, 3,1 ], [2, NEDGE_BOTTOM])
 
@@ -81,12 +77,12 @@ type, public :: wedge_element
   ! local_clock     : locally-saved program clock
   ! equilibrium_sdv : element lamina_sdv at each incremental equilibrium 
   ! iterating_sdv   : element lamina_sdv during iterations of increments
-  integer  :: curr_status     = 0
-  integer  :: connec(NNODE)   = 0
-  integer  :: ID_matkey       = 0 
-  real(DP) :: ply_angle       = ZERO
-  real(DP) :: stress(NSTRAIN) = ZERO
-  real(DP) :: strain(NSTRAIN) = ZERO
+  integer  :: curr_status   = 0
+  integer  :: connec(NNODE) = 0
+  integer  :: ID_matkey     = 0 
+  real(DP) :: ply_angle     = ZERO
+  real(DP) :: stress(NST)   = ZERO
+  real(DP) :: strain(NST)   = ZERO
   type(program_clock)   :: local_clock
   type(lamina_ig_point) :: ig_point(NIGPOINT)
   type(lamina_sdv)      :: equilibrium_sdv
@@ -132,23 +128,11 @@ pure subroutine empty_wedge_element (elem)
 
   type(wedge_element), intent(inout) :: elem
   
-  integer :: i
-  i = 0
+  ! local variable, derived type var. is initialized upon declaration
+  type(wedge_element) :: elem_lcl
   
-  elem%curr_status = 0
-  elem%connec      = 0
-  elem%ID_matkey   = 0
-  elem%ply_angle   = ZERO
-  elem%stress      = ZERO
-  elem%strain      = ZERO
-  
-  do i=1, NIGPOINT
-    call empty (elem%ig_point(i))
-  end do
-
-  call empty (elem%local_clock)
-
-  if(allocated(elem%sdv)) deallocate(elem%sdv)
+  ! reset elem to the initial state
+  elem = elem_lcl
 
 end subroutine empty_wedge_element
 
@@ -158,31 +142,17 @@ pure subroutine set_wedge_element (elem, connec, ID_matkey, ply_angle)
 ! Purpose:
 ! this subroutine is used to set the components of the element
 ! it is used in the initialize_lib_elem procedure in the lib_elem module
+! note that only some of the components need to be set during preproc,
+! namely connec, ID_matkey, ply_angle and local_clock
 
   type(wedge_element),    intent(inout)   :: elem
   integer,                intent(in)      :: connec(NNODE)
   integer,                intent(in)      :: ID_matkey
   real(DP),               intent(in)      :: ply_angle
   
-  ! local variables
-  real(DP) :: x(NDIM), u(NDIM), stress(NSTRAIN), strain(NSTRAIN)
-  integer  :: i
-  
-  ! initialize local variables
-  x      = ZERO
-  u      = ZERO
-  stress = ZERO
-  strain = ZERO
-  i      = 0
-  
   elem%connec    = connec
   elem%ID_matkey = ID_matkey
   elem%ply_angle = ply_angle
-  
-  do i=1, NIGPOINT
-    call update (elem%ig_point(i), x=x, u=u, stress=stress, strain=strain)
-  end do
-  
   elem%local_clock = GLOBAL_CLOCK
 
 end subroutine set_wedge_element
@@ -190,55 +160,50 @@ end subroutine set_wedge_element
 
 
 pure subroutine extract_wedge_element (elem, curr_status, connec, &
-& ID_matkey, ply_angle, stress, strain, ig_point, local_clock, sdv)
+& ID_matkey, ply_angle, stress, strain, local_clock, ig_point,    &
+& equilibrium_sdv, iterating_sdv)
 ! Purpose:
 ! to extract the components of this element
+! note that the dummy args connec and ig_point are allocatable arrays
+! because their sizes vary with different element types
 
-  type(wedge_element),             intent(in)  :: elem  
-  integer,               optional, intent(out) :: curr_status
-  integer,  allocatable, optional, intent(out) :: connec(:)
-  integer,               optional, intent(out) :: ID_matkey
-  real(DP),              optional, intent(out) :: ply_angle
-  real(DP), allocatable, optional, intent(out) :: stress(:)
-  real(DP), allocatable, optional, intent(out) :: strain(:)
-  type(integration_point), allocatable, optional, intent(out) :: ig_point(:)
-  type(program_clock),                  optional, intent(out) :: local_clock
-  type(SDV_ARRAY),         allocatable, optional, intent(out) :: sdv(:)
+  type(wedge_element),                          intent(in)  :: elem  
+  integer,                            optional, intent(out) :: curr_status
+  integer,               allocatable, optional, intent(out) :: connec(:)
+  integer,                            optional, intent(out) :: ID_matkey
+  real(DP),                           optional, intent(out) :: ply_angle
+  real(DP),                           optional, intent(out) :: stress(NST)
+  real(DP),                           optional, intent(out) :: strain(NST)
+  type(program_clock),                optional, intent(out) :: local_clock
+  type(lamina_ig_point), allocatable, optional, intent(out) :: ig_point(:)
+  type(lamina_sdv),                   optional, intent(out) :: equilibrium_sdv
+  type(lamina_sdv),                   optional, intent(out) :: iterating_sdv
   
   if (present(curr_status)) curr_status = elem%curr_status
-  
-  if (present(ID_matkey))   ID_matkey   = elem%ID_matkey
-  
-  if (present(ply_angle))   ply_angle   = elem%ply_angle
-  
-  if (present(stress)) then
-    allocate(stress(NSTRAIN))
-    stress = elem%stress
-  end if
-
-  if (present(strain)) then
-    allocate(strain(NSTRAIN))
-    strain = elem%strain
-  end if
   
   if (present(connec)) then
     allocate(connec(NNODE))
     connec = elem%connec
   end if
   
+  if (present(ID_matkey))   ID_matkey   = elem%ID_matkey
+  
+  if (present(ply_angle))   ply_angle   = elem%ply_angle
+  
+  if (present(stress)) stress = elem%stress
+
+  if (present(strain)) strain = elem%strain
+
+  if (present(local_clock)) local_clock = elem%local_clock
+  
   if (present(ig_point)) then
     allocate(ig_point(NIGPOINT))
     ig_point = elem%ig_point
   end if
   
-  if (present(local_clock)) local_clock = elem%local_clock
+  if (present(equilibrium_sdv))  equilibrium_sdv = elem%equilibrium_sdv
   
-  if (present(sdv)) then        
-    if (allocated(elem%sdv)) then
-      allocate(sdv(size(elem%sdv)))
-      sdv = elem%sdv
-    end if
-  end if
+  if (present(iterating_sdv))    iterating_sdv   = elem%iterating_sdv
 
 end subroutine extract_wedge_element
 
@@ -284,10 +249,10 @@ use glb_clock_module                ! global analysis progress (curr. step, inc,
   logical         :: failure ! true for failure analysis
   real(kind=DP)   :: fn(NNODE),dn(NNODE,NDIM) ! shape functions & their deriv. physical space
   real(kind=DP)   :: jac(NDIM,NDIM),gn(NNODE,NDIM),detj ! jacobian & shape func. deriv. natural space
-  real(kind=DP)   :: bee(NSTRAIN,NDOF),beet(NDOF,NSTRAIN) ! b matrix and its transpose
-  real(kind=DP)   :: dee(NSTRAIN,NSTRAIN) ! d matrix
-  real(kind=DP)   :: btd(NDOF,NSTRAIN),btdb(NDOF,NDOF) ! b'*d & b'*d*b
-  real(kind=DP)   :: tmpx(NDIM),tmpu(NDIM),tmpstrain(NSTRAIN),tmpstress(NSTRAIN) ! temp. x, strain & stress arrays for intg pnts      
+  real(kind=DP)   :: bee(NST,NDOF),beet(NDOF,NST) ! b matrix and its transpose
+  real(kind=DP)   :: dee(NST,NST) ! d matrix
+  real(kind=DP)   :: btd(NDOF,NST),btdb(NDOF,NDOF) ! b'*d & b'*d*b
+  real(kind=DP)   :: tmpx(NDIM),tmpu(NDIM),tmpstrain(NST),tmpstress(NST) ! temp. x, strain & stress arrays for intg pnts      
   real(kind=DP),allocatable :: xj(:),uj(:)! nodal vars extracted from glb lib_node array
   
   integer :: i,j,kig,igstat
@@ -417,7 +382,7 @@ use glb_clock_module                ! global analysis progress (curr. step, inc,
       ! calculate gradient of shape function matrix
       gn=matmul(dn,jac)
       
-      !-obtain b matrix (NSTRAIN*NDOF) from rearranging terms of gn
+      !-obtain b matrix (NST*NDOF) from rearranging terms of gn
       bee=beemat(gn)
       
       ! calculate global strains

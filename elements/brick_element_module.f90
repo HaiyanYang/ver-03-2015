@@ -37,7 +37,7 @@ module brick_element_module
 !    ========  ====================  ========================================
 !    08/04/15  B. Y. Chen            Original code
 !
-use parameter_module, only : DP, SDV_ARRAY, ZERO,
+use parameter_module, only : NDIM, NST => NST_STANDARD, DP, SDV_ARRAY, ZERO,
 use global_clock_module
 use lamina_material_module
 
@@ -45,9 +45,6 @@ implicit none
 private
 
 ! list of private parameters in this module:
-!
-! NDIM          : dimension of this element
-! NSTRAIN       : no. of strains
 ! NNODE         : no. of nodes in this element
 ! NEDGE_BOTTOM  : no. of edges in this element on the bottom surface
 ! NIGPOINT      : no. of integration points in this element
@@ -63,8 +60,7 @@ private
 !          connec can be derived as:
 !          NODE_ON_TOP_EDGE(i,j) = NODE_ON_BOTTOM_EDGE(i,j) + NNODE/2
 !
-integer, parameter :: NDIM=3, NSTRAIN=6, NIGPOINT=8, NNODE=8, NEDGE_BOTTOM=4, &
-                    & NDOF=NDIM*NNODE
+integer, parameter :: NIGPOINT=8, NNODE=8, NEDGE_BOTTOM=4, NDOF=NDIM*NNODE
 integer, parameter :: NODE_ON_BOTTOM_EDGE(2, NEDGE_BOTTOM) = &
                     & reshape([ 1,2, 2,3, 3,4, 4,1 ], [2, NEDGE_BOTTOM])
 
@@ -82,12 +78,12 @@ type, public :: brick_element
   ! local_clock     : locally-saved program clock
   ! equilibrium_sdv : element lamina_sdv at each incremental equilibrium 
   ! iterating_sdv   : element lamina_sdv during iterations of increments
-  integer  :: curr_status     = 0
-  integer  :: connec(NNODE)   = 0
-  integer  :: ID_matkey       = 0
-  real(DP) :: ply_angle       = ZERO
-  real(DP) :: stress(NSTRAIN) = ZERO
-  real(DP) :: strain(NSTRAIN) = ZERO
+  integer  :: curr_status   = 0
+  integer  :: connec(NNODE) = 0
+  integer  :: ID_matkey     = 0
+  real(DP) :: ply_angle     = ZERO
+  real(DP) :: stress(NST)   = ZERO
+  real(DP) :: strain(NST)   = ZERO
   type(program_clock)   :: local_clock
   type(lamina_ig_point) :: ig_point(NIGPOINT)
   type(lamina_sdv)      :: equilibrium_sdv
@@ -133,23 +129,11 @@ pure subroutine empty_brick_element (elem)
 
   type(brick_element), intent(inout) :: elem
   
-  integer :: i
-  i = 0
+  ! local variable, derived type var. is initialized upon declaration
+  type(brick_element) :: elem_lcl
   
-  elem%curr_status = 0
-  elem%connec      = 0
-  elem%ID_matkey   = 0
-  elem%ply_angle   = ZERO        
-  elem%stress      = ZERO
-  elem%strain      = ZERO
- 
-  do i=1, NIGPOINT
-    call empty (elem%ig_point(i))
-  end do      
-
-  call empty (elem%local_clock)
-
-  if(allocated(elem%sdv)) deallocate(elem%sdv) 
+  ! reset elem to the initial state
+  elem = elem_lcl
 
 end subroutine empty_brick_element
 
@@ -159,31 +143,17 @@ pure subroutine set_brick_element (elem, connec, ID_matkey, ply_angle)
 ! Purpose:
 ! this subroutine is used to set the components of the element
 ! it is used in the initialize_lib_elem procedure in the lib_elem module
+! note that only some of the components need to be set during preproc,
+! namely connec, ID_matkey, ply_angle and local_clock
 
   type(brick_element),    intent(inout)   :: elem
   integer,                intent(in)      :: connec(NNODE)
   integer,                intent(in)      :: ID_matkey
   real(DP),               intent(in)      :: ply_angle
-
-  ! local variables
-  real(DP) :: x(NDIM), u(NDIM), stress(NSTRAIN), strain(NSTRAIN)
-  integer  :: i
-  
-  ! initialize local variables
-  x      = ZERO
-  u      = ZERO
-  stress = ZERO
-  strain = ZERO
-  i      = 0
   
   elem%connec    = connec
   elem%ID_matkey = ID_matkey
   elem%ply_angle = ply_angle
-  
-  do i=1, NIGPOINT
-    call update (elem%ig_point(i), x=x, u=u, stress=stress, strain=strain)
-  end do
-  
   elem%local_clock = GLOBAL_CLOCK
 
 end subroutine set_brick_element
@@ -191,55 +161,50 @@ end subroutine set_brick_element
 
 
 pure subroutine extract_brick_element (elem, curr_status, connec, &
-& ID_matkey, ply_angle, stress, strain, ig_point, local_clock, sdv)
+& ID_matkey, ply_angle, stress, strain, local_clock, ig_point,    &
+& equilibrium_sdv, iterating_sdv)
 ! Purpose:
 ! to extract the components of this element
+! note that the dummy args connec and ig_point are allocatable arrays
+! because their sizes vary with different element types
 
-  type(brick_element),             intent(in)  :: elem
-  integer,               optional, intent(out) :: curr_status
-  integer,  allocatable, optional, intent(out) :: connec(:)
-  integer,               optional, intent(out) :: ID_matkey
-  real(DP),              optional, intent(out) :: ply_angle
-  real(DP), allocatable, optional, intent(out) :: stress(:)
-  real(DP), allocatable, optional, intent(out) :: strain(:)
-  type(integration_point), allocatable, optional, intent(out) :: ig_point(:)
-  type(program_clock),                  optional, intent(out) :: local_clock
-  type(SDV_ARRAY),         allocatable, optional, intent(out) :: sdv(:)
+  type(brick_element),                          intent(in)  :: elem  
+  integer,                            optional, intent(out) :: curr_status
+  integer,               allocatable, optional, intent(out) :: connec(:)
+  integer,                            optional, intent(out) :: ID_matkey
+  real(DP),                           optional, intent(out) :: ply_angle
+  real(DP),                           optional, intent(out) :: stress(NST)
+  real(DP),                           optional, intent(out) :: strain(NST)
+  type(program_clock),                optional, intent(out) :: local_clock
+  type(lamina_ig_point), allocatable, optional, intent(out) :: ig_point(:)
+  type(lamina_sdv),                   optional, intent(out) :: equilibrium_sdv
+  type(lamina_sdv),                   optional, intent(out) :: iterating_sdv
   
   if (present(curr_status)) curr_status = elem%curr_status
-  
-  if (present(ID_matkey))   ID_matkey   = elem%ID_matkey
-  
-  if (present(ply_angle))   ply_angle   = elem%ply_angle
-  
-  if (present(stress)) then
-    allocate(stress(NSTRAIN))
-    stress = elem%stress
-  end if
-
-  if (present(strain)) then
-    allocate(strain(NSTRAIN))
-    strain = elem%strain
-  end if
   
   if (present(connec)) then
     allocate(connec(NNODE))
     connec = elem%connec
   end if
   
+  if (present(ID_matkey))   ID_matkey   = elem%ID_matkey
+  
+  if (present(ply_angle))   ply_angle   = elem%ply_angle
+  
+  if (present(stress)) stress = elem%stress
+
+  if (present(strain)) strain = elem%strain
+
+  if (present(local_clock)) local_clock = elem%local_clock
+  
   if (present(ig_point)) then
     allocate(ig_point(NIGPOINT))
     ig_point = elem%ig_point
   end if
   
-  if (present(local_clock)) local_clock = elem%local_clock
+  if (present(equilibrium_sdv))  equilibrium_sdv = elem%equilibrium_sdv
   
-  if (present(sdv)) then        
-    if (allocated(elem%sdv)) then
-      allocate(sdv(size(elem%sdv)))
-      sdv = elem%sdv
-    end if
-  end if
+  if (present(iterating_sdv))    iterating_sdv   = elem%iterating_sdv
 
 end subroutine extract_brick_element
 
@@ -250,15 +215,19 @@ pure subroutine integrate_brick_element (elem, K_matrix, F_vector, istat, emsg,&
 ! Purpose:
 ! updates K matrix, F vector, integration point stress and strain,
 ! and the solution dependent variables (sdvs) of ig points and element
+! note that K and F are allocatable dummy args as their sizes vary with
+! different element types
 
 use toolkit_module     ! global tools for element integration
 use lib_mat_module     ! global material library
 use lib_node_module    ! global node library
 use glb_clock_module   ! global analysis progress (curr. step, inc, time, dtime)
 
-  type(brick_element),   intent(inout) :: elem 
-  real(DP), allocatable, intent(out)   :: K_matrix(:,:), F_vector(:)
-  logical,  optional,    intent(in)    :: nofailure
+  type(brick_element),      intent(inout) :: elem 
+  real(DP),    allocatable, intent(out)   :: K_matrix(:,:), F_vector(:)
+  integer,                  intent(out)   :: istat
+  character(len=MSGLENGTH), intent(out)   :: emsg
+  logical,        optional, intent(in)    :: nofailure
   
   ! the rest are all local variables
   
@@ -268,73 +237,85 @@ use glb_clock_module   ! global analysis progress (curr. step, inc, time, dtime)
   !             type_array_index
   ! - matname : material name
   ! - mattype : material type name
-  ! - type_array_index  : the index in the corresponding material type array
-  ! - last_converged    : true if last iteration has converged
+  ! - type_list_index  : the index in the corresponding material type list
+  ! - last_converged   : true if last iteration has converged
   type(xnode)                   :: nodes(NNODE)
   type(global_matkey)           :: matkey
   character(len=matnamelength)  :: matname
   character(len=mattypelength)  :: mattype
-  integer                       :: type_array_index
+  integer                       :: type_list_index
   logical                       :: last_converged
   
   ! variables defined locally
-  ! - ig_sdv: integration point sdv arrays
-  ! - ig_xi: integration point natural coordinates
-  ! - ig_weight: integration point weights
-  ! - coords : element nodal coordinates
-  ! - u : nodal disp. vector
-  ! - fn, dn, gn : shape functions & their deriv. physical space
-  ! - jac, detj : jacobian matrix and its determinant
-  ! - bee, beet : b matrix and its transpose
-  ! - dee : D matrix
-  ! - btd, btdb : b'*d & b'*d*b
-  ! - tmpx, tmpu, tmpstrain, tmpstress
-  ! - xj, uj : nodal vars extracted from glb lib_node array
+  ! - coords        : element nodal coordinates matrix
+  ! - u             : element nodal displacemet vector
+  ! - theta         : element local orientation
+  ! - ig_xi         : integration point natural coordinates
+  ! - ig_weight     : integration point weights
+  ! - ig_sdv_eq/it  : integration point equilibrium and iterating sdvs
+
+  ! - fn, dn        : shape functions & their derivatives in natural space
+  ! - gn            : gradients of shape functions in physical space
+  ! - jac, detj     : jacobian matrix and its determinant
+  ! - bee, beet     : b matrix and its transpose
+  ! - dee           : D matrix
+  ! - btd, btdb     : b'*d & b'*d*b
+ 
+  ! - xj, uj        : nodal vars extracted from glb lib_node array
   ! - clength, ctip : variables used for calculating clength
+  ! - tmpx, tmpu    : temporary x and u vectors
+  ! - tmpstrain, tmpstress : temporary strain and stress vectors
   
-  type(SDV_ARRAY), allocatable  :: ig_sdv(:)
+  real(DP) :: coords(NDIM,NNODE), u(NDOF), theta
+  real(DP) :: ig_xi(NDIM, NIGPOINT), ig_weight(NIGPOINT)
+  type(lamina_sdv) :: ig_sdv_eq, ig_sdv_it
   
-  real(DP) :: ig_xi(NDIM,NIGPOINT), ig_weight(NIGPOINT)
-  real(DP) :: coords(NDIM,NNODE)
-  real(DP) :: theta ! orientation of element local coordinates
-  real(DP) :: u(NDOF)
   real(DP) :: fn(NNODE), dn(NNODE,NDIM), gn(NNODE,NDIM)
   real(DP) :: jac(NDIM,NDIM), detj
-  real(DP) :: bee(NSTRAIN,NDOF), beet(NDOF,NSTRAIN)
-  real(DP) :: dee(NSTRAIN,NSTRAIN)
-  real(DP) :: btd(NDOF,NSTRAIN), btdb(NDOF,NDOF)
-  real(DP) :: tmpx(NDIM), tmpu(NDIM), tmpstrain(NSTRAIN), tmpstress(NSTRAIN)
+  real(DP) :: bee(NST,NDOF), beet(NDOF,NST)
+  real(DP) :: dee(NST,NST)
+  real(DP) :: btd(NDOF,NST), btdb(NDOF,NDOF)
+  
   real(DP), allocatable :: xj(:), uj(:)
   real(DP) :: clength, ctip(2,2)
+  real(DP) :: tmpx(NDIM), tmpu(NDIM), tmpstrain(NST), tmpstress(NST)
+  
   logical  :: nofail
-  integer  :: i,j,kig,igstat
+  integer  :: i, j, kig, igstat
  
   
   ! initialize intent(out) and local variables
   allocate(K_matrix(NDOF,NDOF), F_vector(NDOF))
   K_matrix = ZERO
   F_vector = ZERO
+  istat = 0
+  emsg  = ''
   
-  i=0; j=0; kig=0
-  
-  do i=1,NNODE
+  do i=1, NNODE
       call empty(nodes(i))
   end do
   
-  call empty(mat)
-  curr_step=0; curr_inc=0
+  matname = ''
+  mattype = ''
+  type_list_index = 0
+  last_converged = .false.
   
-  ig_xi=ZERO; ig_weight=ZERO
-  coords=ZERO; theta=ZERO; u=ZERO
+  coords    = ZERO
+  u         = ZERO
+  theta     = ZERO
+  ig_xi     = ZERO
+  ig_weight = ZERO
+
+  i=0; j=0; kig=0
   
   nofail=.false.
   if(present(nofailure)) nofail=nofailure
   
   ! copy nodes from global nodes array 
-  nodes(:)=lib_node(elem%connec(:))
+  nodes(:) = lib_node(elem%connec(:))
   
   ! assign values to local arrays from nodal values
-  do j=1,NNODE
+  do j=1, NNODE
   
     ! extract useful values from nodes
     call extract(nodes(j), x=xj, u=uj)
@@ -357,20 +338,17 @@ use glb_clock_module   ! global analysis progress (curr. step, inc, time, dtime)
   end do
   
   ! extract material values from global material array
-  mat=lib_mat(elem%ID_matkey)
-  call extract(mat,matname,mattype,typekey)
+  matkey = list_matkey(elem%ID_matkey)
+  call extract(matkey, matname, mattype, type_list_index)
   
   ! extract ply angle from element definition
   theta=elem%ply_angle
   
-  ! - extract curr step and inc values from glb clock module
-  call extract_glb_clock(kstep=curr_step,kinc=curr_inc)
-  
-  ! - check if last iteration has converged, and update the current step & increment no.
-  if(elem%nstep.ne.curr_step .or. elem%ninc.ne.curr_inc) then
+  ! - check if last iteration has converged by checking if the global clock has 
+  !   advanced; if so, last iteration is converged and sync the local clock
+  if(.not. clock_in_sync(GLOBAL_CLOCK, elem%local_clock)) then
     last_converged=.true.
-    elem%nstep = curr_step
-    elem%ninc = curr_inc
+    elem%local_clock = GLOBAL_CLOCK
   end if
   
   
@@ -398,7 +376,7 @@ use glb_clock_module   ! global analysis progress (curr. step, inc, time, dtime)
   elem%strain=ZERO
   
   !-calculate strain,stress,stiffness,sdv etc. at each int point
-  do kig=1,NIGPOINT 
+  do kig=1, NIGPOINT 
   
     ! empty relevant arrays for reuse
     fn=ZERO; dn=ZERO
@@ -432,7 +410,7 @@ use glb_clock_module   ! global analysis progress (curr. step, inc, time, dtime)
     ! calculate gradient of shape function matrix
     gn=matmul(dn,jac)
     
-    !-obtain b matrix (NSTRAIN*NDOF) from rearranging terms of gn
+    !-obtain b matrix (NST*NDOF) from rearranging terms of gn
     bee=beemat(gn)
     
     ! calculate global strains

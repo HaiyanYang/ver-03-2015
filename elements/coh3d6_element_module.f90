@@ -33,7 +33,7 @@ module coh3d6_element_module
 !    ========  ====================  ========================================
 !    08/04/15  B. Y. Chen            Original code
 !
-use parameter_module, only : DP, SDV_ARRAY, ZERO,
+use parameter_module, only : NDIM, NST => NST_COHESIVE, DP, SDV_ARRAY, ZERO,
 use global_clock_module
 use cohesive_material_module
 
@@ -41,14 +41,11 @@ implicit none
 private
 
 ! list of private parameters in this module:
-!
-! NDIM          : dimension of this element
-! NSTRAIN       : no. of strains
 ! NNODE         : no. of nodes in this element
 ! NIGPOINT      : no. of integration points in this element
 ! NDOF          : no. of degree-of-freedom  in this element
 !
-integer, parameter :: NDIM=3, NSTRAIN=3, NNODE=6, NIGPOINT=3, NDOF=NDIM*NNODE
+integer, parameter :: NNODE=6, NIGPOINT=3, NDOF=NDIM*NNODE
 
 
 type, public :: coh3d6_element 
@@ -65,7 +62,8 @@ type, public :: coh3d6_element
   integer  :: curr_status   = 0
   integer  :: connec(NNODE) = 0
   integer  :: ID_matkey     = 0
-  real(DP) :: traction(NSTRAIN) = ZERO
+  real(DP) :: traction(NST)   = ZERO
+  real(DP) :: separation(NST) = ZERO
   type(program_clock)     :: local_clock
   type(cohesive_ig_point) :: ig_point(NIGPOINT)
   type(cohesive_sdv)      :: equilibrium_sdv
@@ -111,49 +109,29 @@ pure subroutine empty_coh3d6_element (elem)
 
   type(coh3d6_element), intent(inout) :: elem
     
-  integer :: i
-  i = 0
+  ! local variable, derived type var. is initialized upon declaration
+  type(coh3d6_element) :: elem_lcl
   
-  elem%curr_status = 0
-  elem%connec      = 0
-  elem%ID_matkey   = 0
-
-  do i=1, NIGPOINT
-    call empty (elem%ig_point(i))
-  end do
-  
-  call empty (elem%local_clock)
-  
-  if(allocated(elem%sdv)) deallocate(elem%sdv)
+  ! reset elem to the initial state
+  elem = elem_lcl
 
 end subroutine empty_coh3d6_element
 
 
 
 pure subroutine set_coh3d6_element (elem, connec, ID_matkey)
+! Purpose:
+! this subroutine is used to set the components of the element
+! it is used in the initialize_lib_elem procedure in the lib_elem module
+! note that only some of the components need to be set during preproc,
+! namely connec, ID_matkey and local_clock
 
   type(coh3d6_element),   intent(inout)   :: elem
   integer,                intent(in)      :: connec(NNODE)
   integer,                intent(in)      :: ID_matkey
   
-  ! local variables
-  real(DP) :: x(NDIM), u(NDIM), stress(NSTRAIN), strain(NSTRAIN)
-  integer  :: i
-  
-  ! initialize local variables
-  x      = ZERO
-  u      = ZERO
-  stress = ZERO
-  strain = ZERO
-  i      = 0
-  
   elem%connec    = connec
   elem%ID_matkey = ID_matkey
-  
-  do i=1, NIGPOINT
-    call update (elem%ig_point(i), x=x, u=u, stress=stress, strain=strain)
-  end do
-  
   elem%local_clock = GLOBAL_CLOCK
 
 end subroutine set_coh3d6_element
@@ -161,41 +139,48 @@ end subroutine set_coh3d6_element
 
 
 pure subroutine extract_coh3d6_element (elem, curr_status, connec, &
-& ID_matkey, ig_point, local_clock, sdv)
+& ID_matkey, traction, separation, local_clock, ig_point,          &
+& equilibrium_sdv, iterating_sdv)
 ! Purpose:
 ! to extract the components of this element
+! note that the dummy args connec and ig_point are allocatable arrays
+! because their sizes vary with different element types
 
-  type(coh3d6_element),           intent(in)  :: elem
-  integer,              optional, intent(out) :: curr_status
-  integer, allocatable, optional, intent(out) :: connec(:)
-  integer,              optional, intent(out) :: ID_matkey
-  type(integration_point), allocatable, optional, intent(out) :: ig_point(:)
+  type(coh3d6_element),                           intent(in)  :: elem
+  integer,                              optional, intent(out) :: curr_status
+  integer,                 allocatable, optional, intent(out) :: connec(:)
+  integer,                              optional, intent(out) :: ID_matkey
+  real(DP)                              optional, intent(out) :: traction(NST)
+  real(DP)                              optional, intent(out) :: separation(NST)
   type(program_clock),                  optional, intent(out) :: local_clock
-  type(sdv_array),         allocatable, optional, intent(out) :: sdv(:)
+  type(cohesive_ig_point), allocatable, optional, intent(out) :: ig_point(:)
+  type(cohesive_sdv),                   optional, intent(out) :: equilibrium_sdv
+  type(cohesive_sdv),                   optional, intent(out) :: iterating_sdv
   
   if (present(curr_status)) curr_status = elem%curr_status
-  
-  if (present(ID_matkey))   ID_matkey   = elem%ID_matkey
   
   if (present(connec)) then
     allocate(connec(NNODE))
     connec = elem%connec
   end if
   
+  if (present(ID_matkey))   ID_matkey   = elem%ID_matkey
+  
+  if (present(traction))    traction    = elem%traction
+  
+  if (present(separation))  separation  = elem%separation
+  
+  if (present(local_clock)) local_clock = elem%local_clock
+  
   if (present(ig_point)) then
     allocate(ig_point(NIGPOINT))
     ig_point = elem%ig_point
   end if
   
-  if (present(local_clock)) local_clock = elem%local_clock
+  if (present(equilibrium_sdv))  equilibrium_sdv = elem%equilibrium_sdv
   
-  if (present(sdv)) then        
-    if (allocated(elem%sdv)) then
-      allocate(sdv(size(elem%sdv)))
-      sdv = elem%sdv
-    end if
-  end if
-     
+  if (present(iterating_sdv))    iterating_sdv   = elem%iterating_sdv
+   
 end subroutine extract_coh3d6_element
 
 
