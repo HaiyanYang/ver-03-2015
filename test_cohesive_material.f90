@@ -120,8 +120,7 @@ nofailure = .false.
 
 if (nofailure) then
 
-  call ddsdde (this, dee=dee, traction=traction, separation=separation, &
-  & istat=istat, emsg=emsg)
+  call ddsdde (this, dee=dee, traction=traction, separation=separation)
 
 else
 
@@ -181,7 +180,7 @@ igsdv1=cohesive_sdv(dm=0.5_DP, u0=0.5_DP, uf=1.5_DP, fstat=COH_MAT_ONSET)
 igsdv2=cohesive_sdv(dm=0.9_DP, u0=0.5_DP, uf=1.5_DP, fstat=COH_MAT_FAILED)
 
 call update(ig_point, traction=igtract, separation=igsepar, &
-& equilibrium_sdv=igsdv1, iterating_sdv=igsdv2)
+& converged_sdv=igsdv1, iterating_sdv=igsdv2)
 write(*,'(A)') 'display the cohesive_ig_point after all updates:'
 call display(ig_point)
 
@@ -196,7 +195,7 @@ igsdv1 = cohesive_sdv(ZERO, ZERO, ZERO, INTACT)
 igsdv2 = cohesive_sdv(ZERO, ZERO, ZERO, INTACT)
 
 call extract(ig_point, x=igx, u=igu, traction=igtract, separation=igsepar, &
-& equilibrium_sdv=igsdv1, iterating_sdv=igsdv2)
+& converged_sdv=igsdv1, iterating_sdv=igsdv2)
 
 write(*,'(A)') ''
 write(*,'(A)') 'display extracted values from ig_point'

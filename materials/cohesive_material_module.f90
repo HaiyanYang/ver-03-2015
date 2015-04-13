@@ -88,12 +88,12 @@ end type cohesive_sdv
 ! stores everything needed for the integration of cohesive material in elements
 type, public :: cohesive_ig_point
   private
-  real(DP) :: x(NDIM)         = ZERO ! physical coordinates
-  real(DP) :: u(NDIM)         = ZERO ! displacement
-  real(DP) :: traction(NST)   = ZERO ! traction for output
-  real(DP) :: separation(NST) = ZERO ! separation for output
-  type(cohesive_sdv) :: equilibrium_sdv ! sdv at incremental equilibrium
-  type(cohesive_sdv) :: iterating_sdv   ! sdv during iterations
+  real(DP) :: x(NDIM)         = ZERO  ! physical coordinates
+  real(DP) :: u(NDIM)         = ZERO  ! displacement
+  real(DP) :: traction(NST)   = ZERO  ! traction for output
+  real(DP) :: separation(NST) = ZERO  ! separation for output
+  type(cohesive_sdv) :: converged_sdv ! sdv of last converged increment
+  type(cohesive_sdv) :: iterating_sdv ! sdv of current iteration
 end type cohesive_ig_point
 
 
@@ -343,10 +343,9 @@ contains
   
 
 
-  pure subroutine ddsdde_cohesive_intact (this_mat, dee, traction, separation, &
-  & istat, emsg)
+  pure subroutine ddsdde_cohesive_intact (this_mat, dee, traction, separation)
   ! Purpose:
-  ! to calculate the D matrix, traction and solution-dependent variables
+  ! to use intact material properties to calculate the D matrix and traction
   ! at an integration point of an element of cohesive_material definition
   ! (restricted to 3D problems, with the standard 3 separation terms)
 
@@ -355,51 +354,27 @@ contains
     ! - dee         : local stiffness matrix D,           to update
     ! - traction    : local traction vector,              to update
     ! - separation  : local separation vector,            passed-in
-    ! - istat       : status variable of this procedure   to output
-    ! - emsg        : error message                       to output
-  
     type(cohesive_material),  intent(in)    :: this_mat
-    real(DP),                 intent(inout) :: dee(:,:)
-    real(DP),                 intent(inout) :: traction(:)
-    real(DP),                 intent(in)    :: separation(:)
-    integer,                  intent(out)   :: istat
-    character(len=MSGLENGTH), intent(out)   :: emsg
+    real(DP),                 intent(inout) :: dee(NST,NST)
+    real(DP),                 intent(inout) :: traction(NST)
+    real(DP),                 intent(in)    :: separation(NST)
     
+    !**** check validity of non-pass dummy arguments with intent(in/inout) ****
+    ! they include : dee, traction and separation
     
-    ! initialize intent(out) & local variables
-    istat     = STAT_SUCCESS  ! default
-    emsg      = ''
+    ! dee and traction input values are not used; they can be intent(out).
+    ! they are defined as intent(inout) to avoid any potential memory leak.
+    ! so no need to check their input values
     
-    ! check validity of dummy arguments with intent(in) or (inout)
+    ! separation components can take any real value, nothing to check
     
-    ! check dee, traction and separation size
-    if (.not. (size(dee(:,1)) == NST .and. size(dee(1,:)) == NST)) then
-      istat = STAT_FAILURE
-      emsg  = 'size of dee is not supported for ddsdde_cohesive, &
-      &cohesive_material_module!'
-      return
-    end if
-    
-    if (.not. (size(traction) == NST)) then
-      istat = STAT_FAILURE
-      emsg  = 'size of traction is not supported for ddsdde_cohesive, &
-      &cohesive_material_module!'
-      return
-    end if
-    
-    if (.not. (size(separation) == NST)) then
-      istat = STAT_FAILURE
-      emsg  = 'size of separation is not supported for ddsdde_cohesive, &
-      &cohesive_material_module!'
-      return
-    end if
+    !**** MAIN CALCULATIONS ****
     
     ! calculate dee using original material properties only
     call deemat_3d (this_mat, dee)
     
     ! calculate traction
     traction = matmul(dee, separation)
-        
     
   end subroutine ddsdde_cohesive_intact 
   
@@ -411,6 +386,9 @@ contains
   ! to calculate the D matrix, traction and solution-dependent variables
   ! at an integration point of an element of cohesive_material definition
   ! (restricted to 3D problems, with the standard 3 separation terms)
+  
+  ! note: this is a complex outbound procedure with istat and emsg, 
+  ! local copies of intent(inout) dummy args are used for calculations
 
     ! dummy argument list:
     ! - this_mat    : material properties object,         passed-in (pass arg)
@@ -423,31 +401,40 @@ contains
     ! - d_max       : maximum degradation factor          passed-in (optional)
   
     type(cohesive_material),  intent(in)    :: this_mat
-    real(DP),                 intent(inout) :: dee(:,:)
-    real(DP),                 intent(inout) :: traction(:)
+    real(DP),                 intent(inout) :: dee(NST,NST)
+    real(DP),                 intent(inout) :: traction(NST)
     type(cohesive_sdv),       intent(inout) :: sdv
-    real(DP),                 intent(in)    :: separation(:)
+    real(DP),                 intent(in)    :: separation(NST)
     integer,                  intent(out)   :: istat
     character(len=MSGLENGTH), intent(out)   :: emsg
     real(DP),       optional, intent(in)    :: d_max
     
     ! local variables list:
-    ! - fstat           : failure status
-    ! - dm              : degradation factor
-    ! - u0              : cohesive law, failure onset displacement
-    ! - uf              : cohesive law, total failure displacement
+    !** local copies of intent(inout) dummy args:
+    ! - dee_lcl         : local copy of dee
+    ! - traction_lcl    : local copy of traction
+    ! - fstat           : local copy of sdv failure status
+    ! - dm              : local copy of sdv degradation factor
+    ! - u0              : local copy of sdv failure onset displacement
+    ! - uf              : local copy of sdv total failure displacement
+    !** local copies of optional dummy args
     ! - d_max_lcl       : local copy of d_max
+    !** purely local variables:
     ! - is_closed_crack : logical variable, true if the cohesive material is 
     !                     under compression
+    real(DP) :: dee_lcl(NST,NST)
+    real(DP) :: traction_lcl(NST)
     integer  :: fstat
     real(DP) :: dm, u0, uf
     real(DP) :: d_max_lcl
     logical  :: is_closed_crack
     
     
-    ! initialize intent(out) & local variables
+    !**** initialize intent(out) & local variables ****
     istat     = STAT_SUCCESS  ! default
     emsg      = ''
+    dee_lcl   = ZERO
+    traction_lcl = ZERO
     fstat     = 0
     dm        = ZERO
     u0        = ZERO
@@ -455,33 +442,18 @@ contains
     d_max_lcl = ZERO
     is_closed_crack = .false. ! default
     
-    ! check validity of dummy arguments with intent(in) or (inout)
+    !**** check validity of non-pass dummy arguments with intent(in/inout) ****
+    ! they include : dee, traction, sdv, separation, d_max
     
-    ! check dee, traction and separation size
-    if (.not. (size(dee(:,1)) == NST .and. size(dee(1,:)) == NST)) then
-      istat = STAT_FAILURE
-      emsg  = 'size of dee is not supported for ddsdde_cohesive, &
-      &cohesive_material_module!'
-      return
-    end if
-    
-    if (.not. (size(traction) == NST)) then
-      istat = STAT_FAILURE
-      emsg  = 'size of traction is not supported for ddsdde_cohesive, &
-      &cohesive_material_module!'
-      return
-    end if
-    
-    if (.not. (size(separation) == NST)) then
-      istat = STAT_FAILURE
-      emsg  = 'size of separation is not supported for ddsdde_cohesive, &
-      &cohesive_material_module!'
-      return
-    end if
+    ! dee and traction input values are not used; they can be intent(out).
+    ! they are defined as intent(inout) to avoid any potential memory leak.
+    ! so no need to check their input values
     
     ! check sdv values
     call check_sdv (sdv, istat, emsg)
     if (istat == STAT_FAILURE) return
+    
+    ! separation components can take any real value, nothing to check
     
     ! check d_max value, must be between ZERO and ONE
     if (present(d_max)) then
@@ -494,7 +466,13 @@ contains
     end if 
 
 
-    ! extract values of failure status and cohesive law variables
+    !**** assign values to local variables ****
+
+    ! dee and traction's passed-in values are not needed; no need to pass
+    ! them to their local copies
+
+    ! extract values of sdv's failure status and cohesive law variables
+    ! and store them in their respective local copies
     fstat  = sdv%FSTAT
     dm     = sdv%DM
     u0     = sdv%U0
@@ -510,6 +488,9 @@ contains
     
     ! if normal separation is less than ZERO, then the crack is closed
     is_closed_crack = separation(1) < (ZERO - SMALLNUM)
+    
+    
+    !**** MAIN CALCULATIONS ****
     
     !---------------------------------------------------------------------------
     ! Possible changes of fstat before&after cohesive law
@@ -530,7 +511,7 @@ contains
     ! fstat is the key variable, select what to do next based on fstat
     ! for calculations before the cohesive law:
     ! - if the cohesive material is already failed, just calculate D and 
-    !   traction, then exit the program;
+    !   traction, then update inout dummy args and exit the program;
     ! - if the cohesive material is already damaged but not yet failed, then the
     !   cohesive law is needed to update the damage variables, D and traction, 
     !   based on the current separation vector;
@@ -541,13 +522,19 @@ contains
     
     fstat_bfr_cohlaw: select case (fstat)
     
-      ! if the coh mat is already FAILED, just calculate traction and return;
+      ! if the coh mat is already FAILED, just calculate D and traction, then
+      ! update inout dummy args and exit the program;
       ! no need to go through failure criterion, coh law and update sdvs
       case (COH_MAT_FAILED)
         ! calculate dee; degrade stiffness
-        call deemat_3d (this_mat, dee, dm, is_closed_crack)
+        call deemat_3d (this_mat, dee_lcl, dm, is_closed_crack)
         ! calculate traction
-        traction = matmul(dee, separation)
+        traction_lcl = matmul(dee_lcl, separation)
+        
+        !**** update intent(inout) dummy args before successful return ****
+        dee      = dee_lcl
+        traction = traction_lcl
+        ! sdv remains unchanged
         ! exit program
         return
         
@@ -560,11 +547,12 @@ contains
       ! when the coh mat is INTACT, calculate traction for failure criterion
       case (INTACT)
         ! calculate dee using original material properties only
-        call deemat_3d (this_mat, dee)
+        call deemat_3d (this_mat, dee_lcl)
         ! calculate traction
-        traction = matmul(dee, separation)
+        traction_lcl = matmul(dee_lcl, separation)
         
-      ! unexpected value, update istat and emsg, then return
+      ! unexpected value, update istat and emsg and intent(out) dummy args
+      ! then return
       case default
         istat = STAT_FAILURE
         emsg  = 'fstat value is not recognized in fstat_bfr_cohlaw, &
@@ -577,49 +565,67 @@ contains
 
     ! call cohesive law, calculate damage variables (fstat, dm, u0, uf) based
     ! on this material's properties and current traction and separation vectors
-    call cohesive_law (this_mat, fstat, dm, u0, uf, traction, separation, &
+    call cohesive_law (this_mat, fstat, dm, u0, uf, traction_lcl, separation, &
     & d_max_lcl, istat, emsg)
     
     ! check if the cohesive law is run successfully;
-    ! if not, return (in this case, emsg will show the reason of error)
+    ! if not, return (in this case, emsg will show the cause of error)
+    ! note that if other intent(out) dummy args are present, they need to be 
+    ! assigned error-exit values before return
     if (istat == STAT_FAILURE) return
     
     
     !---------------------------------------------------------------------------
-    ! going through the cohesive law, the possible outcomes of fstat are:
-    ! 1. intact -> intact : no change, do nothing, exit program
-    ! 2. intact -> onset  : update sdv, D, traction
-    ! 3. onset  -> onset  : update sdv, D, traction
-    ! 4. onset  -> failed : update sdv, D, traction
+    ! after the cohesive law, the damage variables are already updated.
+    ! the possible actions based on the change of fstat are:
+    ! 1. intact -> intact : no change, do nothing
+    ! 2. intact -> onset  : update D, traction
+    ! 3. onset  -> onset  : update D, traction
+    ! 4. onset  -> failed : update D, traction
+    ! then update inout dummy args and exit the program
     !---------------------------------------------------------------------------
   
     ! fstat is the key variable, select what to do next based on fstat for
     ! the calculations after the cohesive law:
     ! - if the coh mat is damaged or failed, regardless of its prior status 
-    !   (intact or damaged), damage variables, D and traction should be updated;
+    !   (intact or damaged), D and traction should be updated; then update 
+    !   inout dummy args and exit the program
     ! - if the coh mat remains intact, then the D and traction have already been
-    !   calculated before the cohesive law, so just exit program
+    !   calculated before the cohesive law, and sdv remain unchanged; 
+    !   so just update inout dummy args and exit the program
     fstat_aft_cohlaw: select case (fstat)
     
       ! if the coh mat is DAMAGED/FAILED after the cohesive law, 
-      ! update sdv, deemat and traction
+      ! update deemat and traction, then update all inout dummy args and exit
       case (COH_MAT_ONSET, COH_MAT_FAILED)
-        ! update to sdv
-        sdv%FSTAT  = fstat
-        sdv%DM     = dm
-        sdv%U0     = u0
-        sdv%UF     = uf
         ! update D matrix
-        call deemat_3d (this_mat, dee, dm, is_closed_crack) 
+        call deemat_3d (this_mat, dee_lcl, dm, is_closed_crack) 
         ! update traction
-        traction = matmul(dee, separation) 
+        traction_lcl = matmul(dee_lcl, separation) 
         
-      ! if the coh mat is STILL INTACT, D and traction has already
-      ! been calculated before the cohesive law, just exit the program
-      case (INTACT)
+        !**** update intent(inout) dummy args before successful return ****
+        dee       = dee_lcl
+        traction  = traction_lcl
+        sdv%FSTAT = fstat
+        sdv%DM    = dm
+        sdv%U0    = u0
+        sdv%UF    = uf
+        ! exit the program
         return
         
-      ! unexpected value, update istat and emsg, then return
+      ! if the coh mat is STILL INTACT, D and traction has already
+      ! been calculated before the cohesive law and damage var. remain unchanged
+      ! just update inout dummy args and exit the program
+      case (INTACT)
+        !**** update intent(inout) dummy args before successful return ****
+        dee       = dee_lcl
+        traction  = traction_lcl
+        ! sdv remain unchanged
+        ! exit the program
+        return
+        
+      ! unexpected value, update istat and emsg and intent(out) dummy args 
+      ! then return
       case default
         istat = STAT_FAILURE
         emsg  = 'fstat value is not recognized in fstat_aft_cohlaw, &
@@ -1034,33 +1040,33 @@ contains
 
 
   pure subroutine update_cohesive_ig_point (ig_point, x, u, &
-  & traction, separation, equilibrium_sdv, iterating_sdv)
+  & traction, separation, converged_sdv, iterating_sdv)
 
     type(cohesive_ig_point),      intent(inout) :: ig_point
     real(DP),           optional, intent(in)    :: x(NDIM), u(NDIM)
     real(DP),           optional, intent(in)    :: traction(NST)
     real(DP),           optional, intent(in)    :: separation(NST)
-    type(cohesive_sdv), optional, intent(in)    :: equilibrium_sdv
+    type(cohesive_sdv), optional, intent(in)    :: converged_sdv
     type(cohesive_sdv), optional, intent(in)    :: iterating_sdv
     
-    if(present(x))                ig_point%x = x
-    if(present(u))                ig_point%u = u
-    if(present(traction))         ig_point%traction   = traction
-    if(present(separation))       ig_point%separation = separation
-    if(present(equilibrium_sdv))  ig_point%equilibrium_sdv = equilibrium_sdv
-    if(present(iterating_sdv))    ig_point%iterating_sdv   = iterating_sdv
+    if(present(x))              ig_point%x = x
+    if(present(u))              ig_point%u = u
+    if(present(traction))       ig_point%traction   = traction
+    if(present(separation))     ig_point%separation = separation
+    if(present(converged_sdv))  ig_point%converged_sdv = converged_sdv
+    if(present(iterating_sdv))  ig_point%iterating_sdv = iterating_sdv
 
   end subroutine update_cohesive_ig_point
 
 
 
   pure subroutine extract_cohesive_ig_point (ig_point, x, u, &
-  & traction, separation, equilibrium_sdv, iterating_sdv)
+  & traction, separation, converged_sdv, iterating_sdv)
 
     type(cohesive_ig_point),      intent(in)  :: ig_point
     real(DP),           optional, intent(out) :: x(NDIM), u(NDIM)
     real(DP),           optional, intent(out) :: traction(NST), separation(NST)
-    type(cohesive_sdv), optional, intent(out) :: equilibrium_sdv
+    type(cohesive_sdv), optional, intent(out) :: converged_sdv
     type(cohesive_sdv), optional, intent(out) :: iterating_sdv 
     
     ! initialize intent(out) variables
@@ -1070,12 +1076,12 @@ contains
     separation = ZERO
     ! derived types are automatically initialized upon declaration
     
-    if(present(x))               x               = ig_point%x
-    if(present(u))               u               = ig_point%u
-    if(present(traction))        traction        = ig_point%traction
-    if(present(separation))      separation      = ig_point%separation
-    if(present(equilibrium_sdv)) equilibrium_sdv = ig_point%equilibrium_sdv
-    if(present(iterating_sdv))   iterating_sdv   = ig_point%iterating_sdv
+    if(present(x))               x             = ig_point%x
+    if(present(u))               u             = ig_point%u
+    if(present(traction))        traction      = ig_point%traction
+    if(present(separation))      separation    = ig_point%separation
+    if(present(converged_sdv))   converged_sdv = ig_point%converged_sdv
+    if(present(iterating_sdv))   iterating_sdv = ig_point%iterating_sdv
 
   end subroutine extract_cohesive_ig_point
 
@@ -1135,8 +1141,8 @@ contains
     write(*,'(1X, A)') ''
     write(*,'(1X, A)') ''
     
-    write(*,'(1X, A)') '- equilibrium cohesive_sdv of this cohesive_ig_point is:'
-    call display_cohesive_sdv(this%equilibrium_sdv)
+    write(*,'(1X, A)') '- converged cohesive_sdv of this cohesive_ig_point is:'
+    call display_cohesive_sdv(this%converged_sdv)
     write(*,'(1X, A)') ''
 
     write(*,'(1X, A)') '- iterating cohesive_sdv of this cohesive_ig_point is: '

@@ -129,8 +129,7 @@ nofailure = .false.
 
 if (nofailure) then
   ! ddsdde_intact
-  call ddsdde (this, dee=dee, stress=stress, strain=strain, &
-  & istat=istat, emsg=emsg)
+  call ddsdde (this, dee=dee, stress=stress, strain=strain)
 
 else
 
@@ -193,7 +192,7 @@ igsdv2=lamina_sdv(df=0.9_DP, u0=0.5_DP, uf=1.5_DP, &
      & fstat=FIBRE_FAILED, ffstat=FIBRE_FAILED, mfstat=MATRIX_ONSET)
 
 call update(ig_point, stress=igstress, strain=igstrain, &
-& equilibrium_sdv=igsdv1, iterating_sdv=igsdv2)
+& converged_sdv=igsdv1, iterating_sdv=igsdv2)
 write(*,'(A)') 'display the lamina_ig_point after all updates:'
 call display(ig_point)
 
@@ -208,7 +207,7 @@ igsdv1 = lamina_sdv(ZERO, ZERO, ZERO, INTACT, INTACT, INTACT)
 igsdv2 = lamina_sdv(ZERO, ZERO, ZERO, INTACT, INTACT, INTACT)
 
 call extract(ig_point, x=igx, u=igu, stress=igstress, strain=igstrain, &
-& equilibrium_sdv=igsdv1, iterating_sdv=igsdv2)
+& converged_sdv=igsdv1, iterating_sdv=igsdv2)
 
 write(*,'(A)') ''
 write(*,'(A)') 'display extracted values from ig_point'

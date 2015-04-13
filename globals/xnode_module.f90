@@ -69,7 +69,7 @@ contains
 
 
   
-  pure subroutine empty_xnode(this_xnode)
+  elemental subroutine empty_xnode(this_xnode)
   ! Purpose:
   ! to deallocate all the components of this object
   
@@ -87,7 +87,7 @@ contains
 
 
   
-  pure function plus_xnode(xnode1, xnode2) result(xnode3)
+  elemental function plus_xnode(xnode1, xnode2) result(xnode3)
   ! Purpose:
   ! to add two xnode objects, component by component
   
@@ -150,7 +150,7 @@ contains
 
 
   
-  pure function minus_xnode(xnode1, xnode2) result(xnode3)
+  elemental function minus_xnode(xnode1, xnode2) result(xnode3)
   ! Purpose:
   ! to subtract two xnode objects (second from first), component by component
   
@@ -214,7 +214,7 @@ contains
 
 
   
-  pure function ratio_xnode(r, xnode1) result(xnode3)
+  elemental function ratio_xnode(r, xnode1) result(xnode3)
   ! Purpose:
   ! to multiply all the components of an xnode object by a constant
   
@@ -504,7 +504,7 @@ contains
     end if
     
 
-end subroutine extract_xnode 
+  end subroutine extract_xnode 
   
   
 

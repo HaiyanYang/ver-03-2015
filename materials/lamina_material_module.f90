@@ -88,12 +88,12 @@ end type lamina_sdv
 ! stores everything needed for the integration of lamina material in elements
 type, public :: lamina_ig_point
   private
-  real(DP) :: x(NDIM)     = ZERO  ! physical coordinates
-  real(DP) :: u(NDIM)     = ZERO  ! displacement
-  real(DP) :: stress(NST) = ZERO  ! stress for output
-  real(DP) :: strain(NST) = ZERO  ! strain for output
-  type(lamina_sdv) :: equilibrium_sdv ! sdv at incremental equilibrium
-  type(lamina_sdv) :: iterating_sdv   ! sdv during iterations
+  real(DP) :: x(NDIM)     = ZERO    ! physical coordinates
+  real(DP) :: u(NDIM)     = ZERO    ! displacement
+  real(DP) :: stress(NST) = ZERO    ! stress for output
+  real(DP) :: strain(NST) = ZERO    ! strain for output
+  type(lamina_sdv) :: converged_sdv ! sdv of last converged increment
+  type(lamina_sdv) :: iterating_sdv ! sdv of current iteration
 end type lamina_ig_point
 
 
@@ -360,8 +360,7 @@ contains
   
 
 
-  pure subroutine ddsdde_lamina_intact (this_mat, dee, stress, strain, &
-  & istat, emsg)
+  pure subroutine ddsdde_lamina_intact (this_mat, dee, stress, strain)
   ! Purpose:
   ! to use intact material properties to calculate the D matrix and stress 
   ! at an integration point of an element of lamina_material definition
@@ -372,50 +371,27 @@ contains
     ! - dee         : local stiffness matrix D,           to update
     ! - stress      : local stress vector,                to update
     ! - strain      : local strain vector,                passed-in
-    ! - istat       : status variable of this procedure   to output
-    ! - emsg        : error message                       to output
     type(lamina_material),    intent(in)    :: this_mat
-    real(DP),                 intent(inout) :: dee(:,:)
-    real(DP),                 intent(inout) :: stress(:)
-    real(DP),                 intent(in)    :: strain(:)    
-    integer,                  intent(out)   :: istat
-    character(len=MSGLENGTH), intent(out)   :: emsg
+    real(DP),                 intent(inout) :: dee(NST,NST)
+    real(DP),                 intent(inout) :: stress(NST)
+    real(DP),                 intent(in)    :: strain(NST)
     
+    !**** check validity of non-pass dummy arguments with intent(in/inout) ****
+    ! they include : dee, stress and strain
     
-    ! initialize intent(out) & local variables
-    istat = STAT_SUCCESS  ! default
-    emsg  = ''
+    ! dee and stress input values are not used; they can be intent(out).
+    ! they are defined as intent(inout) to avoid any potential memory leak.
+    ! so no need to check their input values
     
-    ! check validity of dummy arguments with intent(in) or (inout)
+    ! strain components can take any real value, nothing to check
     
-    ! check dee, stress and strain size
-    if (.not. (size(dee(:,1)) == NST .and. size(dee(1,:)) == NST)) then
-      istat = STAT_FAILURE
-      emsg  = 'size of dee is not supported for ddsdde_lamina, &
-      &lamina_material_module!'
-      return
-    end if
-    
-    if (.not. (size(stress) == NST)) then
-      istat = STAT_FAILURE
-      emsg  = 'size of stress is not supported for ddsdde_lamina, &
-      &lamina_material_module!'
-      return
-    end if
-    
-    if (.not. (size(strain) == NST)) then
-      istat = STAT_FAILURE
-      emsg  = 'size of strain is not supported for ddsdde_lamina, &
-      &lamina_material_module!'
-      return
-    end if
+    !**** MAIN CALCULATIONS ****
     
     ! calculate dee using original material properties only
     call deemat_3d (this_mat, dee)
     
     ! calculate stress
     stress = matmul(dee, strain)
-       
     
   end subroutine ddsdde_lamina_intact
 
@@ -427,6 +403,9 @@ contains
   ! to calculate the D matrix, stress and solution-dependent variables
   ! at an integration point of an element of lamina_material definition
   ! (restricted to 3D problems, with the standard 6 strain terms)
+  
+  ! note: this is a complex outbound procedure with istat and emsg, 
+  ! local copies of intent(inout) dummy args are used for calculations
 
     ! dummy argument list:
     ! - this_mat    : material properties object,         passed-in (pass arg)
@@ -439,33 +418,42 @@ contains
     ! - emsg        : error message                       to output
     ! - d_max       : maximum degradation factor          passed-in (optional)
     type(lamina_material),    intent(in)    :: this_mat
-    real(DP),                 intent(inout) :: dee(:,:)
-    real(DP),                 intent(inout) :: stress(:)
+    real(DP),                 intent(inout) :: dee(NST,NST)
+    real(DP),                 intent(inout) :: stress(NST)
     type(lamina_sdv),         intent(inout) :: sdv
-    real(DP),                 intent(in)    :: strain(:)    
+    real(DP),                 intent(in)    :: strain(NST)    
     real(DP),                 intent(in)    :: clength
     integer,                  intent(out)   :: istat
     character(len=MSGLENGTH), intent(out)   :: emsg
     real(DP),       optional, intent(in)    :: d_max
     
     ! local variables list:
-    ! - fstat     : generic failure status
-    ! - ffstat    : fibre   failure status
-    ! - mfstat    : matrix  failure status
-    ! - df        : fibre degradation
-    ! - u0        : fibre cohesive law, failure onset displacement
-    ! - uf        : fibre cohesive law, total failure displacement
+    !** local copies of intent(inout) dummy args:
+    ! - dee_lcl   : local copy of dee
+    ! - stress_lcl: local copy of stress
+    ! - fstat     : local copy of sdv generic failure status
+    ! - ffstat    : local copy of sdv fibre   failure status
+    ! - mfstat    : local copy of sdv matrix  failure status
+    ! - df        : local copy of sdv fibre degradation
+    ! - u0        : local copy of sdv fibre cohesive law, failure onset disp.
+    ! - uf        : local copy of sdv fibre cohesive law, total failure disp.
+    !** local copies of optional dummy args
     ! - d_max_lcl : local copy of d_max
+    !** purely local variables:
     ! - findex    : failure index of a failure criterion
+    real(DP) :: dee_lcl(NST,NST)
+    real(DP) :: stress_lcl(NST)
     integer  :: fstat, ffstat, mfstat
     real(DP) :: df, u0, uf
     real(DP) :: d_max_lcl
     real(DP) :: findex
 
     
-    ! initialize intent(out) & local variables
+    !**** initialize intent(out) & local variables ****
     istat     = STAT_SUCCESS  ! default
     emsg      = ''
+    dee_lcl   = ZERO
+    stress_lcl= ZERO
     fstat     = 0 
     ffstat    = 0 
     mfstat    = 0
@@ -474,34 +462,20 @@ contains
     uf        = ZERO 
     d_max_lcl = ZERO
     findex    = ZERO
+ 
+   
+    !**** check validity of non-pass dummy arguments with intent(in/inout) ****
+    ! they include : dee, stress, sdv, strain, clength, d_max
     
-    ! check validity of dummy arguments with intent(in) or (inout)
-    
-    ! check dee, stress and strain size
-    if (.not. (size(dee(:,1)) == NST .and. size(dee(1,:)) == NST)) then
-      istat = STAT_FAILURE
-      emsg  = 'size of dee is not supported for ddsdde_lamina, &
-      &lamina_material_module!'
-      return
-    end if
-    
-    if (.not. (size(stress) == NST)) then
-      istat = STAT_FAILURE
-      emsg  = 'size of stress is not supported for ddsdde_lamina, &
-      &lamina_material_module!'
-      return
-    end if
-    
-    if (.not. (size(strain) == NST)) then
-      istat = STAT_FAILURE
-      emsg  = 'size of strain is not supported for ddsdde_lamina, &
-      &lamina_material_module!'
-      return
-    end if
+    ! dee and stress input values are not used; they can be intent(out).
+    ! they are defined as intent(inout) to avoid any potential memory leak.
+    ! so no need to check their input values
     
     ! check sdv values
     call check_sdv (sdv, istat, emsg)
     if (istat == STAT_FAILURE) return
+    
+    ! strain components can take any real value, nothing to check
     
     ! check clength value
     if (.not. (clength > SMALLNUM)) then 
@@ -520,24 +494,32 @@ contains
         return
       end if
     end if 
-        
+  
 
-    ! extract values of failure status and cohesive law variables
+    !**** assign values to local variables ****
+
+    ! dee and stress' passed-in values are not needed; no need to pass
+    ! them to their local copies
+    
+    ! extract values of sdv's failure status and cohesive law variables
+    ! and store them in their respective local copies
     fstat  = sdv%FSTAT 
     ffstat = sdv%FFSTAT
     mfstat = sdv%MFSTAT
     df     = sdv%DF
     u0     = sdv%U0
     uf     = sdv%UF
-         
-    ! copy max. degradation (if present) into local variable
+    ! copy max. degradation (if present) into local variable d_max_lcl
     if (present(d_max))  then
       d_max_lcl = d_max
     else  
       ! default value is ONE              
       d_max_lcl = ONE
     end if
-    
+
+
+    !**** MAIN CALCULATIONS ****
+
     !---------------------------------------------------------------------------
     ! fstat is always equal to ffstat, 
     ! unless ffstat = INTACT and mfstat > INTACT, then fstat = mfstat
@@ -560,7 +542,7 @@ contains
     ! ffstat is the key variable, select what to do next based on ffstat
     ! for calculations before the fibre cohesive law:
     ! - if the fibres are already failed, just calculate D and stress, 
-    !   then exit the problem;
+    !   then update inout dummy args and exit the problem;
     ! - if the fibres are already damaged (but not yet failed), then the fibre
     !   cohesive law is needed to update the damage variables, D and stress, 
     !   based on the current strain values;
@@ -570,13 +552,19 @@ contains
     !   according to the fibre cohesive law
     ffstat_bfr_cohlaw: select case (ffstat)
     
-      ! if fibres are already FAILED, just calculate stress and return;
+      ! if fibres are already FAILED, just calculate D and stress, then
+      ! update inout dummy args and exit the program;
       ! no need to go through failure criterion, coh law and update sdvs
       case (FIBRE_FAILED)
         ! calculate dee; degrade both fibre and matrix stiffness properties
-        call deemat_3d (this_mat, dee, df=df, dm2=df, dm3=df)
+        call deemat_3d (this_mat, dee_lcl, df=df, dm2=df, dm3=df)
         ! calculate stress
-        stress = matmul(dee, strain)
+        stress_lcl = matmul(dee_lcl, strain)
+        
+        !**** update intent(inout) dummy args before successful return ****
+        dee    = dee_lcl
+        stress = stress_lcl
+        ! sdv remains unchanged
         ! exit program
         return
         
@@ -589,11 +577,12 @@ contains
       ! when fibres are INTACT, calculate stress for failure criterion check
       case (INTACT)
         ! calculate dee using original material properties only
-        call deemat_3d (this_mat, dee)
+        call deemat_3d (this_mat, dee_lcl)
         ! calculate stress
-        stress = matmul(dee, strain)
+        stress_lcl = matmul(dee_lcl, strain)
         
-      ! unexpected value, update istat and emsg, then return
+      ! unexpected value, update istat and emsg and intent(out) dummy args, 
+      ! then return
       case default
         istat = STAT_FAILURE
         emsg  = 'ffstat value is not recognized in ffstat_bfr_cohlaw, &
@@ -607,67 +596,90 @@ contains
     ! uf) based on this material's properties, current stress and strain states
     ! and the element's characteristic length
     call fibre_cohesive_law (this_mat, ffstat, df, u0, uf, &
-    & stress, strain, clength, d_max_lcl, istat, emsg)
+    & stress_lcl, strain, clength, d_max_lcl, istat, emsg)
   
     ! check if the cohesive law is run successfully;
-    ! if not, return (in this case, emsg will show the reason of error)
+    ! if not, return (in this case, emsg will show the cause of error)
+    ! note that if other intent(out) dummy args are present, they need to be 
+    ! assigned error-exit values before return
     if (istat == STAT_FAILURE) return
 
     !---------------------------------------------------------------------------
-    ! going through the cohesive law, the possible outcomes of ffstat are:
-    ! 1. intact -> intact : check matrix status, and update fstat, sdv
-    ! 2. intact -> onset  : update fstat, sdv, D, stress
-    ! 3. onset  -> onset  : update fstat, sdv, D, stress
-    ! 4. onset  -> failed : update fstat, sdv, D, stress
+    ! after the cohesive law, the fibre damage variables are already updated;
+    ! the possible actions on other variables based on changes of ffstat are:
+    ! 1. intact -> intact : check matrix failure, and update mfstat and fstat
+    ! 2. intact -> onset  : update fstat, D, stress
+    ! 3. onset  -> onset  : update        D, stress
+    ! 4. onset  -> failed : update fstat, D, stress
+    ! then update inout dummy args and exit the program
     !---------------------------------------------------------------------------
   
     ! ffstat is the key variable, select what to do next based on ffstat for
     ! the calculations after the fibre cohesive law:
-    ! - if fibres are damaged or failed, regardless of its prior status 
-    !   (intact or damaged), damage variables, D and stress should be updated;
+    ! - if fibres are damaged(onset) or failed, regardless of its prior status 
+    !   (intact or onset), fstat, D and stress are to be updated.
+    !   then update inout dummy args and return
     ! - if fibres remain intact, then matrix failure criterion needs to be
-    !   checked, if it is met, fstat would be updated as mfstat; no need to 
-    !   update any damage variable or D or stress, because matrix failure here
-    !   does not lead to softening (note that in FNM, matrix failure is
-    !   explicitly represented by a cohesive sub-element; only the matrix
+    !   checked, if it is met, mfstat would be updated and fstat = mfstat;
+    !   fibre damage variables, D and stress remain unchanged. 
+    !   then update inout dummy args and return.
+    !   note: no need to update D or stress, as matrix failure here
+    !   does not lead to softening (note that in FNM, matrix failure
+    !   is explicitly represented by a cohesive sub-element; only the matrix
     !   failure status is interested here)
     ffstat_aft_cohlaw: select case (ffstat)
     
       ! if fibres are DAMAGED/FAILED after the cohesive law, 
-      ! update fstat, sdv, deemat and stress
+      ! update fstat, deemat and stress.
+      ! then update inout dummy args and return
       case (FIBRE_ONSET, FIBRE_FAILED)
         ! update fstat
         fstat = ffstat
-        ! update to sdv (everything except mfstat)
+        ! update D matrix
+        call deemat_3d (this_mat, dee_lcl, df=df, dm2=df, dm3=df) 
+        ! update stress
+        stress_lcl = matmul(dee_lcl, strain)
+ 
+        !**** update intent(inout) dummy args before successful return ****
+        dee        = dee_lcl
+        stress     = stress_lcl
         sdv%FSTAT  = fstat
         sdv%FFSTAT = ffstat
         sdv%DF     = df
         sdv%U0     = u0
         sdv%UF     = uf
-        ! update D matrix
-        call deemat_3d (this_mat, dee, df=df, dm2=df, dm3=df) 
-        ! update stress
-        stress = matmul(dee, strain) 
+        ! MFSTAT remain unchanged
+        ! exit program
+        return
         
       ! if fibres are STILL INTACT, check for matrix status;
-      ! if matrix failure onset, update fstat and sdv
+      ! if matrix failure onset, update mfstat and fstat.
+      ! then update inout dummy args and return
       case (INTACT)
         ! check for matrix failure
         if (mfstat == INTACT) then       
-          ! go through failure criterion and calculate findex
-          call matrix_failure_criterion_3d (this_mat, stress, findex)
-          ! update fstat if matrix reached failure onset (findex >= 1.)
+          ! go through matrix failure criterion and calculate findex
+          call matrix_failure_criterion_3d (this_mat, stress_lcl, findex)
+          ! update mfstat and fstat if matrix failure onset (findex >= 1.)
           if (findex > ONE - SMALLNUM) then
             mfstat = MATRIX_ONSET
             fstat  = mfstat 
-            ! update to sdv (only fstat and mfstat)
-            sdv%FSTAT  = fstat
-            sdv%MFSTAT = mfstat
-            ! no need to update D matrix and stress
+            ! no need to update D matrix and stress 
+            ! (no softening due to matrix failure)
           end if
         end if
         
-      ! unexpected value, update istat and emsg, then return
+        !**** update intent(inout) dummy args before successful return ****
+        dee        = dee_lcl
+        stress     = stress_lcl
+        sdv%FSTAT  = fstat
+        sdv%MFSTAT = mfstat
+        ! fibre sdvs remain unchanged
+        ! exit program
+        return
+        
+      ! unexpected value, update istat and emsg and intent(out) dummy args 
+      ! then return
       case default
         istat = STAT_FAILURE
         emsg  = 'ffstat value is not recognized in ffstat_aft_cohlaw, &
@@ -675,7 +687,7 @@ contains
         return
  
     end select ffstat_aft_cohlaw
-   
+ 
     
   end subroutine ddsdde_lamina 
 
@@ -1173,32 +1185,32 @@ contains
 
 
   pure subroutine update_lamina_ig_point (ig_point, x, u, stress, strain, &
-  & equilibrium_sdv, iterating_sdv)
+  & converged_sdv, iterating_sdv)
   
     type(lamina_ig_point),      intent(inout) :: ig_point
     real(DP),         optional, intent(in)    :: x(NDIM), u(NDIM)
     real(DP),         optional, intent(in)    :: stress(NST), strain(NST)
-    type(lamina_sdv), optional, intent(in)    :: equilibrium_sdv
+    type(lamina_sdv), optional, intent(in)    :: converged_sdv
     type(lamina_sdv), optional, intent(in)    :: iterating_sdv
     
     if(present(x))                ig_point%x = x
     if(present(u))                ig_point%u = u
     if(present(stress))           ig_point%stress = stress
     if(present(strain))           ig_point%strain = strain
-    if(present(equilibrium_sdv))  ig_point%equilibrium_sdv = equilibrium_sdv
-    if(present(iterating_sdv))    ig_point%iterating_sdv   = iterating_sdv
+    if(present(converged_sdv))    ig_point%converged_sdv = converged_sdv
+    if(present(iterating_sdv))    ig_point%iterating_sdv = iterating_sdv
 
   end subroutine update_lamina_ig_point
 
 
 
   pure subroutine extract_lamina_ig_point (ig_point, x, u, stress, strain, &
-  & equilibrium_sdv, iterating_sdv)
+  & converged_sdv, iterating_sdv)
   
       type(lamina_ig_point),      intent(in)  :: ig_point
       real(DP),         optional, intent(out) :: x(NDIM), u(NDIM)
       real(DP),         optional, intent(out) :: stress(NST), strain(NST)
-      type(lamina_sdv), optional, intent(out) :: equilibrium_sdv
+      type(lamina_sdv), optional, intent(out) :: converged_sdv
       type(lamina_sdv), optional, intent(out) :: iterating_sdv
       
       ! initialize intent(out) variable
@@ -1212,8 +1224,8 @@ contains
       if(present(u))                u = ig_point%u
       if(present(stress))           stress = ig_point%stress
       if(present(strain))           strain = ig_point%strain
-      if(present(equilibrium_sdv))  equilibrium_sdv = ig_point%equilibrium_sdv
-      if(present(iterating_sdv))    iterating_sdv   = ig_point%iterating_sdv
+      if(present(converged_sdv))    converged_sdv = ig_point%converged_sdv
+      if(present(iterating_sdv))    iterating_sdv = ig_point%iterating_sdv
 
   end subroutine extract_lamina_ig_point
 
@@ -1273,8 +1285,8 @@ contains
     write(*,'(1X, A)') ''
     write(*,'(1X, A)') ''
     
-    write(*,'(1X, A)') '- equilibrium lamina_sdv of this lamina_ig_point is: '
-    call display_lamina_sdv(this%equilibrium_sdv)
+    write(*,'(1X, A)') '- converged lamina_sdv of this lamina_ig_point is: '
+    call display_lamina_sdv(this%converged_sdv)
     write(*,'(1X, A)') ''
   
     write(*,'(1X, A)') '- iterating lamina_sdv of this lamina_ig_point is: '

@@ -49,15 +49,15 @@ integer, parameter :: NNODE=8, NIGPOINT=4, NDOF=NDIM*NNODE
 type, public :: coh3d8_element 
   private
   ! list of type components:
-  ! curr_status : element current status
-  ! connec    : indices of element nodes in the global node array
-  ! ID_matkey : index of element material in the global matkey array
-  ! traction  : traction on the interface, for output
-  ! separation: separation on the interface, for output
-  ! ig_point  : x, xi, weight, stress, strain, sdv; initialize in set procedure
-  ! local_clock     : locally-saved program clock
-  ! equilibrium_sdv : element cohesive_sdv at each incremental equilibrium 
-  ! iterating_sdv   : element cohesive_sdv during iterations of increments
+  ! curr_status   : element current status
+  ! connec        : indices of element nodes in the global node array
+  ! ID_matkey     : index of element material in the global matkey array
+  ! traction      : traction on the interface, for output
+  ! separation    : separation on the interface, for output
+  ! ig_point      : integration point array of this element
+  ! local_clock   : locally-saved program clock
+  ! converged_sdv : element cohesive_sdv of last converged increment
+  ! iterating_sdv : element cohesive_sdv of current iteration
   integer  :: curr_status   = 0
   integer  :: connec(NNODE) = 0
   integer  :: ID_matkey     = 0
@@ -65,7 +65,7 @@ type, public :: coh3d8_element
   real(DP) :: separation(NST) = ZERO
   type(program_clock)     :: local_clock
   type(cohesive_ig_point) :: ig_point(NIGPOINT)
-  type(cohesive_sdv)      :: equilibrium_sdv
+  type(cohesive_sdv)      :: converged_sdv
   type(cohesive_sdv)      :: iterating_sdv     
 end type
 
@@ -139,7 +139,7 @@ end subroutine set_coh3d8_element
 
 pure subroutine extract_coh3d8_element (elem, curr_status, connec, &
 & ID_matkey, traction, separation, local_clock, ig_point,          &
-& equilibrium_sdv, iterating_sdv)
+& converged_sdv, iterating_sdv)
 ! Purpose:
 ! to extract the components of this element
 ! note that the dummy args connec and ig_point are allocatable arrays
@@ -153,7 +153,7 @@ pure subroutine extract_coh3d8_element (elem, curr_status, connec, &
   real(DP)                              optional, intent(out) :: separation(NST)
   type(program_clock),                  optional, intent(out) :: local_clock
   type(cohesive_ig_point), allocatable, optional, intent(out) :: ig_point(:)
-  type(cohesive_sdv),                   optional, intent(out) :: equilibrium_sdv
+  type(cohesive_sdv),                   optional, intent(out) :: converged_sdv
   type(cohesive_sdv),                   optional, intent(out) :: iterating_sdv
   
   if (present(curr_status)) curr_status = elem%curr_status
@@ -176,9 +176,9 @@ pure subroutine extract_coh3d8_element (elem, curr_status, connec, &
     ig_point = elem%ig_point
   end if
   
-  if (present(equilibrium_sdv))  equilibrium_sdv = elem%equilibrium_sdv
+  if (present(converged_sdv))  converged_sdv = elem%converged_sdv
   
-  if (present(iterating_sdv))    iterating_sdv   = elem%iterating_sdv
+  if (present(iterating_sdv))  iterating_sdv = elem%iterating_sdv
    
 end subroutine extract_coh3d8_element
 
