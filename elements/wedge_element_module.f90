@@ -37,7 +37,11 @@ module wedge_element_module
 !    ========  ====================  ========================================
 !    08/04/15  B. Y. Chen            Original code
 !
-use parameter_module, only : NDIM, NST => NST_STANDARD, DP, SDV_ARRAY, ZERO,
+
+use parameter_module, only : NDIM, NST => NST_STANDARD, DP, ZERO,
+! list of external modules used in type definition and other procedures:
+! global clock module    : needed in element definition, extract and integrate
+! lamina material module : needed in element definition, extract and integrate 
 use global_clock_module
 use lamina_material_module
 
@@ -67,26 +71,24 @@ integer, parameter :: NODE_ON_BOTTOM_EDGE(2, NEDGE_BOTTOM) = &
 type, public :: wedge_element 
   private
   ! list of type components:
-  ! curr_status   : element current status
-  ! connec        : indices of element nodes in the global node array
-  ! ID_matkey     : index of element material in the global matkey array
+  ! fstat         : element failure status
+  ! connec        : indices of element nodes in the global node list
+  ! ID_matlist    : index of element material in its material list
   ! ply_angle     : ply angle for composite lamina (rotation around z axis)
-  ! stress        : stresses for output
-  ! strain        : strains for output
-  ! ig_point      : integration point array of this element
+  ! ig_points     : integration points of this element
   ! local_clock   : locally-saved program clock
-  ! converged_sdv : element lamina_sdv of last converged increment
-  ! iterating_sdv : element lamina_sdv of current iteration
-  integer  :: curr_status   = 0
+  ! stress        : stresses for output
+  ! strain        : strains for output  
+  ! df            : fibre degradation factor for output
+  integer  :: fstat         = 0
   integer  :: connec(NNODE) = 0
-  integer  :: ID_matkey     = 0 
+  integer  :: ID_matlist    = 0
   real(DP) :: ply_angle     = ZERO
+  type(program_clock)   :: local_clock
+  type(lamina_ig_point) :: ig_points(NIGPOINT)
   real(DP) :: stress(NST)   = ZERO
   real(DP) :: strain(NST)   = ZERO
-  type(program_clock)   :: local_clock
-  type(lamina_ig_point) :: ig_point(NIGPOINT)
-  type(lamina_sdv)      :: converged_sdv
-  type(lamina_sdv)      :: iterating_sdv
+  real(DP) :: df            = ZERO
 end type
 
 
@@ -138,72 +140,67 @@ end subroutine empty_wedge_element
 
 
 
-pure subroutine set_wedge_element (elem, connec, ID_matkey, ply_angle)
+pure subroutine set_wedge_element (elem, connec, ID_matlist, ply_angle)
 ! Purpose:
 ! this subroutine is used to set the components of the element
 ! it is used in the initialize_lib_elem procedure in the lib_elem module
 ! note that only some of the components need to be set during preproc,
-! namely connec, ID_matkey, ply_angle and local_clock
+! namely connec, ID_matlist, ply_angle and local_clock
 
   type(wedge_element),    intent(inout)   :: elem
   integer,                intent(in)      :: connec(NNODE)
-  integer,                intent(in)      :: ID_matkey
+  integer,                intent(in)      :: ID_matlist
   real(DP),               intent(in)      :: ply_angle
   
   elem%connec    = connec
-  elem%ID_matkey = ID_matkey
+  elem%ID_matlist = ID_matlist
   elem%ply_angle = ply_angle
-  elem%local_clock = GLOBAL_CLOCK
 
 end subroutine set_wedge_element
 
 
 
-pure subroutine extract_wedge_element (elem, curr_status, connec, &
-& ID_matkey, ply_angle, stress, strain, local_clock, ig_point,    &
-& converged_sdv, iterating_sdv)
+pure subroutine extract_wedge_element (elem, fstat, connec, ID_matlist, &
+& ply_angle, local_clock, ig_points, stress, strain, df)
 ! Purpose:
 ! to extract the components of this element
-! note that the dummy args connec and ig_point are allocatable arrays
+! note that the dummy args connec and ig_points are allocatable arrays
 ! because their sizes vary with different element types
 
   type(wedge_element),                          intent(in)  :: elem  
-  integer,                            optional, intent(out) :: curr_status
+  integer,                            optional, intent(out) :: fstat
   integer,               allocatable, optional, intent(out) :: connec(:)
-  integer,                            optional, intent(out) :: ID_matkey
+  integer,                            optional, intent(out) :: ID_matlist
   real(DP),                           optional, intent(out) :: ply_angle
+  type(program_clock),                optional, intent(out) :: local_clock
+  type(lamina_ig_point), allocatable, optional, intent(out) :: ig_points(:)
   real(DP),                           optional, intent(out) :: stress(NST)
   real(DP),                           optional, intent(out) :: strain(NST)
-  type(program_clock),                optional, intent(out) :: local_clock
-  type(lamina_ig_point), allocatable, optional, intent(out) :: ig_point(:)
-  type(lamina_sdv),                   optional, intent(out) :: converged_sdv
-  type(lamina_sdv),                   optional, intent(out) :: iterating_sdv
+  real(DP),                           optional, intent(out) :: df
   
-  if (present(curr_status)) curr_status = elem%curr_status
+  if (present(fstat))       fstat = elem%fstat
   
   if (present(connec)) then
     allocate(connec(NNODE))
     connec = elem%connec
   end if
   
-  if (present(ID_matkey))   ID_matkey   = elem%ID_matkey
+  if (present(ID_matlist))  ID_matlist  = elem%ID_matlist
   
   if (present(ply_angle))   ply_angle   = elem%ply_angle
-  
-  if (present(stress)) stress = elem%stress
-
-  if (present(strain)) strain = elem%strain
 
   if (present(local_clock)) local_clock = elem%local_clock
   
-  if (present(ig_point)) then
-    allocate(ig_point(NIGPOINT))
-    ig_point = elem%ig_point
+  if (present(ig_points)) then
+    allocate(ig_points(NIGPOINT))
+    ig_points = elem%ig_points
   end if
   
-  if (present(converged_sdv))  converged_sdv = elem%converged_sdv
+  if (present(stress))      stress = elem%stress
+
+  if (present(strain))      strain = elem%strain
   
-  if (present(iterating_sdv))  iterating_sdv = elem%iterating_sdv
+  if (present(df))          df     = elem%df
 
 end subroutine extract_wedge_element
 
@@ -217,7 +214,6 @@ pure subroutine integrate_wedge_element (elem, K_matrix, F_vector, nofailure)
 use toolkit_module                  ! global tools for element integration
 use lib_mat_module                  ! global material library
 use lib_node_module                 ! global node library
-use glb_clock_module                ! global analysis progress (curr. step, inc, time, dtime)
 
   type(wedge_element),intent(inout)       :: elem 
   real(kind=DP),allocatable,intent(out)   :: K_matrix(:,:), F_vector(:)
@@ -227,7 +223,7 @@ use glb_clock_module                ! global analysis progress (curr. step, inc,
   
   ! variables to be extracted from global arrays
   type(xnode) :: node(NNODE) ! x, u, du, v, extra dof ddof etc
-  type(material) :: mat ! matname, mattype and ID_matkey to glb mattype array
+  type(material) :: mat ! matname, mattype and ID_matlist to glb mattype array
   character(len=matnamelength) :: matname
   character(len=mattypelength) :: mattype
   integer :: typekey
@@ -307,7 +303,7 @@ use glb_clock_module                ! global analysis progress (curr. step, inc,
   end do
   
   ! extract material values from global material array
-  mat=lib_mat(elem%ID_matkey)
+  mat=lib_mat(elem%ID_matlist)
   call extract(mat,matname,mattype,typekey)
   
   ! extract ply angle from element definition
@@ -341,7 +337,7 @@ use glb_clock_module                ! global analysis progress (curr. step, inc,
   call init_ig(igxi,igwt)
   
   ! ZERO elem curr status for update
-  elem%curr_status=ZERO
+  elem%fstat=ZERO
     
   ! ZERO element stress and strain (used for output only) for update
   elem%stress=ZERO
@@ -393,7 +389,7 @@ use glb_clock_module                ! global analysis progress (curr. step, inc,
       
       
       ! - extract sdvs from integration points; ig_sdv automatically deallocated when passed in
-      call extract(elem%ig_point(kig),sdv=ig_sdv)
+      call extract(elem%ig_points(kig),sdv=ig_sdv)
       
       ! allocate ig_sdv arrays for 1st iteration of analysis
       if(.not.allocated(ig_sdv)) then
@@ -462,13 +458,13 @@ use glb_clock_module                ! global analysis progress (curr. step, inc,
       
       
       ! update ig point arrays
-      !call update(elem%ig_point(kig),x=tmpx,u=tmpu,strain=tmpstrain,stress=tmpstress,sdv=ig_sdv)
-      call update(elem%ig_point(kig),sdv=ig_sdv)
+      !call update(elem%ig_points(kig),x=tmpx,u=tmpu,strain=tmpstrain,stress=tmpstress,sdv=ig_sdv)
+      call update(elem%ig_points(kig),sdv=ig_sdv)
       
       ! update elem curr status variable
       igstat=0
       if(allocated(ig_sdv(2)%i)) igstat=ig_sdv(2)%i(1)
-      elem%curr_status=max(elem%curr_status,igstat)
+      elem%fstat=max(elem%fstat,igstat)
 
       ! update elem stress & strain (avg of ig point stress & strains)
       elem%stress=elem%stress+tmpstress/NIGPOINT

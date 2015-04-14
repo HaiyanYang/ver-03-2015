@@ -33,7 +33,11 @@ module coh3d6_element_module
 !    ========  ====================  ========================================
 !    08/04/15  B. Y. Chen            Original code
 !
-use parameter_module, only : NDIM, NST => NST_COHESIVE, DP, SDV_ARRAY, ZERO,
+
+use parameter_module, only : NDIM, NST => NST_COHESIVE, DP, ZERO,
+! list of external modules used in type definition and other procedures:
+! global clock module    : needed in element definition, extract and integrate
+! lamina material module : needed in element definition, extract and integrate 
 use global_clock_module
 use cohesive_material_module
 
@@ -51,23 +55,22 @@ integer, parameter :: NNODE=6, NIGPOINT=3, NDOF=NDIM*NNODE
 type, public :: coh3d6_element 
   private
   ! list of type components:
-  ! curr_status   : element current status
+  ! fstat         : element failure status
   ! connec        : indices of element nodes in the global node array
-  ! ID_matkey     : index of element material in the global matkey array
-  ! traction      : traction on the interface, for output
-  ! ig_point      : integration point array of this element
+  ! ID_matlist    : index of element material in its material list
+  ! ig_points     : integration points of this element
   ! local_clock   : locally-saved program clock
-  ! converged_sdv : element cohesive_sdv of last converged increment
-  ! iterating_sdv : element cohesive_sdv of current iteration
-  integer  :: curr_status   = 0
+  ! traction      : traction on the interface, for output
+  ! separation    : separation on the interface, for output
+  ! dm            : matrix degradation factor for output
+  integer  :: fstat         = 0
   integer  :: connec(NNODE) = 0
-  integer  :: ID_matkey     = 0
+  integer  :: ID_matlist    = 0
+  type(program_clock)     :: local_clock
+  type(cohesive_ig_point) :: ig_points(NIGPOINT)
   real(DP) :: traction(NST)   = ZERO
   real(DP) :: separation(NST) = ZERO
-  type(program_clock)     :: local_clock
-  type(cohesive_ig_point) :: ig_point(NIGPOINT)
-  type(cohesive_sdv)      :: converged_sdv
-  type(cohesive_sdv)      :: iterating_sdv 
+  real(DP) :: dm              = ZERO
 end type
 
 
@@ -119,67 +122,62 @@ end subroutine empty_coh3d6_element
 
 
 
-pure subroutine set_coh3d6_element (elem, connec, ID_matkey)
+pure subroutine set_coh3d6_element (elem, connec, ID_matlist)
 ! Purpose:
 ! this subroutine is used to set the components of the element
 ! it is used in the initialize_lib_elem procedure in the lib_elem module
 ! note that only some of the components need to be set during preproc,
-! namely connec, ID_matkey and local_clock
+! namely connec, ID_matlist and local_clock
 
   type(coh3d6_element),   intent(inout)   :: elem
   integer,                intent(in)      :: connec(NNODE)
-  integer,                intent(in)      :: ID_matkey
+  integer,                intent(in)      :: ID_matlist
   
   elem%connec    = connec
-  elem%ID_matkey = ID_matkey
-  elem%local_clock = GLOBAL_CLOCK
+  elem%ID_matlist = ID_matlist
 
 end subroutine set_coh3d6_element
 
 
 
-pure subroutine extract_coh3d6_element (elem, curr_status, connec, &
-& ID_matkey, traction, separation, local_clock, ig_point,          &
-& converged_sdv, iterating_sdv)
+pure subroutine extract_coh3d6_element (elem, fstat, connec, ID_matlist, &
+& local_clock, ig_points, traction, separation, dm)
 ! Purpose:
 ! to extract the components of this element
-! note that the dummy args connec and ig_point are allocatable arrays
+! note that the dummy args connec and ig_points are allocatable arrays
 ! because their sizes vary with different element types
 
   type(coh3d6_element),                           intent(in)  :: elem
-  integer,                              optional, intent(out) :: curr_status
+  integer,                              optional, intent(out) :: fstat
   integer,                 allocatable, optional, intent(out) :: connec(:)
-  integer,                              optional, intent(out) :: ID_matkey
+  integer,                              optional, intent(out) :: ID_matlist
+  type(program_clock),                  optional, intent(out) :: local_clock
+  type(cohesive_ig_point), allocatable, optional, intent(out) :: ig_points(:)
   real(DP)                              optional, intent(out) :: traction(NST)
   real(DP)                              optional, intent(out) :: separation(NST)
-  type(program_clock),                  optional, intent(out) :: local_clock
-  type(cohesive_ig_point), allocatable, optional, intent(out) :: ig_point(:)
-  type(cohesive_sdv),                   optional, intent(out) :: converged_sdv
-  type(cohesive_sdv),                   optional, intent(out) :: iterating_sdv
+  real(DP),                             optional, intent(out) :: dm
   
-  if (present(curr_status)) curr_status = elem%curr_status
+  if (present(fstat))       fstat = elem%fstat
   
   if (present(connec)) then
     allocate(connec(NNODE))
     connec = elem%connec
   end if
   
-  if (present(ID_matkey))   ID_matkey   = elem%ID_matkey
+  if (present(ID_matlist))  ID_matlist  = elem%ID_matlist
+  
+  if (present(local_clock)) local_clock = elem%local_clock
+  
+  if (present(ig_points)) then
+    allocate(ig_points(NIGPOINT))
+    ig_points = elem%ig_points
+  end if
   
   if (present(traction))    traction    = elem%traction
   
   if (present(separation))  separation  = elem%separation
   
-  if (present(local_clock)) local_clock = elem%local_clock
-  
-  if (present(ig_point)) then
-    allocate(ig_point(NIGPOINT))
-    ig_point = elem%ig_point
-  end if
-  
-  if (present(converged_sdv))  converged_sdv = elem%converged_sdv
-  
-  if (present(iterating_sdv))  iterating_sdv = elem%iterating_sdv
+  if (present(dm))          dm          = elem%dm
    
 end subroutine extract_coh3d6_element
 
@@ -194,7 +192,6 @@ pure subroutine integrate_coh3d6_element (elem, K_matrix, F_vector, nofailure, &
   use toolkit_module                  ! global tools for element integration
   use lib_mat_module                  ! global material library
   use lib_node_module                 ! global node library
-  use glb_clock_module                ! global analysis progress (curr. step, inc, time, dtime)
 
   type(coh3d6_element),       intent(inout)   :: elem 
   real(kind=dp), allocatable, intent(out)     :: K_matrix(:,:), F_vector(:)
@@ -210,7 +207,7 @@ pure subroutine integrate_coh3d6_element (elem, K_matrix, F_vector, nofailure, &
   type(xnode)     :: node(NNODE)                  ! x, u, du, v, extra dof ddof etc
   
   ! - element material extracted from global material library
-  type(material)  :: mat                          ! matname, mattype and ID_matkey to glb mattype array   
+  type(material)  :: mat                          ! matname, mattype and ID_matlist to glb mattype array   
 
   ! - glb clock step and increment no. extracted from glb clock module
   integer         :: curr_step, curr_inc
@@ -313,7 +310,7 @@ pure subroutine integrate_coh3d6_element (elem, K_matrix, F_vector, nofailure, &
   end if
   
   ! - extract material values from global material array
-  mat=lib_mat(elem%ID_matkey)
+  mat=lib_mat(elem%ID_matlist)
   
   ! - extract curr step and inc values from glb clock module
   call extract_glb_clock(kstep=curr_step,kinc=curr_inc)
@@ -357,7 +354,7 @@ pure subroutine integrate_coh3d6_element (elem, K_matrix, F_vector, nofailure, &
   end do
   
   
-  ! - extract values from mat (material type) and assign to local vars (matname, mattype & ID_matkey)
+  ! - extract values from mat (material type) and assign to local vars (matname, mattype & ID_matlist)
   call extract(mat,matname,mattype,typekey) 
   
   
@@ -414,7 +411,7 @@ pure subroutine integrate_coh3d6_element (elem, K_matrix, F_vector, nofailure, &
   end if
   
   ! zero elem curr status for update
-  elem%curr_status=zero
+  elem%fstat=zero
    
   !-calculate strain,stress,stiffness,sdv etc. at each int point
   do kig=1,NIGPOINT 
@@ -443,7 +440,7 @@ pure subroutine integrate_coh3d6_element (elem, K_matrix, F_vector, nofailure, &
       delta=matmul(Qmatrix,ujump)
       
       ! - extract sdvs from integration points; ig_sdv automatically deallocated when passed in
-      call extract(elem%ig_point(kig),sdv=ig_sdv)
+      call extract(elem%ig_points(kig),sdv=ig_sdv)
       
       ! allocate ig_sdv arrays for 1st iteration of analysis
       if(.not.allocated(ig_sdv)) then
@@ -512,13 +509,13 @@ pure subroutine integrate_coh3d6_element (elem, K_matrix, F_vector, nofailure, &
       end do
       
       ! update element ig point arrays
-      !call update(elem%ig_point(kig),x=tmpx,u=tmpu,strain=delta,stress=Tau,sdv=ig_sdv)
-      call update(elem%ig_point(kig),sdv=ig_sdv)
+      !call update(elem%ig_points(kig),x=tmpx,u=tmpu,strain=delta,stress=Tau,sdv=ig_sdv)
+      call update(elem%ig_points(kig),sdv=ig_sdv)
       
       ! update elem curr status variable
       igstat=0
       if(allocated(ig_sdv(2)%i)) igstat=ig_sdv(2)%i(1)
-      elem%curr_status=max(elem%curr_status,igstat)
+      elem%fstat=max(elem%fstat,igstat)
       
       !~! update elem sdv arrays
       !~if(.not.allocated(elem%sdv)) then
