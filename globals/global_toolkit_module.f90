@@ -1,4 +1,25 @@
 module global_toolkit_module
+!
+!  Purpose:
+!   this module contains a collection of useful procedures used in several other
+!   modules.
+!   Programming principles:
+!   all procedures are PURE. 
+!   FIX the sizes of dummy args whenever possible. 
+!     - suffix '2d'/'3d' is added at the end of procedure name to indicate
+!       its supported dimension
+!     - the sizes can be set by private parameters in the procedure. 
+!   AVOID support of variable sizes of dummy args
+!     - Keep It Simple and Stupid
+!     - forbid unexpected input arg sizes, avoid explicit checking
+!   ALWAYS CHECK dummy arg sizes if variable sizing has to be allowed, 
+!   and flag error when their sizes are not expected
+!
+!  Record of revision:
+!    Date      Programmer            Description of change
+!    ========  ====================  ========================================
+!    15/04/15  B. Y. Chen            Original code
+!
 
 implicit none
 
@@ -6,112 +27,101 @@ contains
 
 
 
-  pure function glb_dee(dee, theta)
+  pure function glb_dee3d (dee, theta)
   ! Purpose :
   ! to transform d matrix from local to global coordinates 
-  ! (for composite lamina, 2D or 3D, with fibre angle = theta)  
+  ! (for composite lamina, 3D, with fibre angle = theta)  
   
-    use parameter_module, only : DP, ZERO, PI, HALFCIRC, TWO, NST=>NST_STANDARD
+    use parameter_module, only : DP, ZERO, PI, HALFCIRC, TWO
 
+    ! define private parameters 
+    ! NST: no. of stress/strain terms, used to set the size of dummy args
+    integer, parameter   :: NST = 6
+    
     real(DP), intent(in) :: dee(NST,NST), theta
-    real(DP)             :: glb_dee(NST,NST)
+    real(DP)             :: glb_dee3d(NST,NST)
 
     ! local variables
     real(DP) :: c, s
     
-    glb_dee = ZERO
+    glb_dee3d = ZERO
     c = ZERO
     s = ZERO
 
     c = cos(PI*theta/HALFCIRC)
     s = sin(PI*theta/HALFCIRC)
     
-    ! d matrix in global coords stored first in local array glb_dee
-    if (NST == 3) then
-      glb_dee(1,1) = c*c*c*c*dee(1,1) + TWO*c*c*s*s*(dee(1,2)       &
-   &               + TWO*dee(3,3)) + s*s*s*s*dee(2,2)
-      glb_dee(1,2) = s*s*c*c*(dee(1,1) + dee(2,2) - four*dee(3,3))  &
-   &               + (s*s*s*s+c*c*c*c)*dee(1,2)
-      glb_dee(2,1) = glb_dee(1,2)
-      glb_dee(2,2) = s*s*s*s*dee(1,1) + TWO*c*c*s*s*(dee(1,2)       &
-   &               + TWO*dee(3,3)) + c*c*c*c*dee(2,2)
-      glb_dee(1,3) = s*c*(c*c*(dee(1,1) - dee(1,2) - TWO*dee(3,3))  &
-   &               + s*s*(dee(1,2) - dee(2,2) + TWO*dee(3,3)))
-      glb_dee(3,1) = glb_dee(1,3)
-      glb_dee(2,3) = s*c*(s*s*(dee(1,1) - dee(1,2) - TWO*dee(3,3))  &
-   &               + c*c*(dee(1,2) - dee(2,2) + TWO*dee(3,3)))
-      glb_dee(3,2) = glb_dee(2,3)
-      glb_dee(3,3) = c*c*s*s*(dee(1,1)+dee(2,2)-2*dee(1,2))         &
-   &			         + (c*c-s*s)**2*dee(3,3)
-   
-    else if (NST == 6) then
-      glb_dee(1,1) = c*c*c*c*dee(1,1) + TWO*c*c*s*s*(dee(1,2)       &
-   &               + TWO*dee(4,4)) + s*s*s*s*dee(2,2)
-      glb_dee(1,2) = s*s*c*c*(dee(1,1) + dee(2,2) - four*dee(4,4))  &
-   &               + (s*s*s*s+c*c*c*c)*dee(1,2)
-      glb_dee(2,1) = glb_dee(1,2)
-      glb_dee(2,2) = s*s*s*s*dee(1,1) + TWO*c*c*s*s*(dee(1,2)       &
-   &               + TWO*dee(4,4)) + c*c*c*c*dee(2,2)
-      glb_dee(1,3) = c*c*dee(1,3) + s*s*dee(2,3)
-      glb_dee(3,1) = glb_dee(1,3)
-      glb_dee(1,4) = s*c*(c*c*(dee(1,1) - dee(1,2) - TWO*dee(4,4))  &
-   &               + s*s*(dee(1,2) - dee(2,2) + TWO*dee(4,4)))
-      glb_dee(4,1) = glb_dee(1,4)
-      glb_dee(2,3) = s*s*dee(1,3) + c*c*dee(2,3)
-      glb_dee(3,2) = glb_dee(2,3)
-      glb_dee(2,4) = s*c*(s*s*(dee(1,1) - dee(1,2) - TWO*dee(4,4))  &
-   &               + c*c*(dee(1,2) - dee(2,2) + TWO*dee(4,4)))
-      glb_dee(4,2) = glb_dee(2,4)
-      glb_dee(3,3) = dee(3,3)
-      glb_dee(3,4) = c*s*(dee(1,3) - dee(2,3))
-      glb_dee(4,3) = glb_dee(3,4)
-      glb_dee(5,5) = c*c*dee(5,5) + s*s*dee(6,6)
-      glb_dee(5,6) = c*s*(dee(6,6) - dee(5,5))
-      glb_dee(6,5) = glb_dee(5,6)
-      glb_dee(6,6) = s*s*dee(5,5) + c*c*dee(6,6)
-      glb_dee(4,4) = s*s*c*c*(dee(1,1) - TWO*dee(1,2) + dee(2,2))   &
-   &               + (s*s - c*c)*(s*s - c*c)*dee(4,4)
-   
-    end if
+    ! d matrix in global coords stored first in local array glb_dee3d
+    glb_dee3d(1,1) = c*c*c*c*dee(1,1) + TWO*c*c*s*s*(dee(1,2)       &
+                 & + TWO*dee(4,4)) + s*s*s*s*dee(2,2)
+    glb_dee3d(1,2) = s*s*c*c*(dee(1,1) + dee(2,2) - four*dee(4,4))  &
+                 & + (s*s*s*s+c*c*c*c)*dee(1,2)
+    glb_dee3d(2,1) = glb_dee3d(1,2)
+    glb_dee3d(2,2) = s*s*s*s*dee(1,1) + TWO*c*c*s*s*(dee(1,2)       &
+                 & + TWO*dee(4,4)) + c*c*c*c*dee(2,2)
+    glb_dee3d(1,3) = c*c*dee(1,3) + s*s*dee(2,3)
+    glb_dee3d(3,1) = glb_dee3d(1,3)
+    glb_dee3d(1,4) = s*c*(c*c*(dee(1,1) - dee(1,2) - TWO*dee(4,4))  &
+                 & + s*s*(dee(1,2) - dee(2,2) + TWO*dee(4,4)))
+    glb_dee3d(4,1) = glb_dee3d(1,4)
+    glb_dee3d(2,3) = s*s*dee(1,3) + c*c*dee(2,3)
+    glb_dee3d(3,2) = glb_dee3d(2,3)
+    glb_dee3d(2,4) = s*c*(s*s*(dee(1,1) - dee(1,2) - TWO*dee(4,4))  &
+                 & + c*c*(dee(1,2) - dee(2,2) + TWO*dee(4,4)))
+    glb_dee3d(4,2) = glb_dee3d(2,4)
+    glb_dee3d(3,3) = dee(3,3)
+    glb_dee3d(3,4) = c*s*(dee(1,3) - dee(2,3))
+    glb_dee3d(4,3) = glb_dee3d(3,4)
+    glb_dee3d(5,5) = c*c*dee(5,5) + s*s*dee(6,6)
+    glb_dee3d(5,6) = c*s*(dee(6,6) - dee(5,5))
+    glb_dee3d(6,5) = glb_dee3d(5,6)
+    glb_dee3d(6,6) = s*s*dee(5,5) + c*c*dee(6,6)
+    glb_dee3d(4,4) = s*s*c*c*(dee(1,1) - TWO*dee(1,2) + dee(2,2))   &
+                 & + (s*s - c*c)*(s*s - c*c)*dee(4,4)
 
-  end function glb_dee
+  end function glb_dee3d
 
 
 
 
-  pure function determinant_jacob(jacob)
+  pure function determinant3d (jacob)
   ! Purpose:
-  ! returns the determinant of a jacobian matrix, 2D or 3D
+  ! returns the determinant of a 3D jacobian matrix
   
-    use parameter_module, only : DP, ZERO, NDIM
+    use parameter_module, only : DP, ZERO
+    
+    ! define private parameters 
+    ! NDIM: no. of dimensions, used to set the size of dummy arg
+    integer, parameter   :: NDIM = 3
   
     real(DP), intent(in) ::   jacob(NDIM,NDIM)
-    real(DP)             ::   determinant_jacob
+    real(DP)             ::   determinant3d
     
-    determinant_jacob = ZERO
+    determinant3d = ZERO
 
-    if (NDIM == 2) then
-      determinant_jacob = jacob(1,1)*jacob(2,2) - jacob(1,2)*jacob(2,1)
-    else if (NDIM == 3) then
-      determinant_jacob = jacob(1,1) * &
-                  & (jacob(2,2)*jacob(3,3)-jacob(3,2)*jacob(2,3))
-      determinant_jacob = determinant_jacob - jacob(1,2) * &
-                  & (jacob(2,1)*jacob(3,3)-jacob(3,1)*jacob(2,3))
-      determinant_jacob = determinant_jacob + jacob(1,3) * &
-                  & (jacob(2,1)*jacob(3,2)-jacob(3,1)*jacob(2,2))
-    end if
+    determinant3d = jacob(1,1) * &
+                & (jacob(2,2)*jacob(3,3)-jacob(3,2)*jacob(2,3))
+    determinant3d = determinant3d - jacob(1,2) * &
+                & (jacob(2,1)*jacob(3,3)-jacob(3,1)*jacob(2,3))
+    determinant3d = determinant3d + jacob(1,3) * &
+                & (jacob(2,1)*jacob(3,2)-jacob(3,1)*jacob(2,2))
 
-  end function determinant_jacob
+  end function determinant3d
 
 
 
 
-  pure subroutine invert_jacob(jacob, istat, emsg, detj)
+  pure subroutine invert_self3d (jacob, istat, emsg, detj)
   ! Purpose:
-  ! calculate the inverse of a jacobian matrix and update onto itself
+  ! calculate the inverse of a 3D jacobian matrix and update onto itself
+  ! the invertability of jacob must be checked before inverting it
   
     use parameter_module, only : DP, MSGLENGTH, STAT_SUCCESS, STAT_FAILURE, &
-                          & ZERO, NDIM, SMALLNUM
+                          & ZERO, SMALLNUM
+                          
+    ! define private parameters 
+    ! NDIM: no. of dimensions, used to set the size of dummy arg
+    integer, parameter   :: NDIM = 3
 
     real(DP),                 intent(inout) :: jacob(NDIM,NDIM)
     integer,                  intent(out)   :: istat
@@ -127,11 +137,11 @@ contains
     real(DP) :: det
     
     ! initialize intent out and local variables
-    istat = STAT_SUCCESS
-    emsg  = ''
+    istat     = STAT_SUCCESS
+    emsg      = ''
     jacob_lcl = ZERO
     inv_jacob = ZERO
-    det     = ZERO
+    det       = ZERO
     
     ! assign values to local variables
     jacob_lcl = jacob
@@ -140,173 +150,152 @@ contains
     if(present(detj)) then
       det = detj
     else
-      det = determinant_jacob(jacob_lcl)
+      det = determinant3d(jacob_lcl)
     end if
     
-    ! check to see if the matrix is singular
+    ! check to see if the matrix is singular; if so, flag error and exit program
     if(det < SMALLNUM) then
       istat = STAT_FAILURE
-      emsg  = 'the jacobian matrix is singular, invert_jacob, &
+      emsg  = 'the jacobian matrix is singular, invert_self3d, &
             & global_toolkit_module'
       return
     end if
 
     ! calculate the inverse of jacob matrix
-    if(NDIM == 2) then
-      inv_jacob(1,1)=jacob(2,2)
-      inv_jacob(2,1)=-jacob(2,1)
-      inv_jacob(1,2)=-jacob(1,2)
-      inv_jacob(2,2)=jacob(1,1)
-    else if(NDIM == 3) then
-      inv_jacob(1,1)=jacob(2,2)*jacob(3,3)-jacob(3,2)*jacob(2,3)
-      inv_jacob(2,1)=jacob(3,1)*jacob(2,3)-jacob(2,1)*jacob(3,3)
-      inv_jacob(3,1)=jacob(2,1)*jacob(3,2)-jacob(3,1)*jacob(2,2)
-      inv_jacob(1,2)=jacob(3,2)*jacob(1,3)-jacob(1,2)*jacob(3,3)
-      inv_jacob(2,2)=jacob(1,1)*jacob(3,3)-jacob(3,1)*jacob(1,3)
-      inv_jacob(3,2)=jacob(3,1)*jacob(1,2)-jacob(1,1)*jacob(3,2)
-      inv_jacob(1,3)=jacob(1,2)*jacob(2,3)-jacob(2,2)*jacob(1,3)
-      inv_jacob(2,3)=jacob(2,1)*jacob(1,3)-jacob(1,1)*jacob(2,3)
-      inv_jacob(3,3)=jacob(1,1)*jacob(2,2)-jacob(2,1)*jacob(1,2)
-    end if
+    inv_jacob(1,1)=jacob(2,2)*jacob(3,3)-jacob(3,2)*jacob(2,3)
+    inv_jacob(2,1)=jacob(3,1)*jacob(2,3)-jacob(2,1)*jacob(3,3)
+    inv_jacob(3,1)=jacob(2,1)*jacob(3,2)-jacob(3,1)*jacob(2,2)
+    inv_jacob(1,2)=jacob(3,2)*jacob(1,3)-jacob(1,2)*jacob(3,3)
+    inv_jacob(2,2)=jacob(1,1)*jacob(3,3)-jacob(3,1)*jacob(1,3)
+    inv_jacob(3,2)=jacob(3,1)*jacob(1,2)-jacob(1,1)*jacob(3,2)
+    inv_jacob(1,3)=jacob(1,2)*jacob(2,3)-jacob(2,2)*jacob(1,3)
+    inv_jacob(2,3)=jacob(2,1)*jacob(1,3)-jacob(1,1)*jacob(2,3)
+    inv_jacob(3,3)=jacob(1,1)*jacob(2,2)-jacob(2,1)*jacob(1,2)
+    
     inv_jacob = inv_jacob/det
     
-    ! update to jacob its inverse before successful return
+    ! update intent(inout) args before successful return
     jacob = inv_jacob
 
-  end subroutine invert_jacob
+  end subroutine invert_self3d
 
 
 
 
-  pure function beemat(gn, nnode)
+  pure function beemat3d (gn, nnode)
   ! Purpose:
   ! inputs the gradient of shape functions and
   ! returns the strain-displacement matrix for infinitesimal deformation
   ! order convention of strain terms in the strain vector: 
   ! eps1, eps2, eps3, gamma12, gamma13, gamma23
   
-    use parameter_module, only : DP, ZERO, NDIM, NST=>NST_STANDARD
+    use parameter_module, only : DP, ZERO
+    
+    ! define private parameters, used to set the size of dummy arg
+    ! NDIM: no. of dimensions
+    ! NST : no. of stress/strain terms
+    integer, parameter   :: NDIM = 3, NST = 6
 
     integer,  intent(in) :: nnode
     real(DP), intent(in) :: gn(nnode, NDIM)
-    real(DP)             :: beemat(NST, nnode*NDIM)
+    real(DP)             :: beemat3d(NST, nnode*NDIM)
 
     ! local variables  
     real(DP) :: x, y, z
     integer  :: k, l, m, n
     
-    beemat = ZERO
+    ! initialize intent out and local variables
+    beemat3d = ZERO
     x = ZERO
     y = ZERO
     z = ZERO
     k = 0; l = 0; m = 0; n = 0
-
-    if (NST == 3) then
-      do m=1,nnode
-        k= 2*m
-        l=k-1
-        x=gn(m,1)
-        y=gn(m,2)
-        beemat(1,l)= x
-        beemat(3,k)= x
-        beemat(2,k)= y
-        beemat(3,l)= y
-      end do
-      
-    else if (NST == 6) then
-      do m=1,nnode
-        n= 3*m
-        k=n-1
-        l=k-1
-        x=gn(m,1)
-        y=gn(m,2)
-        z=gn(m,3)
-        beemat(1,l)=x
-        beemat(4,k)=x
-        beemat(5,n)=x
-        beemat(2,k)=y
-        beemat(4,l)=y
-        beemat(6,n)=y
-        beemat(3,n)=z
-        beemat(5,l)=z
-        beemat(6,k)=z
-      end do 
-      
-    end if
-
-  end function beemat
+    
+    ! nnode is size parameter, let compilor to check it
+    ! gn is fixed sized and can take any value, no check
+    
+    do m=1, nnode
+      n = 3*m
+      k = n-1
+      l = k-1
+      x = gn(m,1)
+      y = gn(m,2)
+      z = gn(m,3)
+      beemat3d(1,l) = x
+      beemat3d(4,k) = x
+      beemat3d(5,n) = x
+      beemat3d(2,k) = y
+      beemat3d(4,l) = y
+      beemat3d(6,n) = y
+      beemat3d(3,n) = z
+      beemat3d(5,l) = z
+      beemat3d(6,k) = z
+    end do 
+    
+  end function beemat3d
 
 
 
 
-  pure function lcl_strain(strain, theta)
+  pure function lcl_strain3d (strain, theta)
   ! Purpose:
   ! transfer strains from global to local coordinate systems
-  ! (for composite lamina, ply angle = theta)
+  ! (for 3D composite lamina, ply angle = theta)
   
-    use parameter_module, only : DP, ZERO, PI, HALFCIRC, ONE, TWO, &
-                          & NST=>NST_STANDARD
+    use parameter_module, only : DP, ZERO, PI, HALFCIRC, ONE, TWO
+ 
+    ! define private parameters, used to set the size of dummy arg
+    ! NST : no. of stress/strain terms
+    integer, parameter   :: NST = 6
 
-    real(DP),intent(in)  :: strain(NST), theta
-    real(DP)             :: lcl_strain(NST)
+    real(DP), intent(in) :: strain(NST), theta
+    real(DP)             :: lcl_strain3d(NST)
 
     real(DP) :: c, s, Q_matrix(NST,NST)
     
-    lcl_strain = ZERO
+    lcl_strain3d = ZERO
     c = ZERO
     s = ZERO
     Q_matrix = ZERO
+    
+    ! strain and theta can take any value, nothing to check
 
     c = cos(PI*theta/HALFCIRC)
     s = sin(PI*theta/HALFCIRC)
 
     ! calculate rotational matrix Q
-    if (NST == 3) then
-      Q_matrix(1,1)=c*c
-      Q_matrix(1,2)=s*s
-      Q_matrix(1,3)=c*s
-      Q_matrix(2,1)=s*s
-      Q_matrix(2,2)=c*c
-      Q_matrix(2,3)=-c*s
-      Q_matrix(3,1)=-TWO*c*s
-      Q_matrix(3,2)=TWO*c*s
-      Q_matrix(3,3)=c*c-s*s
+    Q_matrix(1,1)=c*c
+    Q_matrix(1,2)=s*s
+    Q_matrix(1,4)=c*s
+    Q_matrix(2,1)=s*s
+    Q_matrix(2,2)=c*c
+    Q_matrix(2,4)=-c*s
+    Q_matrix(3,3)=ONE
+    Q_matrix(4,1)=-TWO*c*s
+    Q_matrix(4,2)=TWO*c*s
+    Q_matrix(4,4)=c*c-s*s
+    Q_matrix(5,5)=c
+    Q_matrix(5,6)=-s
+    Q_matrix(6,5)=s
+    Q_matrix(6,6)=c
       
-    else if (NST == 6) then
-      Q_matrix(1,1)=c*c
-      Q_matrix(1,2)=s*s
-      Q_matrix(1,4)=c*s
-      Q_matrix(2,1)=s*s
-      Q_matrix(2,2)=c*c
-      Q_matrix(2,4)=-c*s
-      Q_matrix(3,3)=ONE
-      Q_matrix(4,1)=-TWO*c*s
-      Q_matrix(4,2)=TWO*c*s
-      Q_matrix(4,4)=c*c-s*s
-      Q_matrix(5,5)=c
-      Q_matrix(5,6)=-s
-      Q_matrix(6,5)=s
-      Q_matrix(6,6)=c
-      
-    end if
-    
     ! rotate global strain to obtain local strain
-    lcl_strain = matmul(Q_matrix,strain)
+    lcl_strain3d = matmul(Q_matrix,strain)
 
-  end function lcl_strain
-
-
+  end function lcl_strain3d
 
 
-  pure subroutine normalize(a, is_zero_vect, amag)
+
+
+  pure subroutine normalize_vect (a, is_zero_vect, amag)
   ! Purpose:
   ! normalize vector and return its magnitude
   
   use parameter_module, only : DP, ZERO, SMALLNUM
      
-    real(DP), intent(inout) :: a(:)
-    logical,  intent(out)   :: is_zero_vect
-    real(DP), optional, intent(out) :: amag
+    real(DP),           intent(inout) :: a(:)
+    logical,            intent(out)   :: is_zero_vect
+    real(DP), optional, intent(out)   :: amag
    
     ! local copy of amag
     real(DP) :: mag
@@ -315,6 +304,8 @@ contains
     is_zero_vect = .false.
     if(present(amag)) amag = ZERO
     mag = ZERO
+    
+    ! a can take any value, nothing to check
    
     ! calculate the length of a
     mag = sqrt(dot_product(a,a))
@@ -333,12 +324,12 @@ contains
       return
     end if
   
-  end subroutine normalize
+  end subroutine normalize_vect
 
 
 
 
-  pure function cross_product3d(a, b)
+  pure function cross_product3d (a, b)
   ! Purpose:
   ! function to compute the cross-product of TWO 3D vectors, a * b
   
@@ -355,19 +346,25 @@ contains
 
 
 
-  pure function distance(a, b, n)
+  pure function distance (a, b, n)
   ! Purpose:
   ! function to compute the distance between TWO vectors
+  ! their common size n is set as a required input to avoid having to
+  ! explicitly check for their size consistency
   
   use parameter_module, only : DP, ZERO
   
     integer,  intent(in)  :: n
     real(DP), intent(in)  :: a(n), b(n)
     real(DP)              :: distance
-    
+    ! local variable
     real(DP) :: c(n)
-    
+    ! initialize local variable
     c = ZERO
+    
+    ! intent in variables a and b are fixed-sized and may take any value
+    ! intent in variable n must > 0; it is a dummy arg size parameter,
+    ! so the checking of n is left to the compilor
     
     c = a - b
     
@@ -377,14 +374,13 @@ contains
 
 
 
-
   
   pure subroutine edge_crack_cross2d (edge, crack, cross_stat, cross_point)
   ! Purpose:
   ! to checks if TWO line sections cross each other in 2D, 
   ! return the cross status and locate the crossing point if they cross
   
-  use parameter_module, only : DP, ZERO, 
+  use parameter_module, only : DP, ZERO, &
                         & CROSS_ON_EDGE_ON_CRACK,  CROSS_ON_EDGE_OFF_CRACK,  &
                         & CROSS_OFF_EDGE_ON_CRACK, CROSS_OFF_EDGE_OFF_CRACK, &
                         & EDGE_CRACK_PARALLEL, ENDNODE_CLEARANCE_RATIO
@@ -414,6 +410,9 @@ contains
     aL1 = ZERO; bL1 = ZERO; cL1 = ZERO
     aL2 = ZERO; bL2 = ZERO; cL2 = ZERO
     det = ZERO
+    
+    ! intent in dummy args' sizes are fixed, and they may take on any value,
+    ! no need to check their validity
     
     !
     !**** algorithm for finding the intersection of two lines ****
@@ -623,205 +622,215 @@ contains
   
   
   
+  pure subroutine crack_elem_centroid2d (nedge, crack_angle, coords, &
+  & nodes_on_edge, istat, emsg, edge_crack_points, crack_edge_indices)
+  ! Purpose:
+  ! to find TWO cross points between the crack line (passing the centroid) and 
+  ! the edges of an element, and the two edges crossed.
+  
+  use parameter_module, only : DP, MSGLENGTH, STAT_SUCCESS, STAT_FAILURE, &
+                        & ZERO, HALF, HALFCIRC, PI, SMALLNUM,             &
+                        & CROSS_ON_EDGE_ON_CRACK,  CROSS_ON_EDGE_OFF_CRACK
 
+    ! list of dummy args:
+    ! - nedge              : no. of edges in this element; = no. of nodes
+    ! - crack_angle 
+    ! - coords             : nodal coordinates of this element
+    ! - nodes_on_edge(:,i) : indices of the two end nodes of the edge i
+    ! - edge_crack_points  : coords of the two crack points on two edges
+    ! - crack_edge_indices : indices of the two edges passed by the crack
+    integer,  intent(in)  :: nedge
+    real(DP), intent(in)  :: crack_angle
+    real(DP), intent(in)  :: coords(2, nedge)
+    integer,  intent(in)  :: nodes_on_edge(2, nedge)
+    integer,                  intent(out) :: istat
+    character(len=MSGLENGTH), intent(out) :: emsg
+    real(DP),                 intent(out) :: edge_crack_points(2,2)
+    integer,        optional, intent(out) :: crack_edge_indices(2)
 
-
-
-!********************************************************************************************
-!           subroutine to find TWO crack tips on the edges of an element, passing origin
-!******************************************************************************************** 
-subroutine elem_ctips_origin(eltype,theta,coords,edg,nedge,ctip)
-    character(len=*),   intent(in)  :: eltype
-    real(dp),           intent(in)  :: theta,coords(:,:)
-    integer,            intent(in)  :: edg(:,:),nedge
-    real(dp),           intent(out) :: ctip(2,2)
-
-
-! variables used for calculating clength
-    real(DP)   :: xo,yo,xp1,yp1,xp2,yp2,x1,y1,x2,y2,xct,yct,xct1,yct1,xct2,yct2
-    real(DP)   :: a1,b1,a2,b2,xmid,ymid,xmid1,ymid1,xmid2,ymid2,detlc
-    integer :: nfailedge,iscross,ifedg(nedge)
+    ! local variables
+    ! - centroid          : coordinates of element centroid
+    ! - theta             : ply angle in radiant
+    ! - crack_unit_vector : unit vector along the crack line
+    ! - coords_crack      : coordinates of end nodes of crack line segment
+    ! - coords_edge       : coordinates of end nodes of an element edge
+    ! - cross_point       : coordinates of the cross point btw crack and edge
+    ! - n_crack_edge      : no. of cracked edges
+    ! - cross_stat        : status of crossing btw a crack and an edge
+    ! - crack_edge_IDs    : local copy of optional arg crack_edge_indices
+    real(DP) :: centroid(2)
+    real(DP) :: theta, crack_unit_vect(2)
+    real(DP) :: coords_crack(2,2), coords_edge(2,2), cross_point(2)
+    integer  :: n_crack_edge, cross_stat, crack_edge_IDs(2)
     
-    integer :: i,j
+    integer :: i, j
     
-    
-    !-----------------------------------------------------------!
-    !           calculate approximate clength
-    !-----------------------------------------------------------!
-    ! initialize output variables
-    ctip=ZERO
+    ! initialize intent out variables
+    istat             = STAT_SUCCESS
+    emsg              = ''
+    edge_crack_points = ZERO
+    if (present(crack_edge_indices)) crack_edge_indices = 0
     ! initialize local variables
-    xo=ZERO; yo=ZERO; xp1=ZERO; yp1=ZERO; xp2=ZERO; yp2=ZERO
-    x1=ZERO; y1=ZERO; x2=ZERO; y2=ZERO; xct=ZERO; yct=ZERO
-    xct1=ZERO; yct1=ZERO; xct2=ZERO; yct2=ZERO
-    a1=ZERO; b1=ZERO; a2=ZERO; b2=ZERO
-    xmid=ZERO; ymid=ZERO; xmid1=ZERO; ymid1=ZERO; xmid2=ZERO; ymid2=ZERO
-    detlc=ZERO
-    nfailedge=0; iscross=0; ifedg=0
+    centroid     = ZERO
+    theta        = ZERO
+    crack_unit_vector = ZERO
+    coords_crack = ZERO
+    coords_edge  = ZERO
+    cross_point  = ZERO
+    cross_stat     = 0
+    n_crack_edge   = 0
+    crack_edge_IDs = 0
     i=0; j=0
     
-    ! find centroid
-    select case(eltype)
-        case('brick')
-            xo=quarter*(coords(1,1)+coords(1,2)+coords(1,3)+coords(1,4))
-            yo=quarter*(coords(2,1)+coords(2,2)+coords(2,3)+coords(2,4))
-        case('wedge')
-            xo=one_third*(coords(1,1)+coords(1,2)+coords(1,3))
-            yo=one_third*(coords(2,1)+coords(2,2)+coords(2,3))
-        case default
-            write(msg_file,*)'unsupported elem type for crack partition from origin'
-            call exit_function
-    end select
-    
-    
-    xp1=xo
-    yp1=yo
-    ! find xp2, yp2
-    xp2=xp1+cos(theta/halfcirc*pi)
-    yp2=yp1+sin(theta/halfcirc*pi)
-    do i=1,nedge 
-        ! tip corods of edge i
-        x1=coords(1,edg(1,i))
-        y1=coords(2,edg(1,i))
-        x2=coords(1,edg(2,i))
-        y2=coords(2,edg(2,i))
-        iscross=0
-        xct=ZERO
-        yct=ZERO
-        call klinecross(x1,y1,x2,y2,xp1,yp1,xp2,yp2,iscross,xct,yct)
-        if (iscross.gt.0) then
-            nfailedge=nfailedge+1
-            ifedg(nfailedge)=i
-            ctip(:,nfailedge)=[xct,yct]
-         endif
-         if(nfailedge==2) exit ! found 2 broken edges already
-    end do
-
-
-    ! badly shaped element may have large angles; e.g.: 3 or all edges almost parallel to crack, then numerical error may
-    ! prevent the algorithm from finding any broken edge or only ONE broken edge
-
-    if(nfailedge==0) then
-    ! use trial lines: connecting midpoints of TWO edges and find the most parrallel-to-crack ONE
-
-        ! the following algorithm will find TWO broken edges
-        nfailedge=2
-        ! line equation constants of the crack
-        a2=sin(theta/halfcirc*pi)
-        b2=-cos(theta/halfcirc*pi)
-        ! connecting midpoints of TWO edges and find the most parrallel ONE
-        do i=1,nedge-1
-            ! tip coords of edge i
-            x1=coords(1,edg(1,i))
-            y1=coords(2,edg(1,i))
-            x2=coords(1,edg(2,i))
-            y2=coords(2,edg(2,i))
-            ! mid point of edge i
-            xmid1=half*(x1+x2)
-            ymid1=half*(y1+y2)
-            ! loop over midpoints of other edges
-            do j=i+1,nedge
-                ! tip coords of edge j
-                x1=coords(1,edg(1,j))
-                y1=coords(2,edg(1,j))
-                x2=coords(1,edg(2,j))
-                y2=coords(2,edg(2,j))
-                ! mid point of edge j
-                xmid2=half*(x1+x2)
-                ymid2=half*(y1+y2)
-                ! line equation constants of midpoint1-midpoint2
-                a1=ymid1-ymid2
-                b1=xmid2-xmid1
-                ! initialize detlc and intersection info
-                if(i==1 .and. j==2) then
-                    detlc=a1*b2-a2*b1
-                    xct1=xmid1
-                    yct1=ymid1
-                    xct2=xmid2
-                    yct2=ymid2
-                end if
-                ! find the most parallel trial line and update stored info
-                if(abs(a1*b2-a2*b1)<abs(detlc)) then
-                    xct1=xmid1
-                    yct1=ymid1
-                    xct2=xmid2
-                    yct2=ymid2
-                endif
-            end do
-        end do
-        ctip(:,1)=[xct1,yct1] 
-        ctip(:,2)=[xct2,yct2]
-
-    else if(nfailedge==1) then                
-    ! use trial lines: connecting the existing crack tip (xp1,yp1) to the midpoints of the other 3 edges
-
-        ! the following algorithm will find the second broken edge
-        nfailedge=2
-        ! existing crack tip coords
-        xp1=xct
-        yp1=yct
-        ! crack line equation constants
-        a2=sin(theta/halfcirc*pi)
-        b2=-cos(theta/halfcirc*pi)
-        ! find the midpoint which forms the most parrallel-to-crack line with (xp1,yp1)
-        do i=1,nedge
-            if (i==ifedg(1)) cycle
-            ! tip coords of edge i
-            x1=coords(1,edg(1,i))
-            y1=coords(2,edg(1,i))
-            x2=coords(1,edg(2,i))
-            y2=coords(2,edg(2,i))
-            ! mid point of edge i
-            xmid=half*(x1+x2)
-            ymid=half*(y1+y2)
-            ! line equation constants of midpoint-(xp1,yp1)
-            a1=ymid-yp1
-            b1=xp1-xmid
-            ! initialize detlc and intersection info
-            if(i==1 .or. (ifedg(1)==1 .and. i==2)) then
-                detlc=a1*b2-a2*b1
-                xct=xmid
-                yct=ymid
-            end if
-            ! find the most parallel trial line and update stored info
-            if(abs(a1*b2-a2*b1)<abs(detlc)) then
-                xct=xmid
-                yct=ymid
-            endif
-        end do
-        ctip(:,2)=[xct,yct]
+    ! check validity of inputs: nedge, crack_angle, coords, nodes_on_edge
+    ! nedge must be > 0, this check is omitted as if it is not satisfied, 
+    ! compilor should flag error as it sets the size of coords and nodes_on_edge
+    ! crack_angle and coords can take any values
+    ! nodes_on_edge must be >= 1, this need to be checked
+    if (any(nodes_on_edge) < 1) then
+      istat = STAT_FAILURE
+      emsg  = 'end node indices must be >=1, crack_elem_centroid2d, &
+      &global_toolkit_module'
+      return
     end if
     
+    ! find centroid
+    centroid(1) = sum(coords(1,:))/real(nedge,DP)
+    centroid(2) = sum(coords(2,:))/real(nedge,DP)
+    
+    ! find crack line unit vector
+    theta           = crack_angle / HALFCIRC * PI
+    crack_unit_vect = [cos(theta), sin(theta)]
+    
+    ! set centroid as node 1 of crack line segment
+    coords_crack(:,1) = centroid(:)
+    ! set node 2 coordinates of crack line segment 
+    ! to be a unit distance away from node 1 along the crack line
+    coords_crack(:,2) = coords_crack(:,1) + crack_unit_vect(:)
+    
+    
+    
+    !**** MAIN CALCULATIONS ****
+    
+    ! loop over all edges to find TWO cross points with the crack line
+    ! theoretically, this should find EXACTLY TWO cross points, as the 
+    ! crack line passes the element centroid and it must cross TWO edges
+    do i = 1, nedge 
+      ! the two end nodes' coords of edge i
+      coords_edge(:, 1) = coords(:, nodes_on_edge(1,i))
+      coords_edge(:, 2) = coords(:, nodes_on_edge(2,i))
+      ! zero cross_stat and cross_point for reuse
+      cross_stat  = 0
+      cross_point = ZERO
+      ! check if the edge and crack cross each other
+      call edge_crack_cross2d (coords_edge, coords_crack, cross_stat, cross_point)
+      ! check cross_stat, update only if cross point is on edge
+      if (cross_stat == CROSS_ON_EDGE_ON_CRACK .or. &
+      &   cross_stat == CROSS_ON_EDGE_OFF_CRACK) then
+          ! increase the no. of cracked edges
+          n_crack_edge = n_crack_edge + 1
+          ! store the index of this cracked edge
+          crack_edge_IDs(n_crack_edge) = i
+          ! store the cross point coords of this cracked edge
+          edge_crack_points(:, n_crack_edge) = cross_point(:)
+       endif
+       ! exit the loop when TWO broken edges are already found
+       if (n_crack_edge == 2) exit
+    end do
+    
+    !**** END MAIN CALCULATIONS ****
+    
+    ! check if indeed two cracked edges have been found; if not, then the elem
+    ! is likely to be poorly shaped, flag an error, clean up and return
+    if (n_crack_edge /= 2) then
+      istat = STAT_FAILURE
+      emsg  = 'two cracked edges cannot be found, element is likely to be &
+      &poorly shaped, crack_elem_centroid2d, global_toolkit_module'
+      ! clean up intent out variable before error exit
+      edge_crack_points = ZERO
+      return
+    end
+    
+    ! update optional intent out dummy arg only before successful return
+    if (present(crack_edge_indices)) crack_edge_indices = crack_edge_IDs
 
-end subroutine elem_ctips_origin
+  end subroutine crack_elem_centroid2d
 
 
 
 
+  pure subroutine assembleKF (Kmat, Fvec, Ki, Fi, cnc, istat, emsg)
+  ! Purpose:
+  ! to assemble elem/subelem K and F to system/xelem K and F
+  ! variable sizes of dummy args have to be allowed here.
+  ! explicit checking of dummy args' sizes must be performed
+  ! with informative error messages flagged if unexpected sizes
+  ! are encountered
+  !
+  ! the inputs must safisty the following conditions:
+  ! - Kmat is square matrix with size = size of Fvec
+  ! - Ki   is square matrix with size = size of Fi
+  ! - size of cnc = size of Fi
+  ! - min element of cnc must > 0
+  ! - max element of cnc must < size of Fvec
+  
+  use parameter_module, only : DP, MSGLENGTH, STAT_SUCCESS, STAT_FAILURE
 
-!********************************************************************************************
-!           subroutine to assemble elem/subelem K and F to system/xelem K and F
-!******************************************************************************************** 
-subroutine assembleKF(Kmat,Fvec,Ki,Fi,cnc)
-
-    real(dp),intent(inout) :: Kmat(:,:),Fvec(:)
-    real(dp),intent(in)    :: Ki(:,:), Fi(:)
-    integer, intent(in)    :: cnc(:)
+    real(DP), intent(inout) :: Kmat(:,:), Fvec(:)
+    real(DP), intent(in)    :: Ki(:,:),   Fi(:)
+    integer,  intent(in)    :: cnc(:)
+    integer,                  intent(out)   :: istat
+    character(len=MSGLENGTH), intent(out)   :: emsg
     
     ! local variable
-    integer :: i, j, nsize
-    i=0; j=0; nsize=0
+    integer :: i, j, n, ni, mincnc, maxcnc
     
-    nsize=size(cnc)
+    ! initialize intent out and local variables
+    istat  = STAT_SUCCESS
+    emsg   = ''
+    i      = 0
+    j      = 0
+    n      = 0
+    ni     = 0
+    mincnc = 0
+    maxcnc = 0
     
-    do i=1, nsize
-        do j=1, nsize
-            Kmat(cnc(j),cnc(i))=Kmat(cnc(j),cnc(i))+Ki(j,i)
-        end do
-        Fvec(cnc(i))=Fvec(cnc(i))+Fi(i)
+    n      = size(Fvec)
+    ni     = size(Fi)
+    mincnc = min(cnc)
+    maxcnc = max(cnc)
+    
+    ! check validity of inputs
+    
+    if (shape(Kmat) /= [n,n]) then
+      istat = STAT_FAILURE
+      emsg  = 'Kmat shape is incorrect, assembleKF, global_toolkit_module'
+    else if (shape(Ki) /= [ni,ni]) then
+      istat = STAT_FAILURE
+      emsg  = 'Ki shape is incorrect, assembleKF, global_toolkit_module'
+    else if (size(cnc) /= ni) then
+      istat = STAT_FAILURE
+      emsg  = 'cnc size is incorrect, assembleKF, global_toolkit_module'
+    else if (mincnc < 1) then
+      istat = STAT_FAILURE
+      emsg  = 'cnc min element <1, assembleKF, global_toolkit_module'
+    else if (maxcnc > n) then
+      istat = STAT_FAILURE
+      emsg  = 'cnc max element is too large for Kmat, assembleKF, &
+      &global_toolkit_module'
+    end if
+    
+    if(istat = STAT_FAILURE) return
+    
+    ! proceed with the assembly only when all dummy arg sizes are consistent
+    do i = 1, ni
+      do j = 1, ni
+          Kmat(cnc(j),cnc(i)) = Kmat(cnc(j),cnc(i)) + Ki(j,i)
+      end do
+      Fvec(cnc(i)) = Fvec(cnc(i)) + Fi(i)
     end do    
 
-end subroutine assembleKF
+  end subroutine assembleKF
 
 
 
