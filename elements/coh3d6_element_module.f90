@@ -240,6 +240,13 @@ use global_toolkit_module,       only :
   real(DP), allocatable :: xj(:), uj(:)
   real(DP)            :: coords(NDIM,NNODE), u(NDOF)
   real(DP)            :: midcoords(NDIM,NNODE/2)
+  
+  !** local coords and rotational matrix
+  real(DP)            :: normal(NDIM), tangent1(NDIM), tangent2(NDIM)
+  real(DP)            :: Qmatrix(NDIM,NDIM)
+  
+  !** element determinant
+  real(DP)            :: det
 
   !** material definition:
   ! - this_mat        : the lamina material definition of this element
@@ -278,9 +285,6 @@ use global_toolkit_module,       only :
   ! - NtQtTau         : [N']*[Q']*{Tau}
   real(DP)            :: fn(NNODE)
   real(DP)            :: Nmatrix(NDIM,NDOF)
-  real(DP)            :: normal(NDIM), tangent1(NDIM), tangent2(NDIM)
-  real(DP)            :: det
-  real(DP)            :: Qmatrix(NDIM,NDIM)
   real(DP)            :: ujump(NDIM), delta(NDIM)
   real(DP)            :: Dee(NDIM,NDIM)
   real(DP)            :: Tau(NDIM)
@@ -314,6 +318,13 @@ use global_toolkit_module,       only :
   coords          = ZERO
   u               = ZERO
   midcoords       = ZERO
+  !** local coords and rotational matrix
+  normal          = ZERO
+  tangent1        = ZERO
+  tangent2        = ZERO
+  Qmatrix         = ZERO
+  !** element determinant
+  det             = ZERO
   !** analysis logical control variables:
   last_converged  = .false.
   nofail          = .false.
@@ -327,11 +338,6 @@ use global_toolkit_module,       only :
   !** variables needed for stiffness matrix derivation:
   fn              = ZERO
   Nmatrix         = ZERO
-  normal          = ZERO
-  tangent1        = ZERO
-  tangent2        = ZERO
-  det             = ZERO
-  Qmatrix         = ZERO
   ujump           = ZERO
   delta           = ZERO
   Dee             = ZERO
@@ -357,13 +363,7 @@ use global_toolkit_module,       only :
   ! if there's any error encountered above
   ! clean up and exit the program
   if (istat == STAT_FAILURE) then
-    ! zero intent(out) variables (do not deallocate)
-    K_matrix = ZERO
-    F_vector = ZERO
-    ! deallocate local alloc. variables
-    if (allocated(uj)) deallocate(uj)
-    if (allocated(xj)) deallocate(xj)
-    ! exit program
+    call clean_up()
     return
   end if
   
@@ -386,7 +386,7 @@ use global_toolkit_module,       only :
   
   !** nodal variables:
   nodes = global_node_list(connec)
-  if(present(mnodes)) then
+  if (present(mnodes)) then
   ! - extract nodes from passed-in node array
     nodes = mnodes
   else
@@ -421,18 +421,59 @@ use global_toolkit_module,       only :
   ! if there's any error encountered in the extraction process
   ! clean up and exit the program
   if (istat == STAT_FAILURE) then
-    ! zero intent(out) variables (do not deallocate)
-    K_matrix = ZERO
-    F_vector = ZERO
-    ! deallocate local alloc. variables
-    if (allocated(uj)) deallocate(uj)
-    if (allocated(xj)) deallocate(xj)
-    ! exit program
+    call clean_up()
     return
   end if
   ! calculate mid-plane coordinates from coords
   do j=1, NNODE/2
       midcoords(:,j) = HALF * (coords(:,j)+coords(:,j+NNODE/2))
+  end do
+  
+  !** local coords and rotational matrix, and element determinant:
+  ! compute tangent1 of the interface: node 2 coords - node 1 coords
+  tangent1(1)=midcoords(1,2)-midcoords(1,1)
+  tangent1(2)=midcoords(2,2)-midcoords(2,1)
+  tangent1(3)=midcoords(3,2)-midcoords(3,1)
+  ! compute tangent2 of the interface: node 3 coords - node 1 coords
+  tangent2(1)=midcoords(1,3)-midcoords(1,1)
+  tangent2(2)=midcoords(2,3)-midcoords(2,1)
+  tangent2(3)=midcoords(3,3)-midcoords(3,1)
+  ! compute normal vector of the interface, 
+  ! its magnitude is twice the area of the triangle, 2 * A_actual
+  ! determinant of linear triangular elem is constant and is equal to
+  ! A_actual / A_reference = A_actual / 0.5 = 2 * A_actual
+  ! so the length of vector normal = determinant of this elem 
+  normal = cross_product3d(tangent1,tangent2)
+  ! - re-evaluate tangent1 so that it is perpendicular to both 
+  ! tangent2 and normal
+  tangent1 = cross_product3d(tangent2,normal)
+  ! - normalize these vectors, exit w error if zero vector is encountered
+  call normalize(normal, is_zero_vect, det)
+  if (is_zero_vect) then 
+    istat = STAT_FAILURE
+    emsg  = 'element area is zero, coh3d6 element module'
+    call clean_up()
+    return
+  end if
+  call normalize(tangent1, is_zero_vect)
+  if (is_zero_vect) then 
+    istat = STAT_FAILURE
+    emsg  = 'element area is zero, coh3d6 element module'
+    call clean_up()
+    return
+  end if
+  call normalize(tangent2, is_zero_vect)
+  if (is_zero_vect) then 
+    istat = STAT_FAILURE
+    emsg  = 'element area is zero, coh3d6 element module'
+    call clean_up()
+    return
+  end if
+  ! - compute Q matrix
+  do j=1,3
+    Qmatrix(1,j)=normal(j)
+    Qmatrix(2,j)=tangent1(j)
+    Qmatrix(3,j)=tangent2(j)
   end do
   
   !** material definition:
@@ -449,152 +490,87 @@ use global_toolkit_module,       only :
   ! nofail:
   if (present(nofailure)) nofail = nofailure
  
+  !** integration point variables:
+  ! calculate ig point xi and weight; other ig point variables are updated
+  ! later in the loop
+  call init_ig_point (ig_xi, ig_weight)
   
-  
-  !------------------------------------------------!
-  !   compute Q matrix (rotation) and determinat 
-  !------------------------------------------------!
-  
-  ! - compute tangent1 of the interface: node 2 coords - node 1 coords
-  tangent1(1)=midcoords(1,2)-midcoords(1,1)
-  tangent1(2)=midcoords(2,2)-midcoords(2,1)
-  tangent1(3)=midcoords(3,2)-midcoords(3,1)
-  
-  ! - compute tangent2 of the interface: node 3 coords - node 1 coords
-  tangent2(1)=midcoords(1,3)-midcoords(1,1)
-  tangent2(2)=midcoords(2,3)-midcoords(2,1)
-  tangent2(3)=midcoords(3,3)-midcoords(3,1)
-  
-  ! - compute normal vector of the interface, its magnitude is the area of the triangle-> det
-  normal=CrossProduct3D(tangent1,tangent2)
-  
-  ! - re-evaluate tangent1 so that it is perpendicular to both tangent2 and normal
-  tangent1=CrossProduct3D(tangent2,normal)
-  
-  ! - normalize these vectors
-  call normalize(normal,det) ! magnitude is det
-  call normalize(tangent1)
-  call normalize(tangent2)
-  
-  ! - compute Q matrix
-  do j=1,3
-      Qmatrix(1,j)=normal(j)
-      Qmatrix(2,j)=tangent1(j)
-      Qmatrix(3,j)=tangent2(j)
-  end do
-  
-  
-  
-  
-  
-  
-  !------------------------------------------------!
-  !   perform integration at ig points
-  !------------------------------------------------!
-  
-  ! - calculate ig point xi and weight
-  if(present(gauss).and.gauss)  then
-      call init_ig(igxi,igwt,gauss)
-  else                          
-      call init_ig(igxi,igwt)
-  end if
-  
-  ! zero elem curr status for update
-  elem%fstat=zero
-   
-  !-calculate strain,stress,stiffness,sdv etc. at each int point
-  do kig=1,NIGPOINT 
-  
-      ! - empty relevant arrays for reuse
-      fn=zero; Nmatrix=zero
-      ujump=zero; delta=zero; dee=zero; Tau=zero
-      QN=zero; NtQt=zero; DQN=zero; NtQtDQN=zero; NtQtTau=zero
-      tmpx=zero; tmpu=zero
+  !** other local variables are assigned in the following loop of all ig points
+
+
+
+  !**** MAIN CALCULATIONS ****
+
+
+  ! loop over all ig points,
+  ! calculate strain, stress, stiffness matrix, sdv etc. at each ig point
+
+  loop_igpoint: do kig=1, NIGPOINT 
       
       !- get shape function matrix
-      call init_shape(igxi(:,kig),fn) 
+      call init_shape(fn, igxi(:,kig)) 
       
-  ! Nmatrix: ujump (at each int pnt) = Nmatrix*u
-      do i = 1,NDIM
-          do j = 1,NNODE/2
-          Nmatrix(i,i+(j-1)*NDIM)= -fn(j)
-          Nmatrix(i,i+(j-1+NNODE/2)*NDIM)=fn(j)
-          end do
+      ! Nmatrix: ujump (at each int pnt) = Nmatrix*u
+      do i = 1, NDIM
+        do j = 1, NNODE/2
+          Nmatrix( i, i + (j-1)         * NDIM ) = - fn(j)
+          Nmatrix( i, i + (j-1+NNODE/2) * NDIM ) =   fn(j)
+        end do
       end do
       
-    ! calculate ujump: disp. jump of the two crack surface, in global coords
+      ! calculate ujump: disp. jump of the two crack surface, in global coords
       ujump=matmul(Nmatrix,u)
       
       ! calculate separation delta in local coords: delta=Qmatrix*ujump
       delta=matmul(Qmatrix,ujump)
       
-      ! - extract sdvs from integration points; ig_sdv automatically deallocated when passed in
-      call extract(elem%ig_points(kig),sdv=ig_sdv)
-      
-      ! allocate ig_sdv arrays for 1st iteration of analysis
-      if(.not.allocated(ig_sdv)) then
-      ! allocate 2 sets of sdv arrays, 1 for converged sdvs and 1 for iterating sdvs
-          allocate(ig_sdv(2))
-      end if
-      
-      ! update converged sdvs (sdv1) with iterating sdvs (sdv2) when last iteration has converged
-      ! and revalue iterating sdvs (sdv2) to the last converged sdvs (sdv1) if otherwise
+      ! extract sdvs from integration points, ig_sdv_conv/iter
+      call extract(ig_points(kig), converged_sdv=ig_sdv_conv, &
+      & iterating_sdv=ig_sdv_iter)
+
+      ! update converged sdv with iterating sdv when last iteration is converged
+      ! and revert iterating sdv back to the last converged sdv if otherwise
       if(last_converged) then
-          ig_sdv(1)=ig_sdv(2)
-      else               
-          ig_sdv(2)=ig_sdv(1)
+        ig_sdv_conv = ig_sdv_iter
+      else
+        ig_sdv_iter = ig_sdv_conv
       end if
       
       ! get D matrix dee accord. to material properties, and update intg point variables
-      select case (mattype)
-          case ('interface')
-              
-              if(nofail) then
-              ! do not pass in sdv, then no cohesive law can be done, only linear elasticity stiffness and stress calculated
-                  call ddsdde(lib_interface(typekey), Dee, jump=delta, stress=Tau)
-              else
-              ! calculate D matrix, update stress, and iterating sdv
-                  call ddsdde(lib_interface(typekey), Dee, jump=delta, stress=Tau, sdv=ig_sdv(2), dfail=dfail) 
-              end if
-              
-          case default
-              write(msg_file,*) 'material type not supported for cohesive element!'
-              call exit_function
-      end select
+      if(nofail) then
+      ! do not pass in sdv, then no cohesive law can be done, only linear elasticity stiffness and stress calculated
+          call ddsdde(this_mat, Dee, jump=delta, stress=Tau)
+      else
+      ! calculate D matrix, update stress, and iterating sdv
+          call ddsdde(this_mat, Dee, jump=delta, stress=Tau, sdv=ig_sdv(2), dfail=dfail) 
+      end if
       
-      
-
       !------------------------------------------------!
       !  add this ig point contributions to K and F
       !------------------------------------------------!
-    
       QN      =   matmul(Qmatrix, Nmatrix)
       NtQt    =   transpose(QN)
       DQN     =   matmul(Dee, QN)
       NtQtDQN =   matmul(NtQt, DQN)
       NtQtTau =   matmul(NtQt, Tau)
-
       do j=1, NDOF
-          do k=1, NDOF
-              K_matrix(j,k) = K_matrix(j,k) + NtQtDQN(j,k) * det * igwt(kig)
-          end do
-          F_vector(j) = F_vector(j) + NtQtTau(j) * igwt(kig) * det
+        do k=1, NDOF
+          K_matrix(j,k) = K_matrix(j,k) + NtQtDQN(j,k) * det * ig_weight(kig)
+        end do
+        F_vector(j) = F_vector(j) + NtQtTau(j) * ig_weight(kig) * det
       end do
          
-      
-      
       !------------------------------------------------!
       !   update ig point kig
       !------------------------------------------------!
-
-      !- calculate integration point physical coordinates (initial)
-      tmpx    =   matmul(coords,fn)
       
+      !- calculate integration point physical coordinates (initial)
+      ig_x = matmul(coords,fn)
       !- calculate integration point displacement
       do j=1, NDIM
-          do i=1, NNODE
-              tmpu(j) = tmpu(j) + fn(i) * u((i-1)*NDIM+j)
-          end do
+        do i=1, NNODE
+          ig_u(j) = ig_u(j) + fn(i) * u((i-1)*NDIM+j)
+        end do
       end do
       
       ! update element ig point arrays
@@ -623,13 +599,31 @@ use global_toolkit_module,       only :
       !~    end if
       !~end if
       
-      deallocate(ig_sdv)
+      ! - empty relevant arrays for reuse
+      fn=zero; Nmatrix=zero
+      ujump=zero; delta=zero; dee=zero; Tau=zero
+      QN=zero; NtQt=zero; DQN=zero; NtQtDQN=zero; NtQtTau=zero
+      tmpx=zero; tmpu=zero
       
-  end do !-looped over all int points. ig=NIGPOINT
+      
+  end do loop_igpoint !-looped over all int points. ig=NIGPOINT
 
   if(allocated(xj)) deallocate(xj) 
-  if(allocated(uj)) deallocate(uj) 
-  if(allocated(ig_sdv)) deallocate(ig_sdv)           
+  if(allocated(uj)) deallocate(uj)
+  
+  
+  
+  contains
+  ! internal procedures
+  
+    subroutine clean_up()
+      ! zero intent(out) variables (do not deallocate)
+      K_matrix = ZERO
+      F_vector = ZERO
+      ! deallocate local alloc. variables
+      if (allocated(uj)) deallocate(uj)
+      if (allocated(xj)) deallocate(xj)
+    end subroutine clean_up
 
 end subroutine integrate_coh3d6_element
 

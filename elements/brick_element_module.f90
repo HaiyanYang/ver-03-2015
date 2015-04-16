@@ -371,13 +371,7 @@ use global_toolkit_module,       only : crack_elem_centroid2d, determinant3d, &
   ! if there's any error encountered above
   ! clean up and exit the program
   if (istat == STAT_FAILURE) then
-    ! zero intent(out) variables (do not deallocate)
-    K_matrix = ZERO
-    F_vector = ZERO
-    ! deallocate local alloc. variables
-    if (allocated(uj)) deallocate(uj)
-    if (allocated(xj)) deallocate(xj)
-    ! exit program
+    call clean_up()
     return
   end if
 
@@ -431,13 +425,7 @@ use global_toolkit_module,       only : crack_elem_centroid2d, determinant3d, &
   ! if there's any error encountered in the extraction process
   ! clean up and exit the program
   if (istat == STAT_FAILURE) then
-    ! zero intent(out) variables (do not deallocate)
-    K_matrix = ZERO
-    F_vector = ZERO
-    ! deallocate local alloc. variables
-    if (allocated(uj)) deallocate(uj)
-    if (allocated(xj)) deallocate(xj)
-    ! exit program
+    call clean_up()
     return
   end if
 
@@ -459,13 +447,7 @@ use global_toolkit_module,       only : crack_elem_centroid2d, determinant3d, &
   ! if there's any error encountered in the above process
   ! clean up and exit the program
   if (istat == STAT_FAILURE) then
-    ! zero intent(out) variables (do not deallocate)
-    K_matrix = ZERO
-    F_vector = ZERO
-    ! deallocate local alloc. variables
-    if (allocated(uj)) deallocate(uj)
-    if (allocated(xj)) deallocate(xj)
-    ! exit program
+    call clean_up()
     return
   end if
   ! if no error, proceed with the clength calculation
@@ -606,13 +588,7 @@ use global_toolkit_module,       only : crack_elem_centroid2d, determinant3d, &
 
   ! check to see if the loop is exited upon error
   if (istat == STAT_FAILURE) then
-    ! zero intent(out) dummy args
-    K_matrix = ZERO
-    F_vector = ZERO
-    ! deallocate local variables
-    if(allocated(xj)) deallocate(xj)
-    if(allocated(uj)) deallocate(uj)
-    ! exit program
+    call clean_up()
     return
   end if
 
@@ -632,13 +608,7 @@ use global_toolkit_module,       only : crack_elem_centroid2d, determinant3d, &
     emsg  = 'elem%ply_angle is unintentionally modified in brick_element module'
   end if
   if (istat == STAT_FAILURE) then
-    ! zero intent(out) dummy args
-    K_matrix = ZERO
-    F_vector = ZERO
-    ! deallocate local variables
-    if(allocated(xj)) deallocate(xj)
-    if(allocated(uj)) deallocate(uj)
-    ! exit program
+    call clean_up()
     return
   end if
 
@@ -659,7 +629,19 @@ use global_toolkit_module,       only : crack_elem_centroid2d, determinant3d, &
   ! deallocate local dynamic arrays
   if(allocated(xj)) deallocate(xj)
   if(allocated(uj)) deallocate(uj)
-
+  
+  
+  contains 
+  ! internal procedures
+  
+    subroutine clean_up()
+      ! zero intent(out) variables (do not deallocate)
+      K_matrix = ZERO
+      F_vector = ZERO
+      ! deallocate local alloc. variables
+      if (allocated(uj)) deallocate(uj)
+      if (allocated(xj)) deallocate(xj)
+    end subroutine clean_up
 
 end subroutine integrate_brick_element
 
