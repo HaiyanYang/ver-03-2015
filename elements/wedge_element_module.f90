@@ -19,7 +19,7 @@ module wedge_element_module
 !             |      /3\      |
 !             |     /   \     |
 !             |    /     \    |
-!             | E3/     E2\   | 
+!             | E3/     E2\   |
 !             |  /         \  |
 !             | /           \ |
 !             |/_____________\|
@@ -38,10 +38,13 @@ module wedge_element_module
 !    08/04/15  B. Y. Chen            Original code
 !
 
-use parameter_module, only : NDIM, NST => NST_STANDARD, DP, ZERO,
+use parameter_module, only : NST => NST_STANDARD, NDIM, DP, ZERO, SMALLNUM,    &
+                           & MSGLENGTH, STAT_SUCCESS, STAT_FAILURE,            &
+                           & ONE, HALF, ONE_THIRD, ONE_ROOT3, ONE_SIXTH,       &
+                           & TWO_THIRD, ROOT_THREE_FIFTH, FIVE_54, EIGHT_54
 ! list of external modules used in type definition and other procedures:
 ! global clock module    : needed in element definition, extract and integrate
-! lamina material module : needed in element definition, extract and integrate 
+! lamina material module : needed in element definition, extract and integrate
 use global_clock_module
 use lamina_material_module
 
@@ -54,21 +57,21 @@ private
 ! NIGPOINT      : no. of integration points in this element
 ! NDOF          : no. of degree-of-freedom  in this element
 !
-! NODE_ON_BOTTOM_EDGE(i,j) : this is a matrix to describe the nodal connectivity
+! NODES_ON_BOTTOM_EDGES(i,j) : this is a matrix to describe the nodal connectivity
 !                            of the bottom edges in this element. Each edge
 !                            topologically composed of its two end nodes.
-!                            This term stores the local nodal index of  
+!                            This term stores the local nodal index of
 !                            the i_th node on edge j
 !
 ! ** Note: only the bottom edge nodal connec is actually needed; top edge nodal
 !          connec can be derived as:
-!          NODE_ON_TOP_EDGE(i,j) = NODE_ON_BOTTOM_EDGE(i,j) + NNODE/2
+!          NODE_ON_TOP_EDGE(i,j) = NODES_ON_BOTTOM_EDGES(i,j) + NNODE/2
 !
 integer, parameter :: NIGPOINT=6, NNODE=6, NEDGE_BOTTOM=3, NDOF=NDIM*NNODE
-integer, parameter :: NODE_ON_BOTTOM_EDGE(2, NEDGE_BOTTOM) = &
+integer, parameter :: NODES_ON_BOTTOM_EDGES(2, NEDGE_BOTTOM) = &
                     & reshape([ 1,2, 2,3, 3,1 ], [2, NEDGE_BOTTOM])
 
-type, public :: wedge_element 
+type, public :: wedge_element
   private
   ! list of type components:
   ! fstat         : element failure status
@@ -78,7 +81,7 @@ type, public :: wedge_element
   ! ig_points     : integration points of this element
   ! local_clock   : locally-saved program clock
   ! stress        : stresses for output
-  ! strain        : strains for output  
+  ! strain        : strains for output
   ! df            : fibre degradation factor for output
   integer  :: fstat         = 0
   integer  :: connec(NNODE) = 0
@@ -129,10 +132,10 @@ pure subroutine empty_wedge_element (elem)
 ! it is used in the initialize_lib_elem procedure in the lib_elem module
 
   type(wedge_element), intent(inout) :: elem
-  
+
   ! local variable, derived type var. is initialized upon declaration
   type(wedge_element) :: elem_lcl
-  
+
   ! reset elem to the initial state
   elem = elem_lcl
 
@@ -145,13 +148,13 @@ pure subroutine set_wedge_element (elem, connec, ID_matlist, ply_angle)
 ! this subroutine is used to set the components of the element
 ! it is used in the initialize_lib_elem procedure in the lib_elem module
 ! note that only some of the components need to be set during preproc,
-! namely connec, ID_matlist, ply_angle and local_clock
+! namely connec, ID_matlist, ply_angle
 
   type(wedge_element),    intent(inout)   :: elem
   integer,                intent(in)      :: connec(NNODE)
   integer,                intent(in)      :: ID_matlist
   real(DP),               intent(in)      :: ply_angle
-  
+
   elem%connec    = connec
   elem%ID_matlist = ID_matlist
   elem%ply_angle = ply_angle
@@ -167,7 +170,7 @@ pure subroutine extract_wedge_element (elem, fstat, connec, ID_matlist, &
 ! note that the dummy args connec and ig_points are allocatable arrays
 ! because their sizes vary with different element types
 
-  type(wedge_element),                          intent(in)  :: elem  
+  type(wedge_element),                          intent(in)  :: elem
   integer,                            optional, intent(out) :: fstat
   integer,               allocatable, optional, intent(out) :: connec(:)
   integer,                            optional, intent(out) :: ID_matlist
@@ -177,312 +180,486 @@ pure subroutine extract_wedge_element (elem, fstat, connec, ID_matlist, &
   real(DP),                           optional, intent(out) :: stress(NST)
   real(DP),                           optional, intent(out) :: strain(NST)
   real(DP),                           optional, intent(out) :: df
-  
+
   if (present(fstat))       fstat = elem%fstat
-  
+
   if (present(connec)) then
     allocate(connec(NNODE))
     connec = elem%connec
   end if
-  
+
   if (present(ID_matlist))  ID_matlist  = elem%ID_matlist
-  
+
   if (present(ply_angle))   ply_angle   = elem%ply_angle
 
   if (present(local_clock)) local_clock = elem%local_clock
-  
+
   if (present(ig_points)) then
     allocate(ig_points(NIGPOINT))
     ig_points = elem%ig_points
   end if
-  
+
   if (present(stress))      stress = elem%stress
 
   if (present(strain))      strain = elem%strain
-  
+
   if (present(df))          df     = elem%df
 
 end subroutine extract_wedge_element
 
 
 
-pure subroutine integrate_wedge_element (elem, K_matrix, F_vector, nofailure)
+pure subroutine integrate_wedge_element (elem, K_matrix, F_vector, istat, emsg,&
+& nofailure)
 ! Purpose:
 ! updates K matrix, F vector, integration point stress and strain,
 ! and the solution dependent variables (sdvs) of ig points and element
+! note that K and F are allocatable dummy args as their sizes vary with
+! different element types
 
-use toolkit_module                  ! global tools for element integration
-use lib_mat_module                  ! global material library
-use lib_node_module                 ! global node library
+! used parameters:
+! ZERO, MSGLENGTH, STAT_SUCCESS, STAT_FAILURE, SMALLNUM
 
-  type(wedge_element),intent(inout)       :: elem 
-  real(kind=DP),allocatable,intent(out)   :: K_matrix(:,:), F_vector(:)
-  logical,  optional,  intent(in)         :: nofailure
-  
+! list of used modules:
+! xnode_module                  : xnode derived type and its assoc. procedures
+! global_node_list_module       : global node list
+! global_material_list_module   : global material list
+! global_toolkit_module         : global tools for element integration
+use xnode_module
+use global_node_list_module,     only : global_node_list
+use global_material_list_module, only : global_lamina_list
+use global_toolkit_module,       only : crack_elem_centroid2d, determinant3d, &
+                                      & invert_self3d, beemat3d, lcl_strain3d,&
+                                      & glb_dee3d
+
+  type(wedge_element),      intent(inout) :: elem
+  real(DP),    allocatable, intent(out)   :: K_matrix(:,:), F_vector(:)
+  integer,                  intent(out)   :: istat
+  character(len=MSGLENGTH), intent(out)   :: emsg
+  logical,        optional, intent(in)    :: nofailure
+
+  ! local copies of intent(inout) dummy arg./its components:
+  ! - elfstat         : elem's fstat
+  ! - connec          : elem's connectivity matrix
+  ! - ID_matlist      : elem's ID_matlist
+  ! - ply_angle       : elem's ply_angle
+  ! - local_clock     : elem's local_clock
+  ! - ig_points       : elem's ig_points
+  ! - elstress        : elem's stress
+  ! - elstrain        : elem's strain
+  ! - eldf            : elem's df
+  integer             :: elfstat
+  integer             :: connec(NNODE)
+  integer             :: ID_matlist
+  real(DP)            :: ply_angle
+  type(program_clock) :: local_clock
+  type(lamina_ig_point) :: ig_points(NIGPOINT)
+  real(DP)            :: elstress(NST)
+  real(DP)            :: elstrain(NST)
+  real(DP)            :: eldf
+
   ! the rest are all local variables
-  
-  ! variables to be extracted from global arrays
-  type(xnode) :: node(NNODE) ! x, u, du, v, extra dof ddof etc
-  type(material) :: mat ! matname, mattype and ID_matlist to glb mattype array
-  character(len=matnamelength) :: matname
-  character(len=mattypelength) :: mattype
-  integer :: typekey
-  ! - glb clock step and increment no. extracted from glb clock module
-  integer         :: curr_step, curr_inc
-  
-  ! - variables extracted from element isdv
-  integer         :: nstep, ninc                  ! step and increment no. of the last iteration, stored in the element
-  logical         :: last_converged               ! true if last iteration has converged: a new increment/step has started
-  
-  ! - variables extracted from intg point sdvs
-  type(sdv_array),  allocatable   :: ig_sdv(:)
-  
-  ! variables defined locally
-  real(kind=DP)   :: igxi(NDIM,NIGPOINT),igwt(NIGPOINT) ! ig point natural coords and weights
-  real(kind=DP)   :: coords(NDIM,NNODE) ! coordinates of the element nodes
-  real(kind=DP)   :: theta ! orientation of element local coordinates
-  real(kind=DP)   :: u(NDOF) ! nodal disp. vector
-  logical         :: failure ! true for failure analysis
-  real(kind=DP)   :: fn(NNODE),dn(NNODE,NDIM) ! shape functions & their deriv. physical space
-  real(kind=DP)   :: jac(NDIM,NDIM),gn(NNODE,NDIM),detj ! jacobian & shape func. deriv. natural space
-  real(kind=DP)   :: bee(NST,NDOF),beet(NDOF,NST) ! b matrix and its transpose
-  real(kind=DP)   :: dee(NST,NST) ! d matrix
-  real(kind=DP)   :: btd(NDOF,NST),btdb(NDOF,NDOF) ! b'*d & b'*d*b
-  real(kind=DP)   :: tmpx(NDIM),tmpu(NDIM),tmpstrain(NST),tmpstress(NST) ! temp. x, strain & stress arrays for intg pnts      
-  real(kind=DP),allocatable :: xj(:),uj(:)! nodal vars extracted from glb lib_node array
-  
-  integer :: i,j,kig,igstat
-  
-  ! variables used for calculating clength
-  real(kind=DP)   :: clength,ctip(2,2)
 
-  logical :: nofail
+  !** nodal variables:
+  ! - nodes           : array of element nodes
+  ! - xj, uj          : nodal x and u extracted from nodes array
+  ! - coords          : element nodal coordinates matrix
+  ! - u               : element nodal displacemet vector
+  type(xnode)         :: nodes(NNODE)
+  real(DP), allocatable :: xj(:), uj(:)
+  real(DP)            :: coords(NDIM,NNODE), u(NDOF)
+
+  !** material definition:
+  ! - this_mat        : the lamina material definition of this element
+  type(lamina_material) :: this_mat
+
+  !** element characteristic length variables:
+  ! - clength         : characteristic length of this element
+  ! - crosspoints     : coordinates of cross points btw characteristic line and
+  !                     two element edges
+  ! - cline           : line vector joining the two cross points
+  real(DP)            :: clength, crosspoints(2,2), cline(2)
+
+  !** analysis logical control variables:
+  ! - last_converged  : true if last iteration has converged
+  ! - nofail          : true if no failure is allowed
+  logical             :: last_converged, nofail
+
+  !** integration point variables:
+  ! - ig_xi           : integration point natural coordinates
+  ! - ig_weight       : integration point weights
+  ! - ig_sdv_conv/iter: integration point converged and iterating sdvs
+  ! - ig_x, ig_u      : temporary x and u vectors for an ig point
+  ! - ig_strain, ig_stress : temporary strain and stress vectors for an ig point
+  real(DP)            :: ig_xi(NDIM, NIGPOINT), ig_weight(NIGPOINT)
+  type(lamina_sdv)    :: ig_sdv_conv, ig_sdv_iter
+  real(DP)            :: ig_x(NDIM), ig_u(NDIM), ig_strain(NST), ig_stress(NST)
+
+  !** variables needed for stiffness matrix derivation:
+  ! - fn, dn          : shape functions & their derivatives in natural space
+  ! - gn              : gradients of shape functions in physical space
+  ! - jac, detj       : jacobian matrix and its determinant
+  ! - bee             : B matrix
+  ! - dee             : D matrix
+  ! - btdb            : B' * D * B
+  real(DP)            :: fn(NNODE), dn(NNODE,NDIM), gn(NNODE,NDIM)
+  real(DP)            :: jac(NDIM,NDIM), detj
+  real(DP)            :: bee(NST,NDOF), dee(NST,NST), btdb(NDOF,NDOF)
+
+  !** integer counter variables
+  ! - i, j, kig
+  integer             :: i, j, kig
   
-  ! initialize variables
-  allocate(K_matrix(NDOF,NDOF),F_vector(NDOF))
-  K_matrix=ZERO; F_vector=ZERO
-  
+
+  ! initialize intent(out) and local variables
+  ! except derived types (auto initialized upon declaration) and
+  ! allocatable local arrays
+
+  !** intent(out) variables:
+  allocate(K_matrix(NDOF,NDOF), F_vector(NDOF))
+  K_matrix        = ZERO
+  F_vector        = ZERO
+  istat           = STAT_SUCCESS
+  emsg            = ''
+  !** local copies of intent(inout) dummy args./its components:
+  elfstat         = 0
+  connec          = 0
+  ID_matlist      = 0
+  ply_angle       = ZERO
+  elstress        = ZERO
+  elstrain        = ZERO
+  eldf            = ZERO
+  !** nodal variables:
+  coords          = ZERO
+  u               = ZERO
+  !** element characteristic length variables:
+  clength         = ZERO
+  crosspoints     = ZERO
+  cline           = ZERO
+  !** analysis logical control variables:
+  last_converged  = .false.
+  nofail          = .false.
+  !** integration point variables:
+  ig_xi           = ZERO
+  ig_weight       = ZERO
+  ig_x            = ZERO
+  ig_u            = ZERO
+  ig_strain       = ZERO
+  ig_stress       = ZERO
+  !** variables needed for stiffness matrix derivation:
+  fn              = ZERO
+  dn              = ZERO
+  gn              = ZERO
+  jac             = ZERO
+  detj            = ZERO
+  bee             = ZERO
+  dee             = ZERO
+  btdb            = ZERO
+  !** integer counter variables:
   i=0; j=0; kig=0
-  do i=1,NNODE
-      call empty(node(i))
-  end do
-  call empty(mat)
-  curr_step=0; curr_inc=0
-  
-  igxi=ZERO; igwt=ZERO
-  coords=ZERO; theta=ZERO; u=ZERO
-  failure=.false.
-  
-  nofail=.false.
-  if(present(nofailure)) nofail=nofailure
-  
-  ! copy nodes from global node array 
-  node(:)=lib_node(elem%connec(:))
-  
-  ! assign values to local arrays from nodal values
-  do j=1,NNODE
-  
-      ! extract useful values from nodes
-      call extract(node(j),x=xj,u=uj)
-      
-      ! assign values to coords matrix and u vector
-      if(allocated(xj)) then
-          coords(:,j)=xj(:)
-          deallocate(xj)
-      else
-          write(msg_file,*)'WARNING: x not allocated for node:',elem%connec(j)
-      end if
-      
-      if(allocated(uj)) then 
-          u((j-1)*NDIM+1:j*NDIM)=uj(1:NDIM)
-          deallocate(uj)
-      else
-          write(msg_file,*)'WARNING: u not allocated for node:',elem%connec(j)
-      end if
-      
-  end do
-  
-  ! extract material values from global material array
-  mat=lib_mat(elem%ID_matlist)
-  call extract(mat,matname,mattype,typekey)
-  
-  ! extract ply angle from element definition
-  theta=elem%ply_angle
-  
-  ! - extract curr step and inc values from glb clock module
-  call extract_glb_clock(kstep=curr_step,kinc=curr_inc)
-  
-  ! - check if last iteration has converged, and update the current step & increment no.
-  if(elem%nstep.ne.curr_step .or. elem%ninc.ne.curr_inc) then
-      last_converged=.true.
-      elem%nstep = curr_step
-      elem%ninc = curr_inc
+
+
+  ! check validity of input/imported variables
+  ! here, check if global_node_list and global_lamina_list are allocated
+  if (.not. allocated(global_node_list)) then
+    istat = STAT_FAILURE
+    emsg  = 'global_node_list not allocated, wedge_element_module'
+  else if (.not. allocated(global_lamina_list)) then
+    istat = STAT_FAILURE
+    emsg  = 'global_lamina_list not allocated, wedge_element_module'
   end if
-  
-  
-  
-  !-----------------------------------------------------------!
-  !           calculate approximate clength
-  !-----------------------------------------------------------!
-  ! initialize relevant variables
-  clength=ZERO
-  call elem_ctips_origin('wedge',theta,coords,NODE_ON_BOTTOM_EDGE,NEDGE_BOTTOM,ctip)
-  clength=sqrt((ctip(1,2)-ctip(1,1))**2+(ctip(2,2)-ctip(2,1))**2)
-  
-  !-----------------------------------------------------------!
-  !-----------------------------------------------------------! 
-  
-  
+  ! if there's any error encountered above
+  ! clean up and exit the program
+  if (istat == STAT_FAILURE) then
+    ! zero intent(out) variables (do not deallocate)
+    K_matrix = ZERO
+    F_vector = ZERO
+    ! deallocate local alloc. variables
+    if (allocated(uj)) deallocate(uj)
+    if (allocated(xj)) deallocate(xj)
+    ! exit program
+    return
+  end if
+
+  ! assign values to local variables
+
+  !** local copies of intent(inout) dummy arg.:
+  ! elem's fstat, stress, strain and df components are NOT needed
+  ! for calculations in this subroutine. here they are only for output,
+  ! and they need to be assgined new values during each iteration.
+  ! they are therefore NOT passed to their local copies elfstat, elstress,
+  ! elstrain and df.
+  ! elfstat   : no extraction     ! out
+  ! elstress  : no extraction     ! out
+  ! elstrain  : no extraction     ! out
+  ! eldf      : no extraction     ! out
+  connec      = elem%connec       ! in
+  ID_matlist  = elem%ID_matlist   ! in
+  ply_angle   = elem%ply_angle    ! in
+  local_clock = elem%local_clock  ! inout
+  ig_points   = elem%ig_points    ! inout
+
+  !** nodal variables:
+  ! copy nodes from global nodes array to local nodes array
+  ! using element node indices stored in connectivity array
+  nodes = global_node_list(connec)
+  ! extract nodal components and assign to respective local arrays:
+  ! nodal x -> coords
+  ! nodal u -> u
+  do j=1, NNODE
+    ! extract x and u from nodes
+    call extract(nodes(j), x=xj, u=uj)
+    ! assign nodal coordinate values (xj) to coords matrix
+    if(allocated(xj)) then
+      coords(:,j)=xj(:)
+      deallocate(xj)
+    else
+      istat = STAT_FAILURE
+      emsg  = 'x not allocated for node, wedge_element_module'
+      exit
+    end if
+    ! assign nodal displacement values (uj) to u vector
+    if(allocated(uj)) then
+      u((j-1)*NDIM+1:j*NDIM)=uj(1:NDIM)
+      deallocate(uj)
+    else
+      istat = STAT_FAILURE
+      emsg  = 'u not allocated for node, wedge_element_module'
+      exit
+    end if
+  end do
+  ! if there's any error encountered in the extraction process
+  ! clean up and exit the program
+  if (istat == STAT_FAILURE) then
+    ! zero intent(out) variables (do not deallocate)
+    K_matrix = ZERO
+    F_vector = ZERO
+    ! deallocate local alloc. variables
+    if (allocated(uj)) deallocate(uj)
+    if (allocated(xj)) deallocate(xj)
+    ! exit program
+    return
+  end if
+
+  !** material definition:
+  ! extract material definition from global material list
+  this_mat = global_lamina_list(ID_matlist)
+
+  !** element characteristic length:
+  ! this is the length of the line segment orthogonal to the fibre angle,
+  ! and passes the element centroid and crosses two edges of the element.
+  ! its length is the distance between the cross points on the two edges.
+  ! the subroutine below was intended to calculate the cross points between
+  ! the matrix crack (passing element centroid) and two element edges. it is
+  ! used here to calculate the element characteristic length, by imagining
+  ! a crack line orthogonal to the fibre angle, thus: crack_angle=ply_angle+90
+  call crack_elem_centroid2d (nedge=NEDGE_BOTTOM, crack_angle=ply_angle+90._DP,&
+  & coords=coords(1:2,:), nodes_on_edges=NODES_ON_BOTTOM_EDGES, istat=istat,   &
+  & emsg=emsg, edge_crack_points=crosspoints)
+  ! if there's any error encountered in the above process
+  ! clean up and exit the program
+  if (istat == STAT_FAILURE) then
+    ! zero intent(out) variables (do not deallocate)
+    K_matrix = ZERO
+    F_vector = ZERO
+    ! deallocate local alloc. variables
+    if (allocated(uj)) deallocate(uj)
+    if (allocated(xj)) deallocate(xj)
+    ! exit program
+    return
+  end if
+  ! if no error, proceed with the clength calculation
+  ! calculate the cline vector joining two cross points
+  cline   = crosspoints(:,2) - crosspoints(:,1)
+  ! the length of this vector is the characteristic length
+  clength = sqrt ( dot_product (cline, cline) )
+
+  !** analysis logical control variables:
+  ! check if last iteration has converged by checking if the global clock has
+  ! advanced; if so, last iteration is converged and sync the local clock
+  if (.not. clock_in_sync(GLOBAL_CLOCK, local_clock)) then
+    last_converged = .true.
+    local_clock    = GLOBAL_CLOCK
+  end if
+  ! nofail:
+  if (present(nofailure)) nofail = nofailure
+
+  !** integration point variables:
   ! update ig point xi and weight
-  call init_ig(igxi,igwt)
-  
-  ! ZERO elem curr status for update
-  elem%fstat=ZERO
-    
-  ! ZERO element stress and strain (used for output only) for update
-  elem%stress=ZERO
-  elem%strain=ZERO
-  
-  !-calculate strain,stress,stiffness,sdv etc. at each int point
-  do kig=1,NIGPOINT 
-  
-      ! empty relevant arrays for reuse
-      fn=ZERO; dn=ZERO
-      jac=ZERO; gn=ZERO; detj=ZERO
-      bee=ZERO; beet=ZERO; dee=ZERO
-      btd=ZERO; btdb=ZERO
-      tmpx=ZERO; tmpu=ZERO; tmpstrain=ZERO; tmpstress=ZERO
-      
-      !- get shape matrix and derivatives
-      call init_shape(igxi(:,kig),fn,dn) 
-      
-      !- calculate integration point physical coordinates (initial)
-      tmpx=matmul(coords,fn)
-      
-      !- calculate integration point displacement
-      do j=1,NDIM
-          do i=1,NNODE
-              tmpu(j)=tmpu(j)+fn(i)*u((i-1)*NDIM+j)
-          end do
+  call init_ig_point (ig_xi, ig_weight)
+  ! ig_x, u, strain, stress are updated later in the loop
+
+  !** other local variables are assigned in the following loop of all ig points
+
+
+
+  !**** MAIN CALCULATIONS ****
+
+
+  ! loop over all ig points,
+  ! calculate strain, stress, stiffness matrix, sdv etc. at each ig point
+
+  loop_igpoint: do kig = 1, NIGPOINT
+
+      ! get values of shape functions and derivatives, fn and dn, at this ig point
+      call init_shape (fn, dn, ig_xi(:,kig))
+
+      ! calculate integration point's physical coordinates (initial), ig_x
+      ig_x = matmul(coords,fn)
+
+      ! calculate integration point displacement, ig_u
+      do j=1, NDIM
+        do i=1, NNODE
+          ig_u(j) = ig_u(j) + fn(i) * u((i-1)*NDIM+j)
+        end do
       end do
-      
-      ! get jacobian
-      jac=matmul(coords,dn)
-      
-      !-get determinant of jacobian
-      detj=determinant(jac)
-      
+
+      ! get jacobian, jac
+      jac = matmul(coords,dn)
+
+      ! get determinant of jacobian, detj
+      detj = determinant3d (jac)
+
       ! invert jac onto itself
-      jac=inverse(jac,detj)
-      
-      ! calculate gradient of shape function matrix
-      gn=matmul(dn,jac)
-      
-      !-obtain b matrix (NST*NDOF) from rearranging terms of gn
-      bee=beemat(gn)
-      
-      ! calculate global strains
-      tmpstrain=matmul(bee,u)
-      
-      ! transfer strain to local coordinates
-      if(theta/=ZERO) tmpstrain=lcl_strain(tmpstrain,theta)
-      
-      
-      ! - extract sdvs from integration points; ig_sdv automatically deallocated when passed in
-      call extract(elem%ig_points(kig),sdv=ig_sdv)
-      
-      ! allocate ig_sdv arrays for 1st iteration of analysis
-      if(.not.allocated(ig_sdv)) then
-      ! allocate 2 sets of sdv arrays, 1 for converged sdvs and 1 for iterating sdvs
-          allocate(ig_sdv(2))
-      end if
-      
-      ! update converged sdvs (sdv1) with iterating sdvs (sdv2) when last iteration has converged
-      ! and revalue iterating sdvs (sdv2) to the last converged sdvs (sdv1) if otherwise
+      call invert_self3d (jac, istat, emsg, detj)
+      if (istat == STAT_FAILURE) exit loop_igpoint
+
+      ! calculate gradient of shape function matrix, gn
+      gn = matmul(dn,jac)
+
+      ! obtain b matrix (NST*NDOF) from rearranging terms of gn
+      bee = beemat3d (gn, NNODE)
+
+      ! calculate global strains at this ig point, ig_strain
+      ig_strain = matmul(bee,u)
+
+      ! transfer strain to local coordinates when ply_angle is non-zero
+      if(abs(ply_angle) > SMALLNUM) &
+      & ig_strain = lcl_strain3d (ig_strain, ply_angle)
+
+      ! extract sdvs from integration points, ig_sdv_conv/iter
+      call extract(ig_points(kig), converged_sdv=ig_sdv_conv, &
+      & iterating_sdv=ig_sdv_iter)
+
+      ! update converged sdv with iterating sdv when last iteration is converged
+      ! and revert iterating sdv back to the last converged sdv if otherwise
       if(last_converged) then
-          ig_sdv(1)=ig_sdv(2)
-      else               
-          ig_sdv(2)=ig_sdv(1)
+        ig_sdv_conv = ig_sdv_iter
+      else
+        ig_sdv_iter = ig_sdv_conv
       end if
-      
-      
-      ! get D matrix dee accord. to material properties, and update intg point stresses
-      select case (mattype)
-          case ('isotropic')
-              
-              ! check if failure analysis is needed (check if strength parameters are present)
-              call extract(lib_iso(typekey),strength_active=failure)
-              
-              if(nofail) failure=.false.
-              
-              if(failure) write(msg_file,*) "WARNING: failure analysis is not yet supported for &
-              & wedge_element type isotropic material; only linear elastic stiffness matrix is integrated."
-              
-              ! calculate D matrix, update tmpstress
-              call ddsdde(lib_iso(typekey),dee,strain=tmpstrain,stress=tmpstress) 
-              
-          case ('lamina')
-          
-              ! check if failure analysis is needed (check if strength parameters are present)
-              call extract(lib_lamina(typekey),strength_active=failure)
-              
-              if(nofail) failure=.false.
-              
-              if(failure) then
-                  ! calculate D matrix, update tmpstress and sdv
-                  call ddsdde(lib_lamina(typekey),clength,dee,strain=tmpstrain,stress=tmpstress,sdv=ig_sdv(2),dfail=dfail)
-              else
-                  ! calculate D matrix, update tmpstress
-                  call ddsdde(lib_lamina(typekey),dee=dee,strain=tmpstrain,stress=tmpstress)
-              end if
-              
-          case default
-              write(msg_file,*) 'material type not supported for tri element!'
-              call exit_function
-      end select
-      
-      ! get D matrix in global coordinates deeg
-      if(theta/=ZERO) dee=glb_dee(dee,theta)
-      
+
+      ! use material properties, sdv_iter, strain and clength
+      ! to calculate D and stress, and update sdv_iter
+      if(nofail) then
+      ! no failure is allowed, use ddsdde_lamina_intact
+        call ddsdde (this_mat, dee=dee, stress=ig_stress, strain=ig_strain)
+      else
+      ! failure is allowed, use ddsdde_lamina
+        call ddsdde (this_mat, dee=dee, stress=ig_stress, sdv=ig_sdv_iter, &
+        & strain=ig_strain, clength=clength, istat=istat, emsg=emsg)
+      end if
+
+      ! get D matrix in global coordinates
+      if(abs(ply_angle) > SMALLNUM) dee = glb_dee3d (dee, ply_angle)
+
       ! calculate B' D B
-      beet=transpose(bee)
-      btd=matmul(beet,dee)
-      btdb=matmul(btd,bee)
+      btdb = matmul( matmul(transpose(bee),dee), bee )
 
       ! integrate and update K matrix
-    do i=1,NDOF
-        do j=1,NDOF
-            K_matrix(i,j) = K_matrix(i,j)+btdb(i,j)*detj*igwt(kig) !-gauss integration
+      do i=1, NDOF
+        do j=1, NDOF
+          K_matrix(i,j) = K_matrix(i,j) + btdb(i,j) * detj * ig_weight(kig)
         end do
-    end do	
-      
-      
-      ! update ig point arrays
-      !call update(elem%ig_points(kig),x=tmpx,u=tmpu,strain=tmpstrain,stress=tmpstress,sdv=ig_sdv)
-      call update(elem%ig_points(kig),sdv=ig_sdv)
-      
-      ! update elem curr status variable
-      igstat=0
-      if(allocated(ig_sdv(2)%i)) igstat=ig_sdv(2)%i(1)
-      elem%fstat=max(elem%fstat,igstat)
+      end do
+
+      ! update ig point components
+      call update(ig_points(kig), x=ig_x, u=ig_u,                        &
+      &           stress=ig_stress, strain=ig_strain,                   &
+      &           converged_sdv=ig_sdv_conv, iterating_sdv=ig_sdv_iter)
+
+      ! update elem fstat to be the max current ig point fstat
+      elfstat  = max(elfstat, ig_sdv_iter%fstat)
+
+      ! update elem df to be the max current ig point df
+      eldf     = max(eldf,    ig_sdv_iter%df)
 
       ! update elem stress & strain (avg of ig point stress & strains)
-      elem%stress=elem%stress+tmpstress/NIGPOINT
-      elem%strain=elem%strain+tmpstrain/NIGPOINT
-      
-      deallocate(ig_sdv)
-      
-  end do !-looped over all int points. ig=NIGPOINT
-  
-  F_vector=matmul(K_matrix,u) 
-  
-  
+      elstress = elstress + ig_stress/real(NIGPOINT, DP)
+      elstrain = elstrain + ig_strain/real(NIGPOINT, DP)
+
+      ! empty relevant arrays for reuse
+      fn  = ZERO
+      dn  = ZERO
+      gn  = ZERO
+      jac = ZERO
+      detj = ZERO
+      bee = ZERO
+      dee  = ZERO
+      btdb = ZERO
+      ig_x = ZERO
+      ig_u = ZERO
+      ig_strain=ZERO
+      ig_stress=ZERO
+
+  end do loop_igpoint !-looped over all int points. ig=NIGPOINT
+
+  ! check to see if the loop is exited upon error
+  if (istat == STAT_FAILURE) then
+    ! zero intent(out) dummy args
+    K_matrix = ZERO
+    F_vector = ZERO
+    ! deallocate local variables
+    if(allocated(xj)) deallocate(xj)
+    if(allocated(uj)) deallocate(uj)
+    ! exit program
+    return
+  end if
+
+  !**** END MAIN CALCULATIONS ****
+
+
+  ! check to see if intent(inout) derived type dummy arg's components are
+  ! unintentionally modified
+  if ( any (connec /= elem%connec) ) then
+    istat = STAT_FAILURE
+    emsg  = 'elem%connec is unintentionally modified in wedge_element module'
+  else if (ID_matlist /= elem%ID_matlist) then
+    istat = STAT_FAILURE
+    emsg  = 'elem%ID_matlist is unintentionally modified in wedge_element module'
+  else if (abs(ply_angle - elem%ply_angle) > SMALLNUM) then
+    istat = STAT_FAILURE
+    emsg  = 'elem%ply_angle is unintentionally modified in wedge_element module'
+  end if
+  if (istat == STAT_FAILURE) then
+    ! zero intent(out) dummy args
+    K_matrix = ZERO
+    F_vector = ZERO
+    ! deallocate local variables
+    if(allocated(xj)) deallocate(xj)
+    if(allocated(uj)) deallocate(uj)
+    ! exit program
+    return
+  end if
+
+  ! if no unintentinal modification, proceed with final calculations
+  ! and updates and exit the program
+
+  ! calculate F_vector
+  F_vector = matmul(K_matrix,u)
+
+  ! update intent(inout) dummy arg./its components
+  elem%fstat       = elfstat
+  elem%df          = eldf
+  elem%stress      = elstress
+  elem%strain      = elstrain
+  elem%local_clock = local_clock
+  elem%ig_points   = ig_points
+
   ! deallocate local dynamic arrays
-  if(allocated(xj)) deallocate(xj) 
-  if(allocated(uj)) deallocate(uj) 
-  if(allocated(ig_sdv)) deallocate(ig_sdv)
-  
-    
+  if(allocated(xj)) deallocate(xj)
+  if(allocated(uj)) deallocate(uj)
+
 
 end subroutine integrate_wedge_element
 
@@ -507,139 +684,88 @@ end subroutine integrate_wedge_element
 
 
 
-pure subroutine init_ig (xi, wt)
+pure subroutine init_ig_point (xi, wt)
+! used parameters:
+! ZERO, HALF, ONE_THIRD, ONE_ROOT3, ONE_SIXTH, TWO_THIRD, ROOT_THREE_FIFTH,
+! FIVE_54, EIGHT_54
 
-  real(kind=DP),intent(inout) :: xi(NDIM,NIGPOINT),wt(NIGPOINT)
+  real(DP), intent(inout) :: xi(NDIM,NIGPOINT), wt(NIGPOINT)
 
-    if (NIGPOINT .eq. 2) then
-        xi(1,1)= one_third
-        xi(2,1)= one_third
-        xi(3,1)= -root3
-        xi(1,2)= one_third
-        xi(2,2)= one_third
-        xi(3,2)= root3
-        wt = half
-    else if(NIGPOINT == 6) then
-        xi(1,1)=one/six
-        xi(2,1)=one/six
-        xi(3,1)=-root3
+  xi(1,1) =   ONE_SIXTH
+  xi(2,1) =   ONE_SIXTH
+  xi(3,1) = - ONE_ROOT3
 
-        xi(1,2)=four/six
-        xi(2,2)=one/six
-        xi(3,2)=-root3
+  xi(1,2) =   TWO_THIRD
+  xi(2,2) =   ONE_SIXTH
+  xi(3,2) = - ONE_ROOT3
 
-        xi(1,3)=one/six
-        xi(2,3)=four/six
-        xi(3,3)=-root3
+  xi(1,3) =   ONE_SIXTH
+  xi(2,3) =   TWO_THIRD
+  xi(3,3) = - ONE_ROOT3
 
-        xi(1,4)=one/six
-        xi(2,4)=one/six
-        xi(3,4)=root3
+  xi(1,4) =   ONE_SIXTH
+  xi(2,4) =   ONE_SIXTH
+  xi(3,4) =   ONE_ROOT3
 
-        xi(1,5)=four/six
-        xi(2,5)=one/six
-        xi(3,5)=root3
+  xi(1,5) =   TWO_THIRD
+  xi(2,5) =   ONE_SIXTH
+  xi(3,5) =   ONE_ROOT3
 
-        xi(1,6)=one/six
-        xi(2,6)=four/six
-        xi(3,6)=root3
+  xi(1,6) =   ONE_SIXTH
+  xi(2,6) =   TWO_THIRD
+  xi(3,6) =   ONE_ROOT3
 
-        wt=one/six
+  wt      =   ONE_SIXTH
 
-!~        else if(NIGPOINT == 9) then
-!~            xi(1,1)=one/six
-!~            xi(2,1)=one/six
-!~            xi(3,1)=-sqrt(three/five)
-!~
-!~            xi(1,2)=four/six
-!~            xi(2,2)=one/six
-!~            xi(3,2)=-sqrt(three/five)
-!~
-!~            xi(1,3)=one/six
-!~            xi(2,3)=four/six
-!~            xi(3,3)=-sqrt(three/five)
-!~
-!~            xi(1,4)=one/six
-!~            xi(2,4)=one/six
-!~            xi(3,4)=sqrt(three/five)
-!~
-!~            xi(1,5)=four/six
-!~            xi(2,5)=one/six
-!~            xi(3,5)=sqrt(three/five)
-!~
-!~            xi(1,6)=one/six
-!~            xi(2,6)=four/six
-!~            xi(3,6)=sqrt(three/five)
-!~
-!~            xi(1,7)=one/six
-!~            xi(2,7)=one/six
-!~            xi(3,7)=ZERO
-!~
-!~            xi(1,8)=four/six
-!~            xi(2,8)=one/six
-!~            xi(3,8)=ZERO
-!~
-!~            xi(1,9)=one/six
-!~            xi(2,9)=four/six
-!~            xi(3,9)=ZERO
-!~
-!~            wt(1:6)=five/54._dp
-!~            wt(7:9)=eight/54._dp
-
-    else
-        write(msg_file,*) 'no. of integration points incorrect for wedge_ig!'
-        call exit_function
-    end if
-
-end subroutine init_ig
+end subroutine init_ig_point
 
 
 
-pure subroutine init_shape (igxi, f, df)
-  
-    real(kind=DP),intent(inout) :: f(NNODE),df(NNODE,NDIM)
-    real(kind=DP),intent(in) :: igxi(NDIM)
-    
-    real(kind=DP) :: xi,eta,zeta ! local variables
-    xi=ZERO
-    eta=ZERO
-    zeta=ZERO
+pure subroutine init_shape (f, df, igxi)
+! used parameters:
+! ZERO, HALF, ONE
 
-    xi=igxi(1)
-    eta=igxi(2)
-    zeta=igxi(3)
-    
-    f(1)=half*(one-xi-eta)*(one-zeta)
-    f(2)=half*xi*(one-zeta)
-    f(3)=half*eta*(one-zeta)
-    f(4)=half*(one-xi-eta)*(one+zeta)
-    f(5)=half*xi*(one+zeta)
-    f(6)=half*eta*(one+zeta)
-    
-    
-    df(1,3) = -half*(one-xi-eta)
-    df(2,3) = -half*xi
-    df(3,3) = -half*eta
-    df(4,3) =  half*(one-xi-eta)
-    df(5,3) =  half*xi
-    df(6,3) =  half*eta
-    
-    
-    df(1,1) = -half*(one-zeta)
-    df(2,1) =  half*(one-zeta)
+    real(DP), intent(inout) :: f(NNODE), df(NNODE,NDIM)
+    real(DP), intent(in)    :: igxi(NDIM)
+
+    ! local variables
+    real(DP) :: xi, eta, zeta
+
+    xi   = ZERO
+    eta  = ZERO
+    zeta = ZERO
+
+    xi   = igxi(1)
+    eta  = igxi(2)
+    zeta = igxi(3)
+
+    f(1) = HALF * (ONE-xi-eta) * (ONE-zeta)
+    f(2) = HALF * xi * (ONE-zeta)
+    f(3) = HALF * eta * (ONE-zeta)
+    f(4) = HALF * (ONE-xi-eta) * (ONE+zeta)
+    f(5) = HALF * xi * (ONE+zeta)
+    f(6) = HALF * eta * (ONE+zeta)
+
+    df(1,3) = -HALF * (ONE-xi-eta)
+    df(2,3) = -HALF * xi
+    df(3,3) = -HALF * eta
+    df(4,3) =  HALF * (ONE-xi-eta)
+    df(5,3) =  HALF * xi
+    df(6,3) =  HALF * eta
+
+    df(1,1) = -HALF * (ONE-zeta)
+    df(2,1) =  HALF * (ONE-zeta)
     df(3,1) =  ZERO
-    df(4,1) = -half*(one+zeta)
-    df(5,1) =  half*(one+zeta)
+    df(4,1) = -HALF * (ONE+zeta)
+    df(5,1) =  HALF * (ONE+zeta)
     df(6,1) =  ZERO
-    
-    df(1,2) = -half*(one-zeta)
+
+    df(1,2) = -HALF * (ONE-zeta)
     df(2,2) =  ZERO
-    df(3,2) =  half*(one-zeta)
-    df(4,2) = -half*(one+zeta)
+    df(3,2) =  HALF * (ONE-zeta)
+    df(4,2) = -HALF * (ONE+zeta)
     df(5,2) =  ZERO
-    df(6,2) =  half*(one+zeta)
-    
-    
+    df(6,2) =  HALF * (ONE+zeta)
 
 end subroutine init_shape
 

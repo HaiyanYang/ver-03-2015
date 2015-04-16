@@ -33,7 +33,8 @@ module coh3d8_element_module
 !    08/04/15  B. Y. Chen            Original code
 !
 
-use parameter_module, only : NDIM, NST => NST_COHESIVE, DP, ZERO,
+use parameter_module, only : NST => NST_COHESIVE, NDIM, DP, ZERO,            &
+                      & MSGLENGTH, STAT_SUCCESS, STAT_FAILURE,               &
 ! list of external modules used in type definition and other procedures:
 ! global clock module    : needed in element definition, extract and integrate
 ! lamina material module : needed in element definition, extract and integrate 
@@ -125,7 +126,7 @@ pure subroutine set_coh3d8_element (elem, connec, ID_matlist)
 ! this subroutine is used to set the components of the element
 ! it is used in the initialize_lib_elem procedure in the lib_elem module
 ! note that only some of the components need to be set during preproc,
-! namely connec, ID_matlist and local_clock
+! namely connec, ID_matlist
 
   type(coh3d8_element),   intent(inout)   :: elem
   integer,                intent(in)      :: connec(NNODE)

@@ -34,7 +34,8 @@ module coh3d6_element_module
 !    08/04/15  B. Y. Chen            Original code
 !
 
-use parameter_module, only : NDIM, NST => NST_COHESIVE, DP, ZERO,
+use parameter_module, only : NST => NST_COHESIVE, NDIM, DP, ZERO,            &
+                      & MSGLENGTH, STAT_SUCCESS, STAT_FAILURE,               &
 ! list of external modules used in type definition and other procedures:
 ! global clock module    : needed in element definition, extract and integrate
 ! lamina material module : needed in element definition, extract and integrate 
@@ -127,7 +128,7 @@ pure subroutine set_coh3d6_element (elem, connec, ID_matlist)
 ! this subroutine is used to set the components of the element
 ! it is used in the initialize_lib_elem procedure in the lib_elem module
 ! note that only some of the components need to be set during preproc,
-! namely connec, ID_matlist and local_clock
+! namely connec, ID_matlist
 
   type(coh3d6_element),   intent(inout)   :: elem
   integer,                intent(in)      :: connec(NNODE)
@@ -183,183 +184,271 @@ end subroutine extract_coh3d6_element
 
 
 
-pure subroutine integrate_coh3d6_element (elem, K_matrix, F_vector, nofailure, &
-& gauss, mnode)
+pure subroutine integrate_coh3d6_element (elem, K_matrix, F_vector, istat, &
+& emsg, nofailure, mnodes)
 ! Purpose:
 ! updates K matrix, F vector, integration point stress and strain,
 ! and the solution dependent variables (sdvs) of ig points and element
+! note that K and F are allocatable dummy args as their sizes vary with
+! different element types
 
-  use toolkit_module                  ! global tools for element integration
-  use lib_mat_module                  ! global material library
-  use lib_node_module                 ! global node library
+! list of used modules:
+! xnode_module                  : xnode derived type and its assoc. procedures
+! global_node_list_module       : global node list
+! global_material_list_module   : global material list
+! global_toolkit_module         : global tools for element integration
+use xnode_module
+use global_node_list_module,     only : global_node_list
+use global_material_list_module, only : global_cohesive_list
+use global_toolkit_module,       only : 
 
-  type(coh3d6_element),       intent(inout)   :: elem 
-  real(kind=dp), allocatable, intent(out)     :: K_matrix(:,:), F_vector(:)
-  logical,  optional,  intent(in)         :: nofailure
-  logical,        optional,   intent(in)      :: gauss
-  type(xnode),    optional,   intent(in)      :: mnode(:)  ! material (interpolated) nodes
+  ! mnodes: material (interpolated) nodes
+  type(coh3d6_element),     intent(inout) :: elem 
+  real(DP),    allocatable, intent(out)   :: K_matrix(:,:), F_vector(:)
+  integer,                  intent(out)   :: istat
+  character(len=MSGLENGTH), intent(out)   :: emsg
+  logical,       optional,  intent(in)    :: nofailure
+  type(xnode),   optional,  intent(in)    :: mnodes(NNODE)
 
-  !-----------------------------------------!
-  ! local variables, extracted from glb libs
-  !-----------------------------------------!
+  ! local copies of intent(inout) dummy arg./its components:
+  ! - elfstat         : elem's fstat
+  ! - connec          : elem's connectivity matrix
+  ! - ID_matlist      : elem's ID_matlist
+  ! - local_clock     : elem's local_clock
+  ! - ig_points       : elem's ig_points
+  ! - eltraction      : elem's traction
+  ! - elseparation    : elem's separation
+  ! - eldm            : elem's dm
+  integer             :: elfstat
+  integer             :: connec(NNODE)
+  integer             :: ID_matlist
+  type(program_clock) :: local_clock
+  type(cohesive_ig_point) :: ig_points(NIGPOINT)
+  real(DP)            :: eltraction(NST)
+  real(DP)            :: elseparation(NST)
+  real(DP)            :: eldm
   
-  ! - element nodes extracted from global node library
-  type(xnode)     :: node(NNODE)                  ! x, u, du, v, extra dof ddof etc
-  
-  ! - element material extracted from global material library
-  type(material)  :: mat                          ! matname, mattype and ID_matlist to glb mattype array   
+  ! the rest are all local variables
 
-  ! - glb clock step and increment no. extracted from glb clock module
-  integer         :: curr_step, curr_inc
-  
-  logical :: nofail
-  
-  
-  !-----------------------------------------!
-  ! - the rest are all pure local variables
-  !-----------------------------------------!
-  
-  ! - variables extracted from element nodes
-  real(kind=dp),allocatable :: xj(:),uj(:)        ! nodal vars extracted from glb lib_node array
-  real(kind=dp)   :: coords(NDIM,NNODE)           ! coordinates of the element nodes, formed from xj of each node
-  real(kind=dp)   :: midcoords(NDIM,NNODE/2)      ! coordinates of the mid-plane
-  real(kind=dp)   :: u(NDOF)                      ! element nodal disp. vector, formed from uj of each node
-  
-  ! - variables extracted from element material
-  character(len=matnamelength)    :: matname      ! name of the material assigned to this element
-  character(len=mattypelength)    :: mattype      ! type of the material
-  integer                         :: typekey       ! index of the material in the material library of its type 
-  
-  ! - variables extracted from element isdv
-  integer         :: nstep, ninc                  ! step and increment no. of the last iteration, stored in the element
-  logical         :: last_converged               ! true if last iteration has converged: a new increment/step has started
-  
-  ! - variables extracted from intg point sdvs
-  type(sdv_array),  allocatable   :: ig_sdv(:)
-  
-  
-  ! - variables defined locally
-  
-  real(kind=dp)   :: igxi(NDIM-1,NIGPOINT),igwt(NIGPOINT)   ! ig point natural coords and weights
-  real(kind=dp)   :: tmpx(NDIM), tmpu(NDIM)       ! temporary arrays to hold x and u values for intg points
-         
-  real(kind=dp)   :: fn(NNODE)                    ! shape functions
-  real(kind=dp)   :: Nmatrix(NDIM,NDOF)           ! obtained from fn, to compute disp. jump acrss intfc: {u}_jump = [N]*{u}
-  real(kind=dp)   :: normal(NDIM),tangent1(NDIM),tangent2(NDIM)   ! normal and tangent vectors of the interface, obtained from coords
-  real(kind=dp)   :: det                          ! determinant of jacobian (=length of element/2); 2 is length of ref. elem
-  real(kind=dp)   :: Qmatrix(NDIM,NDIM)           ! rotation matrix from global to local coordinates (from normal & tangent)
-  real(kind=dp)   :: ujump(NDIM),delta(NDIM)      ! {delta}=[Q]*{u}_jump, {delta} is the jump vector in lcl coords.
-  real(kind=dp)   :: Dee(NDIM,NDIM)               ! material stiffness matrix [D]
-  real(kind=dp)   :: Tau(NDIM)                    ! {Tau}=[D]*{delta}, traction on the interface
-  
-  real(kind=dp)   :: QN(NDIM,NDOF),DQN(NDIM,NDOF)         ! [Q]*[N], [D]*[Q]*[N]
-  real(kind=dp)   :: NtQt(NDOF,NDIM),NtQtDQN(NDOF,NDOF)   ! [N']*[Q'], [N']*[Q']*[D]*[Q]*[N] 
-  real(kind=dp)   :: NtQtTau(NDOF)                        ! [N']*[Q']*{Tau}
-  integer         :: i,j,k,kig,igstat
+  !** nodal variables:
+  ! - nodes           : array of element nodes
+  ! - xj, uj          : nodal x and u extracted from nodes array
+  ! - coords          : element nodal coordinates matrix
+  ! - u               : element nodal displacemet vector
+  ! - midcoords       : coordinates of the mid-plane
+  type(xnode)         :: nodes(NNODE)
+  real(DP), allocatable :: xj(:), uj(:)
+  real(DP)            :: coords(NDIM,NNODE), u(NDOF)
+  real(DP)            :: midcoords(NDIM,NNODE/2)
 
+  !** material definition:
+  ! - this_mat        : the lamina material definition of this element
+  type(cohesive_material) :: this_mat
+
+  !** analysis logical control variables:
+  ! - last_converged  : true if last iteration has converged
+  ! - nofail          : true if no failure is allowed
+  logical             :: last_converged, nofail
+
+  !** integration point variables:
+  ! - ig_xi           : integration point natural coordinates
+  ! - ig_weight       : integration point weights
+  ! - ig_sdv_conv/iter: integration point converged and iterating sdvs
+  ! - ig_x, ig_u      : temporary x and u vectors for an ig point
+  ! - ig_strain, ig_stress : temporary strain and stress vectors for an ig point
+  real(DP)            :: ig_xi(NDIM-1, NIGPOINT), ig_weight(NIGPOINT)
+  type(cohesive_sdv)  :: ig_sdv_conv, ig_sdv_iter
+  real(DP)            :: ig_x(NDIM), ig_u(NDIM)
+  real(DP)            :: ig_traction(NST), ig_separation(NST)
+
+  !** variables needed for stiffness matrix derivation:
+  ! - fn              : shape functions
+  ! - Nmatrix         : obtained from fn to compute disp. jump vector ujump 
+  !                     across the interface: {u}_jump = [N]*{u}
+  ! - normal, tangent1/2 : normal and tangent vectors of the interface, 
+  !                     obtained from coords matrix
+  ! - det             : determinant of jacobian
+  ! - Qmatrix         : rotation matrix from global to local coordinates 
+  !                     abtained from normal & tangent vectors
+  ! - ujump, delta    : {delta}=[Q]*{u}_jump, {delta} is the separation vector.
+  ! - Dee             : material stiffness matrix [D]
+  ! - Tau             : {Tau}=[D]*{delta}, traction on the interface 
+  ! - QN, DQN         : [Q]*[N], [D]*[Q]*[N]
+  ! - NtQt, NtQtDQN   : [N']*[Q'], [N']*[Q']*[D]*[Q]*[N] 
+  ! - NtQtTau         : [N']*[Q']*{Tau}
+  real(DP)            :: fn(NNODE)
+  real(DP)            :: Nmatrix(NDIM,NDOF)
+  real(DP)            :: normal(NDIM), tangent1(NDIM), tangent2(NDIM)
+  real(DP)            :: det
+  real(DP)            :: Qmatrix(NDIM,NDIM)
+  real(DP)            :: ujump(NDIM), delta(NDIM)
+  real(DP)            :: Dee(NDIM,NDIM)
+  real(DP)            :: Tau(NDIM)
+  real(DP)            :: QN(NDIM,NDOF), DQN(NDIM,NDOF)
+  real(DP)            :: NtQt(NDOF,NDIM), NtQtDQN(NDOF,NDOF)
+  real(DP)            :: NtQtTau(NDOF)
+
+  !** integer counter variables
+  integer             :: i, j, k, kig
   
   
-  
-  !------------------------------------------------!
-  !           initialize all variables 
-  !------------------------------------------------!
-  
-  ! intent(out) variables, automatically deallocated when passed in
-  allocate(K_matrix(NDOF,NDOF),F_vector(NDOF)); K_matrix=zero; F_vector=zero 
-  
-  ! integer counters
+  ! initialize intent(out) and local variables
+  ! except derived types (auto initialized upon declaration) and
+  ! allocatable local arrays
+
+  !** intent(out) variables:
+  allocate(K_matrix(NDOF,NDOF), F_vector(NDOF))
+  K_matrix        = ZERO
+  F_vector        = ZERO
+  istat           = STAT_SUCCESS
+  emsg            = ''
+  !** local copies of intent(inout) dummy args./its components:
+  elfstat         = 0
+  connec          = 0
+  ID_matlist      = 0
+  ply_angle       = ZERO
+  eltraction      = ZERO
+  elseparation    = ZERO
+  eldm            = ZERO
+  !** nodal variables:
+  coords          = ZERO
+  u               = ZERO
+  midcoords       = ZERO
+  !** analysis logical control variables:
+  last_converged  = .false.
+  nofail          = .false.
+  !** integration point variables:
+  ig_xi           = ZERO
+  ig_weight       = ZERO
+  ig_x            = ZERO
+  ig_u            = ZERO
+  ig_traction     = ZERO
+  ig_separation   = ZERO
+  !** variables needed for stiffness matrix derivation:
+  fn              = ZERO
+  Nmatrix         = ZERO
+  normal          = ZERO
+  tangent1        = ZERO
+  tangent2        = ZERO
+  det             = ZERO
+  Qmatrix         = ZERO
+  ujump           = ZERO
+  delta           = ZERO
+  Dee             = ZERO
+  Tau             = ZERO
+  QN              = ZERO
+  DQN             = ZERO
+  NtQt            = ZERO
+  NtQtDQN         = ZERO
+  NtQtTau         = ZERO
+  !** integer counter variables:
   i=0; j=0; k=0; kig=0
   
-  ! local variables, extracted from glb libs
-  do i=1,NNODE
-      call empty(node(i))
-  end do 
-  call empty(mat)
-  curr_step=0; curr_inc=0
   
-  nofail=.false.
-  if(present(nofailure)) nofail=nofailure
+  ! check validity of input/imported variables
+  ! here, check if global_node_list and global_lamina_list are allocated
+  if (.not. allocated(global_node_list)) then
+    istat = STAT_FAILURE
+    emsg  = 'global_node_list not allocated, coh3d6_element_module'
+  else if (.not. allocated(global_cohesive_list)) then
+    istat = STAT_FAILURE
+    emsg  = 'global_cohesive_list not allocated, coh3d6_element_module'
+  end if
+  ! if there's any error encountered above
+  ! clean up and exit the program
+  if (istat == STAT_FAILURE) then
+    ! zero intent(out) variables (do not deallocate)
+    K_matrix = ZERO
+    F_vector = ZERO
+    ! deallocate local alloc. variables
+    if (allocated(uj)) deallocate(uj)
+    if (allocated(xj)) deallocate(xj)
+    ! exit program
+    return
+  end if
   
-  ! pure local variables
-  coords=zero; midcoords=zero; u=zero 
-  matname=''; mattype=''; typekey=0 
-  nstep=0; ninc=0; last_converged=.false.
-  igxi=zero; igwt=zero
-  tmpx=zero; tmpu=zero
-  fn=zero; Nmatrix=zero
-  tangent1=zero; tangent2=zero; normal=zero 
-  det=zero; Qmatrix=zero
-  ujump=zero; delta=zero
-  Dee=zero; Tau=zero
-  QN=zero; DQN=zero; NtQt=zero; NtQtDQN=zero; NtQtTau=zero
+  ! assign values to local variables
+
+  !** local copies of intent(inout) dummy arg.:
+  ! elem's fstat, traction, separation and dm components are NOT needed
+  ! for calculations in this subroutine. here they are only for output,
+  ! and they need to be assgined new values during each iteration.
+  ! they are therefore NOT passed to their local copies elfstat, eltraction,
+  ! elseparation and dm.
+  ! elfstat     : no extraction     ! out
+  ! eltraction  : no extraction     ! out
+  ! elseparation: no extraction     ! out
+  ! eldm        : no extraction     ! out
+  connec        = elem%connec       ! in
+  ID_matlist    = elem%ID_matlist   ! in
+  local_clock   = elem%local_clock  ! inout
+  ig_points     = elem%ig_points    ! inout
   
-  
-  
-  
-  
-  !------------------------------------------------!
-  !   extract variables from global arrays 
-  !------------------------------------------------!
-  
-  if(present(mnode)) then
-      ! - extract nodes from passed-in node array
-      node(:)=mnode(:)
+  !** nodal variables:
+  nodes = global_node_list(connec)
+  if(present(mnodes)) then
+  ! - extract nodes from passed-in node array
+    nodes = mnodes
   else
-      ! - extract nodes from global node array 
-      node(:)=lib_node(elem%connec(:))
+  ! - extract nodes from global node list 
+    nodes = global_node_list(connec)
   end if
-  
-  ! - extract material values from global material array
-  mat=lib_mat(elem%ID_matlist)
-  
-  ! - extract curr step and inc values from glb clock module
-  call extract_glb_clock(kstep=curr_step,kinc=curr_inc)
-  
-  ! - check if last iteration has converged, and update the current step & increment no.
-  if(elem%nstep.ne.curr_step .or. elem%ninc.ne.curr_inc) then
-      last_converged=.true.
-      elem%nstep = curr_step
-      elem%ninc = curr_inc
+  ! extract nodal components and assign to respective local arrays:
+  ! nodal x -> coords
+  ! nodal u -> u
+  do j=1, NNODE
+    ! extract x and u from nodes
+    call extract(nodes(j), x=xj, u=uj)
+    ! assign nodal coordinate values (xj) to coords matrix
+    if(allocated(xj)) then
+      coords(:,j)=xj(:)
+      deallocate(xj)
+    else
+      istat = STAT_FAILURE
+      emsg  = 'x not allocated for node, coh3d6_element_module'
+      exit
+    end if
+    ! assign nodal displacement values (uj) to u vector
+    if(allocated(uj)) then
+      u((j-1)*NDIM+1:j*NDIM)=uj(1:NDIM)
+      deallocate(uj)
+    else
+      istat = STAT_FAILURE
+      emsg  = 'u not allocated for node, coh3d6_element_module'
+      exit
+    end if
+  end do
+  ! if there's any error encountered in the extraction process
+  ! clean up and exit the program
+  if (istat == STAT_FAILURE) then
+    ! zero intent(out) variables (do not deallocate)
+    K_matrix = ZERO
+    F_vector = ZERO
+    ! deallocate local alloc. variables
+    if (allocated(uj)) deallocate(uj)
+    if (allocated(xj)) deallocate(xj)
+    ! exit program
+    return
   end if
-  
-  
-  
-  !------------------------------------------------!
-  !   assign values to material, coords and u 
-  !------------------------------------------------!      
-  
-  ! - extract x and u values from nodes and assign to local arrays 
-  do j=1,NNODE
-      ! extract x and u values from nodes
-      call extract(node(j),x=xj,u=uj)     
-      ! assign x to coords matrix
-      if(allocated(xj)) then
-          coords(:,j)=xj(:)
-          deallocate(xj)
-      else
-          write(msg_file,*)'WARNING: x not allocated for node:',elem%connec(j)
-      end if
-      ! and u to u vector
-      if(allocated(uj)) then 
-          u((j-1)*NDIM+1:j*NDIM)=uj(1:NDIM)
-          deallocate(uj)
-      else
-          write(msg_file,*)'WARNING: u not allocated for node:',elem%connec(j)
-      end if    
+  ! calculate mid-plane coordinates from coords
+  do j=1, NNODE/2
+      midcoords(:,j) = HALF * (coords(:,j)+coords(:,j+NNODE/2))
   end do
   
-  ! calculate mid-plane coordinates
-  do j=1,NNODE/2
-      midcoords(:,j)=half*(coords(:,j)+coords(:,j+NNODE/2))
-  end do
+  !** material definition:
+  ! extract material definition from global material list
+  this_mat = global_cohesive_list(ID_matlist)
   
-  
-  ! - extract values from mat (material type) and assign to local vars (matname, mattype & ID_matlist)
-  call extract(mat,matname,mattype,typekey) 
-  
-  
-  
-  
+  !** analysis logical control variables:
+  ! check if last iteration has converged by checking if the global clock has
+  ! advanced; if so, last iteration is converged and sync the local clock
+  if (.not. clock_in_sync(GLOBAL_CLOCK, local_clock)) then
+    last_converged = .true.
+    local_clock    = GLOBAL_CLOCK
+  end if
+  ! nofail:
+  if (present(nofailure)) nofail = nofailure
+ 
   
   
   !------------------------------------------------!
@@ -567,7 +656,7 @@ end subroutine integrate_coh3d6_element
 
 pure subroutine init_ig (xi, wt, gauss)
 
-  real(kind=dp), intent(inout)  :: xi(NDIM-1,NIGPOINT), wt(NIGPOINT)
+  real(DP), intent(inout)  :: xi(NDIM-1,NIGPOINT), wt(NIGPOINT)
   logical, optional, intent(in) :: gauss
   
 
@@ -607,10 +696,10 @@ end subroutine init_ig
 
 pure subroutine init_shape (igxi, f)
   
-    real(kind=dp),intent(inout) :: f(NNODE)
-    real(kind=dp),intent(in) :: igxi(NDIM-1)
+    real(DP),intent(inout) :: f(NNODE)
+    real(DP),intent(in) :: igxi(NDIM-1)
     
-    real(kind=dp) :: xi, eta ! local variables
+    real(DP) :: xi, eta ! local variables
     xi=zero
     eta=zero
 
