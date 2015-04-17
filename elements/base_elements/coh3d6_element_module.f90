@@ -123,7 +123,7 @@ end subroutine empty_coh3d6_element
 
 
 
-pure subroutine set_coh3d6_element (elem, connec, ID_matlist)
+pure subroutine set_coh3d6_element (elem, connec, ID_matlist, istat, emsg)
 ! Purpose:
 ! this subroutine is used to set the components of the element
 ! it is used in the initialize_lib_elem procedure in the lib_elem module
@@ -133,7 +133,27 @@ pure subroutine set_coh3d6_element (elem, connec, ID_matlist)
   type(coh3d6_element),   intent(inout)   :: elem
   integer,                intent(in)      :: connec(NNODE)
   integer,                intent(in)      :: ID_matlist
-
+  integer,                  intent(out)   :: istat
+  character(len=MSGLENGTH), intent(out)   :: emsg
+  
+  istat = STAT_SUCCESS
+  emsg  = ''
+  
+  ! check validity of inputs
+  if ( any(connec < 1) ) then
+    istat = STAT_FAILURE
+    emsg  = 'connec node indices must be >=1, set, &
+    &coh3d6_element_module'
+    return
+  end if
+  
+  if ( ID_matlist < 1 ) then
+    istat = STAT_FAILURE
+    emsg  = 'ID_matlist must be >=1, set, &
+    &coh3d6_element_module'
+    return
+  end if
+  
   elem%connec    = connec
   elem%ID_matlist = ID_matlist
 
