@@ -95,6 +95,28 @@ contains
 
 
 
+  pure function determinant2d (jacob)
+  ! Purpose:
+  ! returns the determinant of a 2D jacobian matrix
+
+    use parameter_module, only : DP, ZERO
+
+    ! define private parameters
+    ! NDIM: no. of dimensions, used to set the size of dummy arg
+    integer, parameter   :: NDIM = 2
+
+    real(DP), intent(in) ::   jacob(NDIM,NDIM)
+    real(DP)             ::   determinant2d
+
+    determinant2d = ZERO
+
+    determinant2d = jacob(1,1)*jacob(2,2) - jacob(1,2)*jacob(2,1)
+
+  end function determinant2d
+
+
+
+
   pure function determinant3d (jacob)
   ! Purpose:
   ! returns the determinant of a 3D jacobian matrix

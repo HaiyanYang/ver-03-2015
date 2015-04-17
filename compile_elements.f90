@@ -3,8 +3,10 @@ include 'globals/global_clock_module.f90'
 include 'globals/global_node_list_module.f90'
 include 'globals/global_material_list_module.f90'
 include 'globals/global_toolkit_module.f90'
-include 'elements/brick_element_module.f90'
-include 'elements/wedge_element_module.f90'
+include 'elements/base_elements/brick_element_module.f90'
+include 'elements/base_elements/wedge_element_module.f90'
+include 'elements/base_elements/coh3d6_element_module.f90'
+include 'elements/base_elements/coh3d8_element_module.f90'
 
 program compile_base_elements
 ! Purpose:
@@ -19,6 +21,8 @@ program compile_base_elements
 !
 use brick_element_module ! use everything
 use wedge_element_module ! use everything
+use coh3d6_element_module
+use coh3d8_element_module
 
 implicit none
 

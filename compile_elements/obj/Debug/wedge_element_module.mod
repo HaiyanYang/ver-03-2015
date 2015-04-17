@@ -1,14 +1,15 @@
-GFORTRAN module version '10' created from C:\Users\mpecb\Documents\GitHub\ver-03-2015\test_brick_element.f90
-MD5:3ef699168c45fb4973f63a9ed77bfc24 -- If you edit this, you'll get what you deserve.
+GFORTRAN module version '10' created from C:\Users\mpecb\Documents\GitHub\ver-03-2015\compile_elements.f90
+MD5:b9799ae5ad65c5b6f843fb2c57546a8c -- If you edit this, you'll get what you deserve.
 
 (() () () () () () () () () () () () () () () () () () () () () () ()
 () () () ())
 
 ()
 
-(('brick_element' 'brick_element_module' 2) ('empty' 'global_clock_module'
-3 4 5 6) ('extract' 'lamina_material_module' 7 8) ('integrate'
-'brick_element_module' 9) ('set' 'global_clock_module' 10 11 12))
+(('empty' 'global_clock_module' 2 3 4 5) ('extract'
+'lamina_material_module' 6 7) ('integrate' 'wedge_element_module' 8) (
+'set' 'global_clock_module' 9 10 11) ('wedge_element'
+'wedge_element_module' 12))
 
 ()
 
@@ -16,13 +17,13 @@ MD5:3ef699168c45fb4973f63a9ed77bfc24 -- If you edit this, you'll get what you de
 
 ()
 
-(2 'Brick_element' 'brick_element_module' '' 1 ((DERIVED UNKNOWN-INTENT
+(12 'Wedge_element' 'wedge_element_module' '' 1 ((DERIVED UNKNOWN-INTENT
 UNKNOWN-PROC UNKNOWN UNKNOWN 0 0 PRIVATE_COMP) (UNKNOWN 0 0 0 0 UNKNOWN
 ()) 0 0 () () 0 ((13 'fstat' (INTEGER 4 0 0 0 INTEGER ()) () (
 UNKNOWN-FL UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0)
 UNKNOWN-ACCESS (CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '0')) (14 'connec'
 (INTEGER 4 0 0 0 INTEGER ()) (1 0 EXPLICIT (CONSTANT (INTEGER 4 0 0 0
-INTEGER ()) 0 '1') (CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '8')) (
+INTEGER ()) 0 '1') (CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '6')) (
 UNKNOWN-FL UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0 DIMENSION)
 UNKNOWN-ACCESS (CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '0')) (15
 'id_matlist' (INTEGER 4 0 0 0 INTEGER ()) () (UNKNOWN-FL UNKNOWN-INTENT
@@ -36,7 +37,7 @@ STRUCTURE (DERIVED 18 0 0 0 DERIVED ()) 0 (((CONSTANT (INTEGER 4 0 0 0
 INTEGER ()) 0 '0') ()) ((CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '0') ()))
 ())) (19 'ig_points' (DERIVED 20 0 0 0 DERIVED ()) (1 0 EXPLICIT (
 CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '1') (CONSTANT (INTEGER 4 0 0 0
-INTEGER ()) 0 '8')) (UNKNOWN-FL UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN
+INTEGER ()) 0 '6')) (UNKNOWN-FL UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN
 UNKNOWN 0 0 DIMENSION) UNKNOWN-ACCESS (STRUCTURE (DERIVED 20 0 0 0
 DERIVED ()) 0 (((CONSTANT (REAL 8 0 0 0 REAL ()) 0 '0.00000000000000@0')
 ()) ((CONSTANT (REAL 8 0 0 0 REAL ()) 0 '0.00000000000000@0') ()) ((
@@ -64,42 +65,42 @@ UNKNOWN-FL UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0 DIMENSION)
 UNKNOWN-ACCESS (CONSTANT (REAL 8 0 0 0 REAL ()) 0 '0.00000000000000@0'))
 (24 'df' (REAL 8 0 0 0 REAL ()) () (UNKNOWN-FL UNKNOWN-INTENT
 UNKNOWN-PROC UNKNOWN UNKNOWN 0 0) UNKNOWN-ACCESS (CONSTANT (REAL 8 0 0 0
-REAL ()) 0 '0.00000000000000@0'))) PRIVATE (() () () ()) () 0 0 41810924)
-25 'brick_element' 'brick_element_module' '' 1 ((PROCEDURE
+REAL ()) 0 '0.00000000000000@0'))) PRIVATE (() () () ()) () 0 0 82454956)
+25 'wedge_element' 'wedge_element_module' '' 1 ((PROCEDURE
 UNKNOWN-INTENT UNKNOWN-PROC DECL UNKNOWN 0 0 FUNCTION GENERIC) (UNKNOWN
 0 0 0 0 UNKNOWN ()) 0 0 () () 0 () () () 0 0)
-3 'empty_brick_element' 'brick_element_module' '' 1 ((PROCEDURE
+2 'empty_wedge_element' 'wedge_element_module' '' 1 ((PROCEDURE
 UNKNOWN-INTENT MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE PURE) (UNKNOWN 0
 0 0 0 UNKNOWN ()) 26 0 (27) () 0 () () () 0 0)
-4 'empty_program_clock' 'global_clock_module' '' 1 ((PROCEDURE
+3 'empty_program_clock' 'global_clock_module' '' 1 ((PROCEDURE
 UNKNOWN-INTENT MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE PURE) (UNKNOWN 0
 0 0 0 UNKNOWN ()) 28 0 (29) () 0 () () () 0 0)
-5 'empty_lamina_ig_point' 'lamina_material_module' '' 1 ((PROCEDURE
+4 'empty_lamina_ig_point' 'lamina_material_module' '' 1 ((PROCEDURE
 UNKNOWN-INTENT MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE PURE) (UNKNOWN 0
 0 0 0 UNKNOWN ()) 30 0 (31) () 0 () () () 0 0)
-6 'empty_lamina' 'lamina_material_module' '' 1 ((PROCEDURE
+5 'empty_lamina' 'lamina_material_module' '' 1 ((PROCEDURE
 UNKNOWN-INTENT MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE PURE) (UNKNOWN 0
 0 0 0 UNKNOWN ()) 32 0 (33) () 0 () () () 0 0)
-7 'extract_brick_element' 'brick_element_module' '' 1 ((PROCEDURE
+6 'extract_wedge_element' 'wedge_element_module' '' 1 ((PROCEDURE
 UNKNOWN-INTENT MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE PURE
 ALWAYS_EXPLICIT) (UNKNOWN 0 0 0 0 UNKNOWN ()) 34 0 (35 36 37 38 39 40 41
 42 43 44) () 0 () () () 0 0)
-8 'extract_lamina_ig_point' 'lamina_material_module' '' 1 ((PROCEDURE
+7 'extract_lamina_ig_point' 'lamina_material_module' '' 1 ((PROCEDURE
 UNKNOWN-INTENT MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE PURE
 ALWAYS_EXPLICIT) (UNKNOWN 0 0 0 0 UNKNOWN ()) 45 0 (46 47 48 49 50 51 52)
 () 0 () () () 0 0)
-9 'integrate_brick_element' 'brick_element_module' '' 1 ((PROCEDURE
+8 'integrate_wedge_element' 'wedge_element_module' '' 1 ((PROCEDURE
 UNKNOWN-INTENT MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE PURE
 ALWAYS_EXPLICIT) (UNKNOWN 0 0 0 0 UNKNOWN ()) 53 0 (54 55 56 57 58 59) ()
 0 () () () 0 0)
-10 'set_brick_element' 'brick_element_module' '' 1 ((PROCEDURE
+9 'set_wedge_element' 'wedge_element_module' '' 1 ((PROCEDURE
 UNKNOWN-INTENT MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE PURE) (UNKNOWN 0
 0 0 0 UNKNOWN ()) 60 0 (61 62 63 64) () 0 () () () 0 0)
-11 'set_program_clock' 'global_clock_module' '' 1 ((PROCEDURE
+10 'set_program_clock' 'global_clock_module' '' 1 ((PROCEDURE
 UNKNOWN-INTENT MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE PURE
 ALWAYS_EXPLICIT) (UNKNOWN 0 0 0 0 UNKNOWN ()) 65 0 (66 67 68) () 0 () ()
 () 0 0)
-12 'set_lamina' 'lamina_material_module' '' 1 ((PROCEDURE UNKNOWN-INTENT
+11 'set_lamina' 'lamina_material_module' '' 1 ((PROCEDURE UNKNOWN-INTENT
 MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE PURE) (UNKNOWN 0 0 0 0 UNKNOWN ())
 69 0 (70 71 72 73 74 75) () 0 () () () 0 0)
 18 'Program_clock' 'global_clock_module' '' 1 ((DERIVED UNKNOWN-INTENT
@@ -164,7 +165,7 @@ UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0) UNKNOWN-ACCESS (
 CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '0'))) PUBLIC (() () () ()) () 0
 0 71318592)
 27 'elem' '' '' 26 ((VARIABLE INOUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
-DUMMY) (DERIVED 2 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
+DUMMY) (DERIVED 12 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
 29 'global_clock' '' '' 28 ((VARIABLE INOUT UNKNOWN-PROC UNKNOWN UNKNOWN
 0 0 DUMMY) (DERIVED 18 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
 31 'ig_point' '' '' 30 ((VARIABLE INOUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
@@ -172,7 +173,7 @@ DUMMY) (DERIVED 20 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
 33 'this' '' '' 32 ((VARIABLE INOUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
 DUMMY) (DERIVED 90 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
 35 'elem' '' '' 34 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0 DUMMY)
-(DERIVED 2 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
+(DERIVED 12 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
 36 'fstat' '' '' 34 ((VARIABLE OUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
 OPTIONAL DUMMY) (INTEGER 4 0 0 0 INTEGER ()) 0 0 () () 0 () () () 0 0)
 37 'connec' '' '' 34 ((VARIABLE OUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
@@ -222,7 +223,7 @@ INTEGER ()) 0 '6')) 0 () () () 0 0)
 0 0 OPTIONAL DUMMY) (DERIVED 21 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0
 0)
 54 'elem' '' '' 53 ((VARIABLE INOUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
-DUMMY) (DERIVED 2 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
+DUMMY) (DERIVED 12 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
 55 'k_matrix' '' '' 53 ((VARIABLE OUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
 ALLOCATABLE DIMENSION DUMMY) (REAL 8 0 0 0 REAL ()) 0 0 () (2 0 DEFERRED
 () () () ()) 0 () () () 0 0)
@@ -237,11 +238,11 @@ DUMMY) (INTEGER 4 0 0 0 INTEGER ()) 0 0 () () 0 () () () 0 0)
 59 'nofailure' '' '' 53 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
 OPTIONAL DUMMY) (LOGICAL 4 0 0 0 LOGICAL ()) 0 0 () () 0 () () () 0 0)
 61 'elem' '' '' 60 ((VARIABLE INOUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
-DUMMY) (DERIVED 2 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
+DUMMY) (DERIVED 12 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
 62 'connec' '' '' 60 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
 DIMENSION DUMMY) (INTEGER 4 0 0 0 INTEGER ()) 0 0 () (1 0 EXPLICIT (
 CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '1') (CONSTANT (INTEGER 4 0 0 0
-INTEGER ()) 0 '8')) 0 () () () 0 0)
+INTEGER ()) 0 '6')) 0 () () () 0 0)
 63 'id_matlist' '' '' 60 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
 DUMMY) (INTEGER 4 0 0 0 INTEGER ()) 0 0 () () 0 () () () 0 0)
 64 'ply_angle' '' '' 60 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
@@ -335,4 +336,4 @@ UNKNOWN-PROC UNKNOWN UNKNOWN 0 0) UNKNOWN-ACCESS (CONSTANT (REAL 8 0 0 0
 REAL ()) 0 '0.00000000000000@0'))) PUBLIC (() () () ()) () 0 0 7555237)
 )
 
-('Brick_element' 0 2 'brick_element' 0 25)
+('Wedge_element' 0 12 'wedge_element' 0 25)

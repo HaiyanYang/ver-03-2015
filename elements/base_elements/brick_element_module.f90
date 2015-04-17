@@ -1,36 +1,36 @@
-module wedge_element_module
+module brick_element_module
 !
 !  Purpose:
-!    define a wedge element object
+!    define a brick element object with lamina material definition
 !    with the associated procedures to empty, set, integrate and extract
 !    its components
 !
-!  topological definition of this wedge element, local nodal indices:
+!  topological definition of this brick element, local nodal indices:
 !
-!                     6
-!                    /|\
-!                   / | \
-!                  /  |  \
-!                 /   |   \
-!                /    |    \
-!               /     |     \
-!             4/______|______\5
-!             |       |       |
-!             |      /3\      |
-!             |     /   \     |
-!             |    /     \    |
-!             | E3/     E2\   |
-!             |  /         \  |
-!             | /           \ |
-!             |/_____________\|
-!             1      E1       2
+!  8___________________7
+!  |\                  |\
+!  | \                 | \
+!  |  \                |  \
+!  |   \               |   \
+!  |    \              |    \
+!  |     \5____________|_____\6
+!  |______|____________|      |
+! 4\      |   E3      3\      |
+!   \     |             \     |
+!    \    |              \    |
+!   E4\   |             E2\   |
+!      \  |                \  |
+!       \ |                 \ |
+!        \|__________________\|
+!         1         E1        2
 !
-!  bottom surface nodes (counter-clock vise): 1, 2, 3
-!  top    surface nodes (counter-clock vise): 4, 5, 6
-!  bottom surface edges (counter-clock vise): E1, E2, E3
+!  bottom surface nodes (counter-clock vise): 1, 2, 3, 4
+!  top    surface nodes (counter-clock vise): 5, 6, 7, 8
+!  bottom surface edges (counter-clock vise): E1, E2, E3, E4
 !  end nodes of E1 : 1, 2
 !  end nodes of E2 : 2, 3
-!  end nodes of E3 : 3, 1
+!  end nodes of E3 : 3, 4
+!  end nodes of E4 : 4, 1
 !
 !  Record of revision:
 !    Date      Programmer            Description of change
@@ -38,10 +38,9 @@ module wedge_element_module
 !    08/04/15  B. Y. Chen            Original code
 !
 
-use parameter_module, only : NST => NST_STANDARD, NDIM, DP, ZERO, SMALLNUM,    &
-                           & MSGLENGTH, STAT_SUCCESS, STAT_FAILURE,            &
-                           & ONE, HALF, ONE_THIRD, ONE_ROOT3, ONE_SIXTH,       &
-                           & TWO_THIRD, ROOT_THREE_FIFTH, FIVE_54, EIGHT_54
+use parameter_module, only : NST => NST_STANDARD, NDIM, DP,                  &
+                      & MSGLENGTH, STAT_SUCCESS, STAT_FAILURE,               &
+                      & ZERO, ONE, EIGHT, ONE_ROOT3, ONE_EIGHTH, SMALLNUM
 ! list of external modules used in type definition and other procedures:
 ! global clock module    : needed in element definition, extract and integrate
 ! lamina material module : needed in element definition, extract and integrate
@@ -67,11 +66,12 @@ private
 !          connec can be derived as:
 !          NODE_ON_TOP_EDGE(i,j) = NODES_ON_BOTTOM_EDGES(i,j) + NNODE/2
 !
-integer, parameter :: NIGPOINT=6, NNODE=6, NEDGE_BOTTOM=3, NDOF=NDIM*NNODE
+integer, parameter :: NIGPOINT=8, NNODE=8, NEDGE_BOTTOM=4, NDOF=NDIM*NNODE
 integer, parameter :: NODES_ON_BOTTOM_EDGES(2, NEDGE_BOTTOM) = &
-                    & reshape([ 1,2, 2,3, 3,1 ], [2, NEDGE_BOTTOM])
+                    & reshape([ 1,2, 2,3, 3,4, 4,1 ], [2, NEDGE_BOTTOM])
 
-type, public :: wedge_element
+
+type, public :: brick_element
   private
   ! list of type components:
   ! fstat         : element failure status
@@ -98,19 +98,19 @@ end type
 
 
 interface empty
-  module procedure empty_wedge_element
+  module procedure empty_brick_element
 end interface
 
 interface set
-  module procedure set_wedge_element
+  module procedure set_brick_element
 end interface
 
 interface integrate
-  module procedure integrate_wedge_element
+  module procedure integrate_brick_element
 end interface
 
 interface extract
-  module procedure extract_wedge_element
+  module procedure extract_brick_element
 end interface
 
 
@@ -126,51 +126,51 @@ contains
 
 
 
-pure subroutine empty_wedge_element (elem)
+pure subroutine empty_brick_element (elem)
 ! Purpose:
 ! this subroutine is used to format the element for use
 ! it is used in the initialize_lib_elem procedure in the lib_elem module
 
-  type(wedge_element), intent(inout) :: elem
+  type(brick_element), intent(inout) :: elem
 
   ! local variable, derived type var. is initialized upon declaration
-  type(wedge_element) :: elem_lcl
+  type(brick_element) :: elem_lcl
 
   ! reset elem to the initial state
   elem = elem_lcl
 
-end subroutine empty_wedge_element
+end subroutine empty_brick_element
 
 
 
-pure subroutine set_wedge_element (elem, connec, ID_matlist, ply_angle)
+pure subroutine set_brick_element (elem, connec, ID_matlist, ply_angle)
 ! Purpose:
 ! this subroutine is used to set the components of the element
 ! it is used in the initialize_lib_elem procedure in the lib_elem module
 ! note that only some of the components need to be set during preproc,
 ! namely connec, ID_matlist, ply_angle
 
-  type(wedge_element),    intent(inout)   :: elem
+  type(brick_element),    intent(inout)   :: elem
   integer,                intent(in)      :: connec(NNODE)
   integer,                intent(in)      :: ID_matlist
   real(DP),               intent(in)      :: ply_angle
 
-  elem%connec    = connec
+  elem%connec     = connec
   elem%ID_matlist = ID_matlist
-  elem%ply_angle = ply_angle
+  elem%ply_angle  = ply_angle
 
-end subroutine set_wedge_element
+end subroutine set_brick_element
 
 
 
-pure subroutine extract_wedge_element (elem, fstat, connec, ID_matlist, &
+pure subroutine extract_brick_element (elem, fstat, connec, ID_matlist, &
 & ply_angle, local_clock, ig_points, stress, strain, df)
 ! Purpose:
 ! to extract the components of this element
-! note that the dummy args connec and ig_points are allocatable arrays
+! note that the dummy args connec and ig_point are allocatable arrays
 ! because their sizes vary with different element types
 
-  type(wedge_element),                          intent(in)  :: elem
+  type(brick_element),                          intent(in)  :: elem
   integer,                            optional, intent(out) :: fstat
   integer,               allocatable, optional, intent(out) :: connec(:)
   integer,                            optional, intent(out) :: ID_matlist
@@ -205,11 +205,11 @@ pure subroutine extract_wedge_element (elem, fstat, connec, ID_matlist, &
 
   if (present(df))          df     = elem%df
 
-end subroutine extract_wedge_element
+end subroutine extract_brick_element
 
 
 
-pure subroutine integrate_wedge_element (elem, K_matrix, F_vector, istat, emsg,&
+pure subroutine integrate_brick_element (elem, K_matrix, F_vector, istat, emsg,&
 & nofailure)
 ! Purpose:
 ! updates K matrix, F vector, integration point stress and strain,
@@ -232,7 +232,7 @@ use global_toolkit_module,       only : crack_elem_centroid2d, determinant3d, &
                                       & invert_self3d, beemat3d, lcl_strain3d,&
                                       & glb_dee3d
 
-  type(wedge_element),      intent(inout) :: elem
+  type(brick_element),      intent(inout) :: elem
   real(DP),    allocatable, intent(out)   :: K_matrix(:,:), F_vector(:)
   integer,                  intent(out)   :: istat
   character(len=MSGLENGTH), intent(out)   :: emsg
@@ -363,15 +363,15 @@ use global_toolkit_module,       only : crack_elem_centroid2d, determinant3d, &
   ! here, check if global_node_list and global_lamina_list are allocated
   if (.not. allocated(global_node_list)) then
     istat = STAT_FAILURE
-    emsg  = 'global_node_list not allocated, wedge_element_module'
+    emsg  = 'global_node_list not allocated, brick_element_module'
   else if (.not. allocated(global_lamina_list)) then
     istat = STAT_FAILURE
-    emsg  = 'global_lamina_list not allocated, wedge_element_module'
+    emsg  = 'global_lamina_list not allocated, brick_element_module'
   end if
   ! if there's any error encountered above
   ! clean up and exit the program
   if (istat == STAT_FAILURE) then
-    call clean_up()
+    call clean_up (K_matrix, F_vector, uj, xj)
     return
   end if
 
@@ -409,7 +409,7 @@ use global_toolkit_module,       only : crack_elem_centroid2d, determinant3d, &
       deallocate(xj)
     else
       istat = STAT_FAILURE
-      emsg  = 'x not allocated for node, wedge_element_module'
+      emsg  = 'x not allocated for node, brick_element_module'
       exit
     end if
     ! assign nodal displacement values (uj) to u vector
@@ -418,14 +418,14 @@ use global_toolkit_module,       only : crack_elem_centroid2d, determinant3d, &
       deallocate(uj)
     else
       istat = STAT_FAILURE
-      emsg  = 'u not allocated for node, wedge_element_module'
+      emsg  = 'u not allocated for node, brick_element_module'
       exit
     end if
   end do
   ! if there's any error encountered in the extraction process
   ! clean up and exit the program
   if (istat == STAT_FAILURE) then
-    call clean_up()
+    call clean_up (K_matrix, F_vector, uj, xj)
     return
   end if
 
@@ -447,7 +447,7 @@ use global_toolkit_module,       only : crack_elem_centroid2d, determinant3d, &
   ! if there's any error encountered in the above process
   ! clean up and exit the program
   if (istat == STAT_FAILURE) then
-    call clean_up()
+    call clean_up (K_matrix, F_vector, uj, xj)
     return
   end if
   ! if no error, proceed with the clength calculation
@@ -540,6 +540,7 @@ use global_toolkit_module,       only : crack_elem_centroid2d, determinant3d, &
       ! failure is allowed, use ddsdde_lamina
         call ddsdde (this_mat, dee=dee, stress=ig_stress, sdv=ig_sdv_iter, &
         & strain=ig_strain, clength=clength, istat=istat, emsg=emsg)
+        if (istat == STAT_FAILURE) exit loop_igpoint
       end if
 
       ! get D matrix in global coordinates
@@ -588,7 +589,7 @@ use global_toolkit_module,       only : crack_elem_centroid2d, determinant3d, &
 
   ! check to see if the loop is exited upon error
   if (istat == STAT_FAILURE) then
-    call clean_up()
+    call clean_up (K_matrix, F_vector, uj, xj)
     return
   end if
 
@@ -599,16 +600,16 @@ use global_toolkit_module,       only : crack_elem_centroid2d, determinant3d, &
   ! unintentionally modified
   if ( any (connec /= elem%connec) ) then
     istat = STAT_FAILURE
-    emsg  = 'elem%connec is unintentionally modified in wedge_element module'
+    emsg  = 'elem%connec is unintentionally modified in brick_element module'
   else if (ID_matlist /= elem%ID_matlist) then
     istat = STAT_FAILURE
-    emsg  = 'elem%ID_matlist is unintentionally modified in wedge_element module'
+    emsg  = 'elem%ID_matlist is unintentionally modified in brick_element module'
   else if (abs(ply_angle - elem%ply_angle) > SMALLNUM) then
     istat = STAT_FAILURE
-    emsg  = 'elem%ply_angle is unintentionally modified in wedge_element module'
+    emsg  = 'elem%ply_angle is unintentionally modified in brick_element module'
   end if
   if (istat == STAT_FAILURE) then
-    call clean_up()
+    call clean_up (K_matrix, F_vector, uj, xj)
     return
   end if
 
@@ -629,21 +630,26 @@ use global_toolkit_module,       only : crack_elem_centroid2d, determinant3d, &
   ! deallocate local dynamic arrays
   if(allocated(xj)) deallocate(xj)
   if(allocated(uj)) deallocate(uj)
-
-
+  
+  
   contains 
   ! internal procedures
   
-    subroutine clean_up()
-      ! zero intent(out) variables (do not deallocate)
+    pure subroutine clean_up (K_matrix, F_vector, uj, xj)
+    
+      real(DP),              intent(inout) :: K_matrix(:,:), F_vector(:)
+      real(DP), allocatable, intent(inout) :: uj(:), xj(:)
+      
+      ! ZERO intent(out) variables (do not deallocate)
       K_matrix = ZERO
       F_vector = ZERO
       ! deallocate local alloc. variables
       if (allocated(uj)) deallocate(uj)
       if (allocated(xj)) deallocate(xj)
+      
     end subroutine clean_up
 
-end subroutine integrate_wedge_element
+end subroutine integrate_brick_element
 
 
 
@@ -668,90 +674,105 @@ end subroutine integrate_wedge_element
 
 pure subroutine init_ig_point (xi, wt)
 ! used parameters:
-! ZERO, HALF, ONE_THIRD, ONE_ROOT3, ONE_SIXTH, TWO_THIRD, ROOT_THREE_FIFTH,
-! FIVE_54, EIGHT_54
+! ZERO, EIGHT, ONE_ROOT3, ONE
 
   real(DP), intent(inout) :: xi(NDIM,NIGPOINT), wt(NIGPOINT)
 
-  xi(1,1) =   ONE_SIXTH
-  xi(2,1) =   ONE_SIXTH
-  xi(3,1) = - ONE_ROOT3
-
-  xi(1,2) =   TWO_THIRD
-  xi(2,2) =   ONE_SIXTH
-  xi(3,2) = - ONE_ROOT3
-
-  xi(1,3) =   ONE_SIXTH
-  xi(2,3) =   TWO_THIRD
-  xi(3,3) = - ONE_ROOT3
-
-  xi(1,4) =   ONE_SIXTH
-  xi(2,4) =   ONE_SIXTH
-  xi(3,4) =   ONE_ROOT3
-
-  xi(1,5) =   TWO_THIRD
-  xi(2,5) =   ONE_SIXTH
-  xi(3,5) =   ONE_ROOT3
-
-  xi(1,6) =   ONE_SIXTH
-  xi(2,6) =   TWO_THIRD
-  xi(3,6) =   ONE_ROOT3
-
-  wt      =   ONE_SIXTH
+    if (NIGPOINT .eq. 1) then
+      xi(1,1)= ZERO
+      xi(2,1)= ZERO
+      xi(3,1)= ZERO
+      wt = EIGHT
+    else if (NIGPOINT .eq. 8) then
+      xi(1,1)= -ONE_ROOT3
+      xi(2,1)= -ONE_ROOT3
+      xi(3,1)= -ONE_ROOT3
+      xi(1,2)=  ONE_ROOT3
+      xi(2,2)= -ONE_ROOT3
+      xi(3,2)= -ONE_ROOT3
+      xi(1,3)= -ONE_ROOT3
+      xi(2,3)=  ONE_ROOT3
+      xi(3,3)= -ONE_ROOT3
+      xi(1,4)=  ONE_ROOT3
+      xi(2,4)=  ONE_ROOT3
+      xi(3,4)= -ONE_ROOT3
+      xi(1,5)= -ONE_ROOT3
+      xi(2,5)= -ONE_ROOT3
+      xi(3,5)=  ONE_ROOT3
+      xi(1,6)=  ONE_ROOT3
+      xi(2,6)= -ONE_ROOT3
+      xi(3,6)=  ONE_ROOT3
+      xi(1,7)= -ONE_ROOT3
+      xi(2,7)=  ONE_ROOT3
+      xi(3,7)=  ONE_ROOT3
+      xi(1,8)=  ONE_ROOT3
+      xi(2,8)=  ONE_ROOT3
+      xi(3,8)=  ONE_ROOT3
+      wt = ONE
+    end if
 
 end subroutine init_ig_point
 
 
 
-pure subroutine init_shape (f, df, igxi)
+pure subroutine init_shape (f, df, ig_xi)
 ! used parameters:
-! ZERO, HALF, ONE
+! ZERO, ONE_EIGHTH, ONE
 
-    real(DP), intent(inout) :: f(NNODE), df(NNODE,NDIM)
-    real(DP), intent(in)    :: igxi(NDIM)
+    real(DP), intent(inout)  :: f(NNODE),df(NNODE,NDIM)
+    real(DP), intent(in)     :: ig_xi(NDIM)
 
     ! local variables
-    real(DP) :: xi, eta, zeta
-
+    real(DP) :: xi, eta, zeta 
+    
     xi   = ZERO
     eta  = ZERO
     zeta = ZERO
 
-    xi   = igxi(1)
-    eta  = igxi(2)
-    zeta = igxi(3)
+    xi   = ig_xi(1)
+    eta  = ig_xi(2)
+    zeta = ig_xi(3)
 
-    f(1) = HALF * (ONE-xi-eta) * (ONE-zeta)
-    f(2) = HALF * xi * (ONE-zeta)
-    f(3) = HALF * eta * (ONE-zeta)
-    f(4) = HALF * (ONE-xi-eta) * (ONE+zeta)
-    f(5) = HALF * xi * (ONE+zeta)
-    f(6) = HALF * eta * (ONE+zeta)
+    f(1)=ONE_EIGHTH*(ONE-xi)*(ONE-eta)*(ONE-zeta)
+    f(2)=ONE_EIGHTH*(ONE+xi)*(ONE-eta)*(ONE-zeta)
+    f(3)=ONE_EIGHTH*(ONE+xi)*(ONE+eta)*(ONE-zeta)
+    f(4)=ONE_EIGHTH*(ONE-xi)*(ONE+eta)*(ONE-zeta)
+    f(5)=ONE_EIGHTH*(ONE-xi)*(ONE-eta)*(ONE+zeta)
+    f(6)=ONE_EIGHTH*(ONE+xi)*(ONE-eta)*(ONE+zeta)
+    f(7)=ONE_EIGHTH*(ONE+xi)*(ONE+eta)*(ONE+zeta)
+    f(8)=ONE_EIGHTH*(ONE-xi)*(ONE+eta)*(ONE+zeta)
 
-    df(1,3) = -HALF * (ONE-xi-eta)
-    df(2,3) = -HALF * xi
-    df(3,3) = -HALF * eta
-    df(4,3) =  HALF * (ONE-xi-eta)
-    df(5,3) =  HALF * xi
-    df(6,3) =  HALF * eta
+    df(1,1) = -ONE_EIGHTH*(ONE-eta)*(ONE-zeta)
+    df(2,1) =  ONE_EIGHTH*(ONE-eta)*(ONE-zeta)
+    df(3,1) =  ONE_EIGHTH*(ONE+eta)*(ONE-zeta)
+    df(4,1) = -ONE_EIGHTH*(ONE+eta)*(ONE-zeta)
+    df(5,1) = -ONE_EIGHTH*(ONE-eta)*(ONE+zeta)
+    df(6,1) =  ONE_EIGHTH*(ONE-eta)*(ONE+zeta)
+    df(7,1) =  ONE_EIGHTH*(ONE+eta)*(ONE+zeta)
+    df(8,1) = -ONE_EIGHTH*(ONE+eta)*(ONE+zeta)
 
-    df(1,1) = -HALF * (ONE-zeta)
-    df(2,1) =  HALF * (ONE-zeta)
-    df(3,1) =  ZERO
-    df(4,1) = -HALF * (ONE+zeta)
-    df(5,1) =  HALF * (ONE+zeta)
-    df(6,1) =  ZERO
+    df(1,2) = -ONE_EIGHTH*(ONE-xi)*(ONE-zeta)
+    df(2,2) = -ONE_EIGHTH*(ONE+xi)*(ONE-zeta)
+    df(3,2) =  ONE_EIGHTH*(ONE+xi)*(ONE-zeta)
+    df(4,2) =  ONE_EIGHTH*(ONE-xi)*(ONE-zeta)
+    df(5,2) = -ONE_EIGHTH*(ONE-xi)*(ONE+zeta)
+    df(6,2) = -ONE_EIGHTH*(ONE+xi)*(ONE+zeta)
+    df(7,2) =  ONE_EIGHTH*(ONE+xi)*(ONE+zeta)
+    df(8,2) =  ONE_EIGHTH*(ONE-xi)*(ONE+zeta)
 
-    df(1,2) = -HALF * (ONE-zeta)
-    df(2,2) =  ZERO
-    df(3,2) =  HALF * (ONE-zeta)
-    df(4,2) = -HALF * (ONE+zeta)
-    df(5,2) =  ZERO
-    df(6,2) =  HALF * (ONE+zeta)
+    df(1,3) = -ONE_EIGHTH*(ONE-xi)*(ONE-eta)
+    df(2,3) = -ONE_EIGHTH*(ONE+xi)*(ONE-eta)
+    df(3,3) = -ONE_EIGHTH*(ONE+xi)*(ONE+eta)
+    df(4,3) = -ONE_EIGHTH*(ONE-xi)*(ONE+eta)
+    df(5,3) =  ONE_EIGHTH*(ONE-xi)*(ONE-eta)
+    df(6,3) =  ONE_EIGHTH*(ONE+xi)*(ONE-eta)
+    df(7,3) =  ONE_EIGHTH*(ONE+xi)*(ONE+eta)
+    df(8,3) =  ONE_EIGHTH*(ONE-xi)*(ONE+eta)
+
 
 end subroutine init_shape
 
 
 
 
-end module wedge_element_module
+end module brick_element_module
