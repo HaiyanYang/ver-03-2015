@@ -31,9 +31,6 @@ implicit none
 ! d_max
 
 type(cohesive_material)       :: this
-type(cohesive_modulus)        :: modulus
-type(cohesive_strength)       :: strength
-type(cohesive_toughness)      :: toughness
 type(cohesive_sdv)            :: sdv
 real(DP)                      :: dee(NST,NST)
 real(DP)                      :: traction(NST), separation(NST)
@@ -71,22 +68,6 @@ igu     = ZERO
 igtract = ZERO
 igsepar = ZERO
 
-! define values of input modulus
-modulus%Dnn  = 1000000._DP
-modulus%Dtt  = 1000000._DP
-modulus%Dll  = 1000000._DP
-
-! define values of input strengths
-strength%tau_nc = 60._DP
-strength%tau_tc = 90._DP
-strength%tau_lc = 90._DP
-
-! define values of input toughness
-toughness%Gnc   = 0.2_DP
-toughness%Gtc   = 1._DP
-toughness%Glc   = 1._DP
-toughness%alpha = 1._DP
-
 ! define separation
 separation(1) = -0.006_DP
 separation(2) = 0.02_DP
@@ -105,8 +86,10 @@ call empty (this)
 
 call display (this)
 
-call set (this, modulus=modulus, strength=strength, toughness=toughness, &
-& istat=istat, emsg=emsg)
+call set (this, modulus=cohesive_modulus(Dnn=1000000._DP, Dtt=1000000._DP, Dll=1000000._DP), &
+        & strength=cohesive_strength(tau_nc=60._DP, tau_tc=90._DP, tau_lc=90._DP), &
+        & toughness=cohesive_toughness(Gnc=0.2_DP, Gtc=1._DP, Glc=1._DP, alpha=1._DP), &
+        & istat=istat, emsg=emsg)
 
 if(istat == STAT_FAILURE) then
   write(*,*) emsg
@@ -176,8 +159,8 @@ call display(ig_point)
 
 igtract = ONE
 igsepar = ONE
-igsdv1=cohesive_sdv(dm=0.5_DP, u0=0.5_DP, uf=1.5_DP, fstat=COH_MAT_ONSET)
-igsdv2=cohesive_sdv(dm=0.9_DP, u0=0.5_DP, uf=1.5_DP, fstat=COH_MAT_FAILED)
+!igsdv1=cohesive_sdv(dm=0.5_DP, u0=0.5_DP, uf=1.5_DP, fstat=COH_MAT_ONSET)
+!igsdv2=cohesive_sdv(dm=0.9_DP, u0=0.5_DP, uf=1.5_DP, fstat=COH_MAT_FAILED)
 
 call update(ig_point, traction=igtract, separation=igsepar, &
 & converged_sdv=igsdv1, iterating_sdv=igsdv2)
@@ -191,8 +174,8 @@ igx      = ZERO
 igu      = ZERO
 igtract = ZERO
 igsepar = ZERO
-igsdv1 = cohesive_sdv(ZERO, ZERO, ZERO, INTACT)
-igsdv2 = cohesive_sdv(ZERO, ZERO, ZERO, INTACT)
+!igsdv1 = cohesive_sdv(ZERO, ZERO, ZERO, INTACT)
+!igsdv2 = cohesive_sdv(ZERO, ZERO, ZERO, INTACT)
 
 call extract(ig_point, x=igx, u=igu, traction=igtract, separation=igsepar, &
 & converged_sdv=igsdv1, iterating_sdv=igsdv2)

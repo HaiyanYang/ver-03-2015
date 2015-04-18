@@ -188,7 +188,7 @@ pure subroutine extract_brick_element (elem, fstat, connec, ID_matlist, &
 & ply_angle, local_clock, ig_points, stress, strain, df)
 ! Purpose:
 ! to extract the components of this element
-! note that the dummy args connec and ig_point are allocatable arrays
+! note that the dummy args connec and ig_points are allocatable arrays
 ! because their sizes vary with different element types
 
   type(brick_element),                          intent(in)  :: elem
@@ -231,7 +231,7 @@ end subroutine extract_brick_element
 
 
 pure subroutine integrate_brick_element (elem, K_matrix, F_vector, istat, emsg,&
-& nofailure)
+& nofailure, mnodes)
 ! Purpose:
 ! updates K matrix, F vector, integration point stress and strain,
 ! and the solution dependent variables (sdvs) of ig points and element
@@ -258,6 +258,7 @@ use global_toolkit_module,       only : crack_elem_centroid2d, determinant3d, &
   integer,                  intent(out)   :: istat
   character(len=MSGLENGTH), intent(out)   :: emsg
   logical,        optional, intent(in)    :: nofailure
+  type(xnode),    optional, intent(in)    :: mnodes(NNODE)
 
   ! local copies of intent(inout) dummy arg./its components:
   ! - elfstat         : elem's fstat
@@ -312,9 +313,13 @@ use global_toolkit_module,       only : crack_elem_centroid2d, determinant3d, &
   ! - ig_sdv_conv/iter: integration point converged and iterating sdvs
   ! - ig_x, ig_u      : temporary x and u vectors for an ig point
   ! - ig_strain, ig_stress : temporary strain and stress vectors for an ig point
+  ! - ig_fstat        : extracted fstat from ig point
+  ! - ig_df           : extracted fstat from ig point
   real(DP)            :: ig_xi(NDIM, NIGPOINT), ig_weight(NIGPOINT)
   type(lamina_sdv)    :: ig_sdv_conv, ig_sdv_iter
   real(DP)            :: ig_x(NDIM), ig_u(NDIM), ig_strain(NST), ig_stress(NST)
+  integer             :: ig_fstat
+  real(DP)            :: ig_df
 
   !** variables needed for stiffness matrix derivation:
   ! - fn, dn          : shape functions & their derivatives in natural space
@@ -367,6 +372,8 @@ use global_toolkit_module,       only : crack_elem_centroid2d, determinant3d, &
   ig_u            = ZERO
   ig_strain       = ZERO
   ig_stress       = ZERO
+  ig_fstat        = 0
+  ig_df           = ZERO
   !** variables needed for stiffness matrix derivation:
   fn              = ZERO
   dn              = ZERO
@@ -417,7 +424,13 @@ use global_toolkit_module,       only : crack_elem_centroid2d, determinant3d, &
   !** nodal variables:
   ! copy nodes from global nodes array to local nodes array
   ! using element node indices stored in connectivity array
-  nodes = global_node_list(connec)
+  if (present(mnodes)) then
+  ! - extract nodes from passed-in node array
+    nodes = mnodes
+  else
+  ! - extract nodes from global node list
+    nodes = global_node_list(connec)
+  end if
   ! extract nodal components and assign to respective local arrays:
   ! nodal x -> coords
   ! nodal u -> u
@@ -583,10 +596,12 @@ use global_toolkit_module,       only : crack_elem_centroid2d, determinant3d, &
       &           converged_sdv=ig_sdv_conv, iterating_sdv=ig_sdv_iter)
 
       ! update elem fstat to be the max current ig point fstat
-      elfstat  = max(elfstat, ig_sdv_iter%fstat)
+      call extract (ig_sdv_iter, fstat=ig_fstat)
+      elfstat  = max(elfstat, ig_fstat)
 
       ! update elem df to be the max current ig point df
-      eldf     = max(eldf,    ig_sdv_iter%df)
+      call extract (ig_sdv_iter, df=ig_df)
+      eldf     = max(eldf,    ig_df)
 
       ! update elem stress & strain (avg of ig point stress & strains)
       elstress = elstress + ig_stress/real(NIGPOINT, DP)
@@ -605,6 +620,8 @@ use global_toolkit_module,       only : crack_elem_centroid2d, determinant3d, &
       ig_u = ZERO
       ig_strain=ZERO
       ig_stress=ZERO
+      ig_fstat = 0
+      ig_df    =ZERO
 
   end do loop_igpoint !-looped over all int points. ig=NIGPOINT
 

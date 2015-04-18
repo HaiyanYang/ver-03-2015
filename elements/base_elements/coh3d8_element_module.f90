@@ -308,6 +308,8 @@ use global_toolkit_module,       only : cross_product3d, normalize_vect, &
   real(DP)            :: QN(NDIM,NDOF)
   real(DP)            :: QNtDQN(NDOF,NDOF)
   real(DP)            :: QNtTau(NDOF)
+  integer             :: ig_fstat
+  real(DP)            :: ig_dm
 
   !** integer counter variables
   integer             :: i, j, k, kig
@@ -359,6 +361,8 @@ use global_toolkit_module,       only : cross_product3d, normalize_vect, &
   QN              = ZERO
   QNtDQN          = ZERO
   QNtTau          = ZERO
+  ig_fstat        = 0
+  ig_dm           = ZERO
   !** integer counter variables:
   i=0; j=0; k=0; kig=0
 
@@ -397,7 +401,6 @@ use global_toolkit_module,       only : cross_product3d, normalize_vect, &
   ig_points     = elem%ig_points    ! inout
 
   !** nodal variables:
-  nodes = global_node_list(connec)
   if (present(mnodes)) then
   ! - extract nodes from passed-in node array
     nodes = mnodes
@@ -580,10 +583,12 @@ use global_toolkit_module,       only : cross_product3d, normalize_vect, &
       & iterating_sdv=ig_sdv_iter)
 
       ! update elem fstat to be the max current ig point fstat
-      elfstat  = max(elfstat, ig_sdv_iter%fstat)
+      call extract (ig_sdv_iter, fstat=ig_fstat)
+      elfstat  = max(elfstat, ig_fstat)
 
       ! update elem dm to be the max current ig point dm
-      eldm     = max(eldm,    ig_sdv_iter%dm)
+      call extract (ig_sdv_iter, dm=ig_dm)
+      eldm     = max(eldm,    ig_dm)
 
       ! update elem stress & strain (avg of ig point stress & strains)
       eltraction   = eltraction   + tau / real(NIGPOINT, DP)

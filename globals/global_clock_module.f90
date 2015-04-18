@@ -1,7 +1,7 @@
 module global_clock_module
 !
 !  Purpose:
-!   the global progress of analysis; this module is continuously updated  
+!   the global progress of analysis; the global clock object is reset  
 !   at the start of each increment       
 !
 !  Record of revision:
@@ -15,6 +15,7 @@ private
 
 ! define a program_clock object
 type, public :: program_clock
+  private
   integer  :: step_number      = 0
   integer  :: increment_number = 0
 end type program_clock
@@ -53,13 +54,30 @@ end subroutine empty_program_clock
 
 
 
-pure subroutine set_program_clock (GLOBAL_CLOCK, curr_step, curr_inc)
+pure subroutine set_program_clock (GLOBAL_CLOCK, curr_step, curr_inc, &
+& istat, emsg)
+! Purpose:
+! this module sets the current global clock values
+use parameter_module, only : MSGLENGTH, STAT_SUCCESS, STAT_FAILURE
 
   type(program_clock), intent(inout) :: GLOBAL_CLOCK
-  integer,  optional,  intent(in)    :: curr_step, curr_inc
+  integer,             intent(in)    :: curr_step, curr_inc
+  integer,                  intent(out) :: istat
+  character(len=MSGLENGTH), intent(out) :: emsg
   
-  if (present(curr_step)) GLOBAL_CLOCK%step_number      = curr_step
-  if (present(curr_inc))  GLOBAL_CLOCK%increment_number = curr_inc
+  istat = STAT_SUCCESS
+  emsg  = ''
+  
+  ! check validity of inputs
+  if (curr_step < 1 .or. curr_inc < 1) then
+    istat = STAT_FAILURE
+    emsg  = 'current step or increment no. is < 1, set, global_clock_module'
+    return
+  end if
+  
+  ! update if inputs are valid
+  GLOBAL_CLOCK%step_number      = curr_step
+  GLOBAL_CLOCK%increment_number = curr_inc
 
 end subroutine set_program_clock
 

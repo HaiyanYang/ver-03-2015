@@ -1,7 +1,8 @@
 module basePly_element_module
 !
 !  Purpose:
-!    define an 'abstract element' object to interface with the
+!    define an 'abstract element' object to interface with the 
+!    base brick and wedge elements
 !    with the associated procedures to empty, set, integrate and extract
 !    its components
 !
@@ -9,7 +10,7 @@ module basePly_element_module
 !  Record of revision:
 !    Date      Programmer            Description of change
 !    ========  ====================  ========================================
-!    08/04/15  B. Y. Chen            Original code
+!    17/04/15  B. Y. Chen            Original code
 !
 use parameter_module, only : NST => NST_STANDARD, DP, ELTYPELENGTH, &
                       & MSGLENGTH, STAT_SUCCESS, STAT_FAILURE
@@ -87,11 +88,11 @@ use brick_element_module
   ! - size of connec is checked here against eltype to ensure compatibility
   ! the values of connec and other dummy args are not checked here; they are
   ! left for the called eltype's set procedure for checking
-  ! - local copies of elem's wedge/brick component is used for set operation;
-  ! it is copied to actual elem's component only before successful return
+  ! - local copies of elem's components are used for set operation;
+  ! they are copied to actual elem's components only before successful return
 
     type(basePly_element),       intent(inout) :: elem
-    character(len=ELTYPELENGTH), intent(in)    :: eltype
+    character(len=*),            intent(in)    :: eltype
     integer,                     intent(in)    :: connec(:)
     integer,                     intent(in)    :: ID_matlist
     real(DP),                    intent(in)    :: ply_angle
@@ -248,13 +249,15 @@ use brick_element_module
 
 
   pure subroutine integrate_basePly_element (elem, Kmatrix, Fvector, istat, &
-  & emsg, nofailure)
+  & emsg, nofailure, mnodes)
+  use xnode_module
 
       type(basePly_element),    intent(inout) :: elem
       real(DP), allocatable,    intent(out)   :: Kmatrix(:,:), Fvector(:)
       integer,                  intent(out)   :: istat
       character(len=MSGLENGTH), intent(out)   :: emsg
       logical,        optional, intent(in)    :: nofailure
+      type(xnode),    optional, intent(in)    :: mnodes(:)
 
       ! local variables
       logical :: nofail
@@ -273,12 +276,22 @@ use brick_element_module
       select case(elem%eltype)
 
           case('wedge')
+            if (present(mnodes)) then
+              call integrate(elem%wedge, Kmatrix, Fvector, istat, emsg,&
+              & nofail, mnodes)
+            else
               call integrate(elem%wedge, Kmatrix, Fvector, istat, emsg,&
               & nofail)
+            end if
 
           case('brick')
+            if (present(mnodes)) then
+              call integrate(elem%brick, Kmatrix, Fvector, istat, emsg,&
+              & nofail, mnodes)
+            else
               call integrate(elem%brick, Kmatrix, Fvector, istat, emsg,&
               & nofail)
+            end if
 
           case default
               ! this should not be reached

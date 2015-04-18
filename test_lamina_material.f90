@@ -186,10 +186,10 @@ call display(ig_point)
 
 igstress = ONE
 igstrain = ONE
-igsdv1=lamina_sdv(df=0.5_DP, u0=0.5_DP, uf=1.5_DP, &
-     & fstat=FIBRE_ONSET, ffstat=FIBRE_ONSET, mfstat=MATRIX_ONSET)
-igsdv2=lamina_sdv(df=0.9_DP, u0=0.5_DP, uf=1.5_DP, &
-     & fstat=FIBRE_FAILED, ffstat=FIBRE_FAILED, mfstat=MATRIX_ONSET)
+!igsdv1=lamina_sdv(df=0.5_DP, u0=0.5_DP, uf=1.5_DP, &
+!     & fstat=FIBRE_ONSET, ffstat=FIBRE_ONSET, mfstat=MATRIX_ONSET)
+!igsdv2=lamina_sdv(df=0.9_DP, u0=0.5_DP, uf=1.5_DP, &
+!     & fstat=FIBRE_FAILED, ffstat=FIBRE_FAILED, mfstat=MATRIX_ONSET)
 
 call update(ig_point, stress=igstress, strain=igstrain, &
 & converged_sdv=igsdv1, iterating_sdv=igsdv2)
@@ -203,8 +203,8 @@ igx      = ZERO
 igu      = ZERO
 igstress = ZERO
 igstrain = ZERO
-igsdv1 = lamina_sdv(ZERO, ZERO, ZERO, INTACT, INTACT, INTACT)
-igsdv2 = lamina_sdv(ZERO, ZERO, ZERO, INTACT, INTACT, INTACT)
+!igsdv1 = lamina_sdv(ZERO, ZERO, ZERO, INTACT, INTACT, INTACT)
+!igsdv2 = lamina_sdv(ZERO, ZERO, ZERO, INTACT, INTACT, INTACT)
 
 call extract(ig_point, x=igx, u=igu, stress=igstress, strain=igstrain, &
 & converged_sdv=igsdv1, iterating_sdv=igsdv2)

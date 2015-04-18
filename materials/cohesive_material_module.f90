@@ -2,14 +2,20 @@ module cohesive_material_module
 !
 !  Purpose:
 !    for 3D problems only
-!    define an object to represent a cohesive interface material
+!
+!    define a cohesive sdv object to represent the solution dependent variables
+!    of a cohesive material constitutive law, with the associated procedures to
+!    display and extract its components. All updates are done within this module
+!
+!    define a cohesive material object to represent a cohesive material
 !    with the associated procedures to empty, set, and display
 !    its components, to integrate local stiffness matrix, and
-!    to update local solution-dependent variables (damage variables).
-!    
-!    this module also defines an integration point object of this material
-!    and its associated procedures empty, update, extract and display
-!    
+!    to update cohesive sdv
+!
+!    define an integration point object of this material which stores all the 
+!    necessary information for calculation and output,
+!    with associated procedures to empty, update, extract and display
+!   
 !
 !  Record of revision:
 !    Date      Programmer            Description of change
@@ -43,15 +49,18 @@ use parameter_module, only : DP, ZERO, ONE, TWO, HALF,              &
 implicit none
 private
 
+!**** auxiliary objects ****
+! no encapsulation, no type-bound procedures
+
 ! penalty stiffness, normal and two shear directions
-type,public :: cohesive_modulus
+type, public :: cohesive_modulus
   real(DP) :: Dnn = ZERO
   real(DP) :: Dtt = ZERO
   real(DP) :: Dll = ZERO
 end type cohesive_modulus
 
 ! strengths for the three directions
-type,public :: cohesive_strength
+type, public :: cohesive_strength
   real(DP) :: tau_nc = ZERO
   real(DP) :: tau_tc = ZERO
   real(DP) :: tau_lc = ZERO
@@ -60,29 +69,42 @@ end type cohesive_strength
 ! fracture toughness for the three directions
 ! Gnc, Gtc and Glc : toughness values, t and l dir. values may be different
 ! alpha            : mixed-mode law coefficient (power law)
-type,public :: cohesive_toughness
+type, public :: cohesive_toughness
   real(DP) :: Gnc   = ZERO
   real(DP) :: Gtc   = ZERO
   real(DP) :: Glc   = ZERO
   real(DP) :: alpha = ZERO
 end type cohesive_toughness
 
-! cohesive material object definition
-type,public :: cohesive_material
-  type(cohesive_modulus)   :: modulus
-  type(cohesive_strength)  :: strength
-  type(cohesive_toughness) :: toughness
-end type cohesive_material
+!**** end auxiliary objects ****
+
+
+!**** the rest are actual objects of the module ****
+! with encapsulation and allowed procedures
 
 ! cohesive material solution-dependent variables
 ! dm     : cohesive modulus degradation factor
 ! u0, uf : cohesive law parameters, initial & final failure separations
 ! fstat  : failure status
 type, public :: cohesive_sdv
+  private
   real(DP) :: dm    = ZERO,  u0 = ZERO,  uf = ZERO
   integer  :: fstat = INTACT
 end type cohesive_sdv
+! associated procedures: extract, display
+! all other operations on the object are performed within this module
+! note: this means that sdv cannot be defined or modified outside of 
+! this module
 
+! cohesive material object definition
+type,public :: cohesive_material
+  private
+  type(cohesive_modulus)   :: modulus
+  type(cohesive_strength)  :: strength
+  type(cohesive_toughness) :: toughness
+end type cohesive_material
+! associated procedures: empty, set, display, ddsdde
+! all other operations on the object are performed within this module
 
 ! cohesive material integration point object
 ! stores everything needed for the integration of cohesive material in elements
@@ -95,6 +117,8 @@ type, public :: cohesive_ig_point
   type(cohesive_sdv) :: converged_sdv ! sdv of last converged increment
   type(cohesive_sdv) :: iterating_sdv ! sdv of current iteration
 end type cohesive_ig_point
+! associated procedures: empty, display, update, extract
+! all other operations on the object are performed within this module
 
 
 interface empty
@@ -122,6 +146,7 @@ interface update
 end interface update
 
 interface extract
+  module procedure extract_cohesive_sdv
   module procedure extract_cohesive_ig_point
 end interface extract
 
@@ -133,6 +158,62 @@ public :: empty, set, display, ddsdde, update, extract
 
 contains
 
+
+
+
+  pure subroutine extract_cohesive_sdv (sdv, dm, u0, uf, fstat)
+  ! Purpose:
+  ! to extract components of the cohesive sdv object
+  
+    type(cohesive_sdv), intent(in)  :: sdv
+    real(DP), optional, intent(out) :: dm
+    real(DP), optional, intent(out) :: u0
+    real(DP), optional, intent(out) :: uf
+    integer,  optional, intent(out) :: fstat
+    
+    if (present(dm))    dm    = sdv%dm
+    if (present(u0))    u0    = sdv%u0
+    if (present(uf))    uf    = sdv%uf
+    if (present(fstat)) fstat = sdv%fstat
+    
+  end subroutine extract_cohesive_sdv
+
+
+  
+  subroutine display_cohesive_sdv (this_sdv)
+  ! Purpose:
+  ! to display this cohesive_sdv's components on cmd window
+  ! this is useful for debugging
+  
+    type(cohesive_sdv), intent(in) :: this_sdv
+  
+    ! local variable to set the output format
+    character(len=20) :: display_fmt
+    
+    ! initialize local variable
+    display_fmt = ''
+
+    ! set display format for string and integer
+    ! A for string, I for integer, 10 for width of the number
+    display_fmt = '(1X, A, I10)' 
+    
+    write(*,'(1X, A)') ''
+    write(*,'(1X, A)') 'Display the inquired cohesive SDVs :'
+    write(*,display_fmt) 'cohesive FSTAT is: ', this_sdv%FSTAT 
+
+    ! set display format for string and real
+    ! A for string, ES for real (scientific notation)
+    ! 10 is width, 3 is no. of digits aft decimal point
+    ! note that for scientific real, ESw.d, w>=d+7
+    display_fmt = '(1X, A, ES10.3)' 
+    
+    write(*,display_fmt) 'cohesive DM    is: ', this_sdv%dm 
+    write(*,display_fmt) 'cohesive U0    is: ', this_sdv%U0
+    write(*,display_fmt) 'cohesive UF    is: ', this_sdv%UF
+    write(*,'(1X, A)') ''
+  
+  end subroutine display_cohesive_sdv
+  
 
 
   pure subroutine empty_cohesive (this)
@@ -165,105 +246,115 @@ contains
     integer,                  intent(out)   :: istat
     character(len=MSGLENGTH), intent(out)   :: emsg
     
+    ! local copy of intent(inout) variable
+    type(cohesive_material) :: this_lcl
+    
     ! initialize intent(out) & local variables
     istat = STAT_SUCCESS  ! default
     emsg  = ''
     
-    this%modulus   = modulus
-    this%strength  = strength
-    this%toughness = toughness
+    this_lcl%modulus   = modulus
+    this_lcl%strength  = strength
+    this_lcl%toughness = toughness
     
     ! check this_mat properties
-    call check_mat_prop (this, istat, emsg)
+    call check_mat_prop (this_lcl, istat, emsg)
     if (istat == STAT_FAILURE) return
+    
+    ! update to dummy arg if inputs are valid
+    this = this_lcl
+    
+    
+    contains
+    
+
+      pure subroutine check_mat_prop (this, istat, emsg)
+      ! Purpose:
+      ! to check the validity of the input material properties
+     
+        type(cohesive_material),  intent(in)  :: this
+        integer,                  intent(out) :: istat
+        character(len=MSGLENGTH), intent(out) :: emsg
+        
+        ! initialize intent out variables
+        istat = STAT_SUCCESS
+        emsg  = ''
+        
+        ! elastic moduli must be positive non-zero
+        if (this%modulus%Dnn < SMALLNUM) then
+          istat = STAT_FAILURE
+          emsg  = 'cohesive Dnn must be greater than zero, cohesive_material_module'
+          return
+        end if
+        
+        if (this%modulus%Dtt < SMALLNUM) then
+          istat = STAT_FAILURE
+          emsg  = 'cohesive Dtt must be greater than zero, cohesive_material_module'
+          return
+        end if
+        
+        if (this%modulus%Dll < SMALLNUM) then
+          istat = STAT_FAILURE
+          emsg  = 'cohesive Dll must be greater than zero, cohesive_material_module'
+          return
+        end if
+        
+        
+        ! strengths must be positive non-zero
+        if (this%strength%tau_nc < SMALLNUM) then
+          istat = STAT_FAILURE
+          emsg  = 'cohesive tau_nc must be greater than zero, &
+          &cohesive_material_module'
+          return
+        end if
+        
+        if (this%strength%tau_tc < SMALLNUM) then
+          istat = STAT_FAILURE
+          emsg  = 'cohesive tau_tc must be greater than zero, &
+          &cohesive_material_module'
+          return
+        end if
+        
+        if (this%strength%tau_lc < SMALLNUM) then
+          istat = STAT_FAILURE
+          emsg  = 'cohesive tau_lc must be greater than zero, &
+          &cohesive_material_module'
+          return
+        end if
+        
+        
+        ! matrix toughnesses and mixed-mode ratio must be positive non-zero
+        if (this%toughness%Gnc < SMALLNUM) then
+          istat = STAT_FAILURE
+          emsg  = 'cohesive Gnc must be greater than zero, cohesive_material_module'
+          return
+        end if
+        
+        if (this%toughness%Gtc < SMALLNUM) then
+          istat = STAT_FAILURE
+          emsg  = 'cohesive Gtc must be greater than zero, cohesive_material_module'
+          return
+        end if
+        
+        if (this%toughness%Glc < SMALLNUM) then
+          istat = STAT_FAILURE
+          emsg  = 'cohesive Glc must be greater than zero, cohesive_material_module'
+          return
+        end if
+        
+        if (this%toughness%alpha < SMALLNUM) then
+          istat = STAT_FAILURE
+          emsg  = 'cohesive alpha must be greater than zero, cohesive_material_module'
+          return
+        end if
+
+
+      end subroutine check_mat_prop
+
+
 
   end subroutine set_cohesive   
   
-
-
-  pure subroutine check_mat_prop (this, istat, emsg)
-  ! Purpose:
-  ! to check the validity of the input material properties
- 
-    type(cohesive_material),  intent(in)  :: this
-    integer,                  intent(out) :: istat
-    character(len=MSGLENGTH), intent(out) :: emsg
-    
-    ! initialize intent out variables
-    istat = STAT_SUCCESS
-    emsg  = ''
-    
-    ! elastic moduli must be positive non-zero
-    if (this%modulus%Dnn < SMALLNUM) then
-      istat = STAT_FAILURE
-      emsg  = 'cohesive Dnn must be greater than zero, cohesive_material_module'
-      return
-    end if
-    
-    if (this%modulus%Dtt < SMALLNUM) then
-      istat = STAT_FAILURE
-      emsg  = 'cohesive Dtt must be greater than zero, cohesive_material_module'
-      return
-    end if
-    
-    if (this%modulus%Dll < SMALLNUM) then
-      istat = STAT_FAILURE
-      emsg  = 'cohesive Dll must be greater than zero, cohesive_material_module'
-      return
-    end if
-    
-    
-    ! strengths must be positive non-zero
-    if (this%strength%tau_nc < SMALLNUM) then
-      istat = STAT_FAILURE
-      emsg  = 'cohesive tau_nc must be greater than zero, &
-      &cohesive_material_module'
-      return
-    end if
-    
-    if (this%strength%tau_tc < SMALLNUM) then
-      istat = STAT_FAILURE
-      emsg  = 'cohesive tau_tc must be greater than zero, &
-      &cohesive_material_module'
-      return
-    end if
-    
-    if (this%strength%tau_lc < SMALLNUM) then
-      istat = STAT_FAILURE
-      emsg  = 'cohesive tau_lc must be greater than zero, &
-      &cohesive_material_module'
-      return
-    end if
-    
-    
-    ! matrix toughnesses and mixed-mode ratio must be positive non-zero
-    if (this%toughness%Gnc < SMALLNUM) then
-      istat = STAT_FAILURE
-      emsg  = 'cohesive Gnc must be greater than zero, cohesive_material_module'
-      return
-    end if
-    
-    if (this%toughness%Gtc < SMALLNUM) then
-      istat = STAT_FAILURE
-      emsg  = 'cohesive Gtc must be greater than zero, cohesive_material_module'
-      return
-    end if
-    
-    if (this%toughness%Glc < SMALLNUM) then
-      istat = STAT_FAILURE
-      emsg  = 'cohesive Glc must be greater than zero, cohesive_material_module'
-      return
-    end if
-    
-    if (this%toughness%alpha < SMALLNUM) then
-      istat = STAT_FAILURE
-      emsg  = 'cohesive alpha must be greater than zero, cohesive_material_module'
-      return
-    end if
-
-
-  end subroutine check_mat_prop
-
 
   
   subroutine display_cohesive (this)
@@ -306,42 +397,6 @@ contains
   end subroutine display_cohesive
   
   
-  
-  subroutine display_cohesive_sdv (this_sdv)
-  ! Purpose:
-  ! to display this cohesive_sdv's components on cmd window
-  ! this is useful for debugging
-  
-    type(cohesive_sdv), intent(in) :: this_sdv
-  
-    ! local variable to set the output format
-    character(len=20) :: display_fmt
-    
-    ! initialize local variable
-    display_fmt = ''
-
-    ! set display format for string and integer
-    ! A for string, I for integer, 10 for width of the number
-    display_fmt = '(1X, A, I10)' 
-    
-    write(*,'(1X, A)') ''
-    write(*,'(1X, A)') 'Display the inquired cohesive SDVs :'
-    write(*,display_fmt) 'cohesive FSTAT is: ', this_sdv%FSTAT 
-
-    ! set display format for string and real
-    ! A for string, ES for real (scientific notation)
-    ! 10 is width, 3 is no. of digits aft decimal point
-    ! note that for scientific real, ESw.d, w>=d+7
-    display_fmt = '(1X, A, ES10.3)' 
-    
-    write(*,display_fmt) 'cohesive DM    is: ', this_sdv%dm 
-    write(*,display_fmt) 'cohesive U0    is: ', this_sdv%U0
-    write(*,display_fmt) 'cohesive UF    is: ', this_sdv%UF
-    write(*,'(1X, A)') ''
-  
-  end subroutine display_cohesive_sdv
-  
-
 
   pure subroutine ddsdde_cohesive_intact (this_mat, dee, traction, separation)
   ! Purpose:
@@ -449,9 +504,7 @@ contains
     ! they are defined as intent(inout) to avoid any potential memory leak.
     ! so no need to check their input values
     
-    ! check sdv values
-    call check_sdv (sdv, istat, emsg)
-    if (istat == STAT_FAILURE) return
+    ! sdv objects are only modified within this module, so no need to check
     
     ! separation components can take any real value, nothing to check
     
@@ -638,8 +691,6 @@ contains
   end subroutine ddsdde_cohesive 
   
   
-  
-  
 ! the rest are private procedures used in ddsdde_cohesive subroutine
 ! they can be considered as internal procedures of ddsdde_cohesive
 
@@ -648,49 +699,6 @@ contains
 
 ! but any logical construct in complex procedures should be complete 
 ! with istat and emsg. This is the case with cohesive_law
-
-
-  pure subroutine check_sdv (sdv, istat, emsg)
-  ! Purpose:
-  ! to check the validity of the input solution-dependent variables
-  
-    type(cohesive_sdv),       intent(in)  :: sdv
-    integer,                  intent(out) :: istat
-    character(len=MSGLENGTH), intent(out) :: emsg
-    
-    ! initialize intent out variables
-    istat = STAT_SUCCESS
-    emsg  = ''
-    
-    if (.not. (ZERO-SMALLNUM < sdv%DM .and. sdv%DM < ONE+SMALLNUM)) then
-      istat = STAT_FAILURE
-      emsg  = 'cohesive DM must be between [0., 1.], cohesive_material_module'
-      return
-    end if
-    
-    if (.not. (ZERO-SMALLNUM < sdv%U0)) then
-      istat = STAT_FAILURE
-      emsg  = 'cohesive U0 must be >= 0., cohesive_material_module'
-      return
-    end if
-    
-    if (.not. (ZERO-SMALLNUM < sdv%UF)) then
-      istat = STAT_FAILURE
-      emsg  = 'cohesive UF must be >= 0., cohesive_material_module'
-      return
-    end if
-    
-    select case (sdv%FSTAT)
-      case (INTACT, COH_MAT_ONSET, COH_MAT_FAILED)
-        continue
-      case default
-        istat = STAT_FAILURE
-        emsg  = 'cohesive FSTAT value is incorrect, cohesive_material_module'
-        return
-    end select
-    
-  end subroutine check_sdv
-
 
 
   pure subroutine deemat_3d (this_mat, dee, dm, is_closed_crack)
@@ -1041,6 +1049,12 @@ contains
 
   pure subroutine update_cohesive_ig_point (ig_point, x, u, &
   & traction, separation, converged_sdv, iterating_sdv)
+  ! Purpose: 
+  ! to update cohesive ig point components
+  ! this is an outbound procedure, so its inputs should be checked for validity
+  ! x, u, traction, separation can take any value
+  ! cohesive sdv objects are only modified within this module
+  ! so, checking is spared
 
     type(cohesive_ig_point),      intent(inout) :: ig_point
     real(DP),           optional, intent(in)    :: x(NDIM), u(NDIM)

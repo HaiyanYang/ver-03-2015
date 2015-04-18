@@ -2,13 +2,19 @@ module lamina_material_module
 !
 !  Purpose:
 !    for 3D problems only
-!    define an object to represent a lamina material
+!
+!    define a lamina sdv object to represent the solution dependent variables
+!    of a lamina material constitutive law, with the associated procedures to
+!    display and extract its components. All updates are done within this module
+!
+!    define a lamina material object to represent a lamina material
 !    with the associated procedures to empty, set, and display
 !    its components, to integrate local stiffness matrix, and
-!    to update local solution-dependent variables (damage variables)
+!    to update lamina sdv
 !
-!    this module also defines an integration point object of this material
-!    and its associated procedures empty, update, extract and display
+!    define an integration point object of this material which stores all the 
+!    necessary information for calculation and output,
+!    with associated procedures to empty, update, extract and display
 !
 !
 !  Record of revision:
@@ -41,13 +47,15 @@ use parameter_module, only : DP, ZERO, ONE, TWO, SMALLNUM, RESIDUAL_MODULUS, &
 implicit none
 private
 
+!**** auxiliary objects ****
+! no encapsulation, no type-bound procedures
+
 ! elastic moduli, standard notations
 type, public :: lamina_modulus
   real(DP) :: E1   = ZERO, E2   = ZERO
   real(DP) :: G12  = ZERO, G23  = ZERO
   real(DP) :: nu12 = ZERO, nu23 = ZERO
 end type lamina_modulus
-
 
 ! strength properties (Hashin or Pinho criterion)
 type, public :: lamina_strength
@@ -56,21 +64,17 @@ type, public :: lamina_strength
   real(DP) :: Sl = ZERO, St = ZERO ! matrix long. & trans. shear strengths
 end type lamina_strength
 
-
 ! fibre toughness properties
 ! mode I toughness, tensile (GfcT) and compressive (GfcC)
 type, public :: lamina_fibreToughness
   real(DP) :: GfcT = ZERO, GfcC = ZERO
 end type lamina_fibreToughness
 
+!**** end auxiliary objects ****
 
-! lamina material object definition
-type, public :: lamina_material
-  type(lamina_modulus)          :: modulus
-  type(lamina_strength)         :: strength
-  type(lamina_fibreToughness)   :: fibreToughness
-end type lamina_material
 
+!**** the rest are actual objects of the module ****
+! with encapsulation and allowed procedures
 
 ! lamina material solution-dependent variables
 ! df     : fibre modulus degradation factor
@@ -79,10 +83,24 @@ end type lamina_material
 ! ffstat : fibre   failure status
 ! mfstat : matrix  failure status
 type, public :: lamina_sdv
+  private
   real(DP) :: df    = ZERO,   u0     = ZERO,   uf     = ZERO
   integer  :: fstat = INTACT, ffstat = INTACT, mfstat = INTACT
 end type lamina_sdv
+! associated procedures: extract, display
+! all other operations on the object are performed within this module
+! note: this means that sdv cannot be defined or modified outside of 
+! this module
 
+! lamina material object definition
+type, public :: lamina_material
+  private
+  type(lamina_modulus)          :: modulus
+  type(lamina_strength)         :: strength
+  type(lamina_fibreToughness)   :: fibreToughness
+end type lamina_material
+! associated procedures: empty, set, display, ddsdde
+! all other operations on the object are performed within this module
 
 ! lamina material integration point object
 ! stores everything needed for the integration of lamina material in elements
@@ -95,6 +113,8 @@ type, public :: lamina_ig_point
   type(lamina_sdv) :: converged_sdv ! sdv of last converged increment
   type(lamina_sdv) :: iterating_sdv ! sdv of current iteration
 end type lamina_ig_point
+! associated procedures: empty, display, update, extract
+! all other operations on the object are performed within this module
 
 
 interface empty
@@ -122,6 +142,7 @@ interface update
 end interface update
 
 interface extract
+  module procedure extract_lamina_sdv
   module procedure extract_lamina_ig_point
 end interface extract
 
@@ -133,6 +154,65 @@ public :: empty, set, display, ddsdde, update, extract
 
 contains
 
+
+
+
+  pure subroutine extract_lamina_sdv (sdv, df, u0, uf, fstat, ffstat, mfstat)
+  
+    type(lamina_sdv),   intent(in)  :: sdv
+    real(DP), optional, intent(out) :: df
+    real(DP), optional, intent(out) :: u0
+    real(DP), optional, intent(out) :: uf
+    integer,  optional, intent(out) :: fstat
+    integer,  optional, intent(out) :: ffstat
+    integer,  optional, intent(out) :: mfstat
+    
+    if (present(df))     df     = sdv%df
+    if (present(u0))     u0     = sdv%u0
+    if (present(uf))     uf     = sdv%uf
+    if (present(fstat))  fstat  = sdv%fstat
+    if (present(ffstat)) ffstat = sdv%ffstat
+    if (present(mfstat)) mfstat = sdv%mfstat
+  
+  end subroutine extract_lamina_sdv
+
+
+
+  subroutine display_lamina_sdv (this_sdv)
+  ! Purpose:
+  ! to display this lamina_sdv's components on cmd window
+  ! this is useful for debugging
+
+    type(lamina_sdv), intent(in) :: this_sdv
+
+    ! local variable to set the output format
+    character(len=20) :: display_fmt
+
+    ! initialize local variable
+    display_fmt = ''
+
+    ! set display format for string and integer
+    ! A for string, I for integer, 10 for width of the number
+    display_fmt = '(1X, A, I10)'
+
+    write(*,'(1X, A)') ''
+    write(*,'(1X, A)') 'Display the inquired lamina SDVs :'
+    write(*,display_fmt) 'lamina FSTAT  is: ', this_sdv%FSTAT
+    write(*,display_fmt) 'lamina FFSTAT is: ', this_sdv%FFSTAT
+    write(*,display_fmt) 'lamina MFSTAT is: ', this_sdv%MFSTAT
+
+    ! set display format for string and real
+    ! A for string, ES for real (scientific notation)
+    ! 10 is width, 3 is no. of digits aft decimal point
+    ! note that for scientific real, ESw.d, w>=d+7
+    display_fmt = '(1X, A, ES10.3)'
+
+    write(*,display_fmt) 'lamina DF     is: ', this_sdv%DF
+    write(*,display_fmt) 'lamina U0     is: ', this_sdv%U0
+    write(*,display_fmt) 'lamina UF     is: ', this_sdv%UF
+    write(*,'(1X, A)') ''
+
+  end subroutine display_lamina_sdv
 
 
 
@@ -166,113 +246,122 @@ contains
     integer,                     intent(out)   :: istat
     character(len=MSGLENGTH),    intent(out)   :: emsg
 
+    ! local copy of intent(inout) variable
+    type(lamina_material) :: this_lcl
+
     ! initialize intent(out) & local variables
     istat = STAT_SUCCESS  ! default
     emsg  = ''
 
-    this%modulus        = modulus
-    this%strength       = strength
-    this%fibreToughness = fibreToughness
+    this_lcl%modulus        = modulus
+    this_lcl%strength       = strength
+    this_lcl%fibreToughness = fibreToughness
 
     ! check this_mat properties
-    call check_mat_prop (this, istat, emsg)
+    call check_mat_prop (this_lcl, istat, emsg)
     if (istat == STAT_FAILURE) return
+    
+    ! update to dummy arg if inputs are valid
+    this = this_lcl
+    
+    contains 
+    
+
+      pure subroutine check_mat_prop (this, istat, emsg)
+      ! Purpose:
+      ! to check the validity of the input material properties
+
+        type(lamina_material),    intent(in)  :: this
+        integer,                  intent(out) :: istat
+        character(len=MSGLENGTH), intent(out) :: emsg
+
+        ! initialize intent out variables
+        istat = STAT_SUCCESS
+        emsg  = ''
+
+        ! elastic moduli must be positive non-zero
+        if (this%modulus%E1 < SMALLNUM) then
+          istat = STAT_FAILURE
+          emsg  = 'lamina E1 must be greater than zero, lamina_material_module'
+          return
+        end if
+
+        if (this%modulus%E2 < SMALLNUM) then
+          istat = STAT_FAILURE
+          emsg  = 'lamina E2 must be greater than zero, lamina_material_module'
+          return
+        end if
+
+        if (this%modulus%G12 < SMALLNUM) then
+          istat = STAT_FAILURE
+          emsg  = 'lamina G12 must be greater than zero, lamina_material_module'
+          return
+        end if
+
+        if (this%modulus%G23 < SMALLNUM) then
+          istat = STAT_FAILURE
+          emsg  = 'lamina G23 must be greater than zero, lamina_material_module'
+          return
+        end if
+
+        ! check on nu12 and nu23 are omitted; they can take on both + and - values
+
+        ! strengths must be positive non-zero
+        if (this%strength%Xt < SMALLNUM) then
+          istat = STAT_FAILURE
+          emsg  = 'lamina Xt must be greater than zero, lamina_material_module'
+          return
+        end if
+
+        if (this%strength%Xc < SMALLNUM) then
+          istat = STAT_FAILURE
+          emsg  = 'lamina Xc must be greater than zero, lamina_material_module'
+          return
+        end if
+
+        if (this%strength%Yt < SMALLNUM) then
+          istat = STAT_FAILURE
+          emsg  = 'lamina Yt must be greater than zero, lamina_material_module'
+          return
+        end if
+
+        if (this%strength%Yc < SMALLNUM) then
+          istat = STAT_FAILURE
+          emsg  = 'lamina Yc must be greater than zero, lamina_material_module'
+          return
+        end if
+
+        if (this%strength%Sl < SMALLNUM) then
+          istat = STAT_FAILURE
+          emsg  = 'lamina Sl must be greater than zero, lamina_material_module'
+          return
+        end if
+
+        if (this%strength%St < SMALLNUM) then
+          istat = STAT_FAILURE
+          emsg  = 'lamina St must be greater than zero, lamina_material_module'
+          return
+        end if
+
+        ! fibre toughnesses must be positive non-zero
+        if (this%fibreToughness%GfcT < SMALLNUM) then
+          istat = STAT_FAILURE
+          emsg  = 'lamina GfcT must be greater than zero, lamina_material_module'
+          return
+        end if
+
+        if (this%fibreToughness%GfcC < SMALLNUM) then
+          istat = STAT_FAILURE
+          emsg  = 'lamina GfcC must be greater than zero, lamina_material_module'
+          return
+        end if
+
+
+      end subroutine check_mat_prop
+
+
 
   end subroutine set_lamina
-
-
-
-  pure subroutine check_mat_prop (this, istat, emsg)
-  ! Purpose:
-  ! to check the validity of the input material properties
-
-    type(lamina_material),    intent(in)  :: this
-    integer,                  intent(out) :: istat
-    character(len=MSGLENGTH), intent(out) :: emsg
-
-    ! initialize intent out variables
-    istat = STAT_SUCCESS
-    emsg  = ''
-
-    ! elastic moduli must be positive non-zero
-    if (this%modulus%E1 < SMALLNUM) then
-      istat = STAT_FAILURE
-      emsg  = 'lamina E1 must be greater than zero, lamina_material_module'
-      return
-    end if
-
-    if (this%modulus%E2 < SMALLNUM) then
-      istat = STAT_FAILURE
-      emsg  = 'lamina E2 must be greater than zero, lamina_material_module'
-      return
-    end if
-
-    if (this%modulus%G12 < SMALLNUM) then
-      istat = STAT_FAILURE
-      emsg  = 'lamina G12 must be greater than zero, lamina_material_module'
-      return
-    end if
-
-    if (this%modulus%G23 < SMALLNUM) then
-      istat = STAT_FAILURE
-      emsg  = 'lamina G23 must be greater than zero, lamina_material_module'
-      return
-    end if
-
-    ! check on nu12 and nu23 are omitted; they can take on both + and - values
-
-    ! strengths must be positive non-zero
-    if (this%strength%Xt < SMALLNUM) then
-      istat = STAT_FAILURE
-      emsg  = 'lamina Xt must be greater than zero, lamina_material_module'
-      return
-    end if
-
-    if (this%strength%Xc < SMALLNUM) then
-      istat = STAT_FAILURE
-      emsg  = 'lamina Xc must be greater than zero, lamina_material_module'
-      return
-    end if
-
-    if (this%strength%Yt < SMALLNUM) then
-      istat = STAT_FAILURE
-      emsg  = 'lamina Yt must be greater than zero, lamina_material_module'
-      return
-    end if
-
-    if (this%strength%Yc < SMALLNUM) then
-      istat = STAT_FAILURE
-      emsg  = 'lamina Yc must be greater than zero, lamina_material_module'
-      return
-    end if
-
-    if (this%strength%Sl < SMALLNUM) then
-      istat = STAT_FAILURE
-      emsg  = 'lamina Sl must be greater than zero, lamina_material_module'
-      return
-    end if
-
-    if (this%strength%St < SMALLNUM) then
-      istat = STAT_FAILURE
-      emsg  = 'lamina St must be greater than zero, lamina_material_module'
-      return
-    end if
-
-    ! fibre toughnesses must be positive non-zero
-    if (this%fibreToughness%GfcT < SMALLNUM) then
-      istat = STAT_FAILURE
-      emsg  = 'lamina GfcT must be greater than zero, lamina_material_module'
-      return
-    end if
-
-    if (this%fibreToughness%GfcC < SMALLNUM) then
-      istat = STAT_FAILURE
-      emsg  = 'lamina GfcC must be greater than zero, lamina_material_module'
-      return
-    end if
-
-
-  end subroutine check_mat_prop
 
 
 
@@ -319,44 +408,6 @@ contains
     write(*,'(1X, A)') ''
 
   end subroutine display_lamina
-
-
-
-  subroutine display_lamina_sdv (this_sdv)
-  ! Purpose:
-  ! to display this lamina_sdv's components on cmd window
-  ! this is useful for debugging
-
-    type(lamina_sdv), intent(in) :: this_sdv
-
-    ! local variable to set the output format
-    character(len=20) :: display_fmt
-
-    ! initialize local variable
-    display_fmt = ''
-
-    ! set display format for string and integer
-    ! A for string, I for integer, 10 for width of the number
-    display_fmt = '(1X, A, I10)'
-
-    write(*,'(1X, A)') ''
-    write(*,'(1X, A)') 'Display the inquired lamina SDVs :'
-    write(*,display_fmt) 'lamina FSTAT  is: ', this_sdv%FSTAT
-    write(*,display_fmt) 'lamina FFSTAT is: ', this_sdv%FFSTAT
-    write(*,display_fmt) 'lamina MFSTAT is: ', this_sdv%MFSTAT
-
-    ! set display format for string and real
-    ! A for string, ES for real (scientific notation)
-    ! 10 is width, 3 is no. of digits aft decimal point
-    ! note that for scientific real, ESw.d, w>=d+7
-    display_fmt = '(1X, A, ES10.3)'
-
-    write(*,display_fmt) 'lamina DF     is: ', this_sdv%DF
-    write(*,display_fmt) 'lamina U0     is: ', this_sdv%U0
-    write(*,display_fmt) 'lamina UF     is: ', this_sdv%UF
-    write(*,'(1X, A)') ''
-
-  end subroutine display_lamina_sdv
 
 
 
@@ -470,10 +521,8 @@ contains
     ! dee and stress input values are not used; they can be intent(out).
     ! they are defined as intent(inout) to avoid any potential memory leak.
     ! so no need to check their input values
-
-    ! check sdv values
-    call check_sdv (sdv, istat, emsg)
-    if (istat == STAT_FAILURE) return
+    
+    ! sdv objects are only modified within this module, so no need to check
 
     ! strain components can take any real value, nothing to check
 
@@ -692,7 +741,6 @@ contains
   end subroutine ddsdde_lamina
 
 
-
 ! the rest are private procedures used in ddsdde_lamina subroutine
 ! they can be considered as internal procedures of ddsdde_lamina
 
@@ -701,67 +749,6 @@ contains
 
 ! but any logical construct in complex procedures should be complete
 ! with istat and emsg. This is the case with fibre_cohesive_law
-
-
-  pure subroutine check_sdv (sdv, istat, emsg)
-  ! Purpose:
-  ! to check the validity of the input solution-dependent variables
-
-    type(lamina_sdv),         intent(in)  :: sdv
-    integer,                  intent(out) :: istat
-    character(len=MSGLENGTH), intent(out) :: emsg
-
-    ! initialize intent out variables
-    istat = STAT_SUCCESS
-    emsg  = ''
-
-    if (.not. (ZERO-SMALLNUM < sdv%DF .and. sdv%DF < ONE+SMALLNUM)) then
-      istat = STAT_FAILURE
-      emsg  = 'lamina DF must be between [0., 1.], lamina_material_module'
-      return
-    end if
-
-    if (.not. (ZERO-SMALLNUM < sdv%U0)) then
-      istat = STAT_FAILURE
-      emsg  = 'lamina U0 must be >= 0., lamina_material_module'
-      return
-    end if
-
-    if (.not. (ZERO-SMALLNUM < sdv%UF)) then
-      istat = STAT_FAILURE
-      emsg  = 'lamina UF must be >= 0., lamina_material_module'
-      return
-    end if
-
-    select case (sdv%FSTAT)
-      case (INTACT, MATRIX_ONSET, FIBRE_ONSET, FIBRE_FAILED)
-        continue
-      case default
-        istat = STAT_FAILURE
-        emsg  = 'lamina FSTAT value is incorrect, lamina_material_module'
-        return
-    end select
-
-    select case (sdv%FFSTAT)
-      case (INTACT, FIBRE_ONSET, FIBRE_FAILED)
-        continue
-      case default
-        istat = STAT_FAILURE
-        emsg  = 'lamina FFSTAT value is incorrect, lamina_material_module'
-        return
-    end select
-
-    select case (sdv%MFSTAT)
-      case (INTACT, MATRIX_ONSET)
-        continue
-      case default
-        istat = STAT_FAILURE
-        emsg  = 'lamina MFSTAT value is incorrect, lamina_material_module'
-        return
-    end select
-
-  end subroutine check_sdv
-
 
 
   pure subroutine deemat_3d (this_mat, dee, df, dm2, dm3)
@@ -1186,6 +1173,12 @@ contains
 
   pure subroutine update_lamina_ig_point (ig_point, x, u, stress, strain, &
   & converged_sdv, iterating_sdv)
+  ! Purpose: 
+  ! to update lamna ig point components
+  ! this is an outbound procedure, so its inputs should be checked for validity
+  ! x, u, traction, separation can take any value
+  ! lamina sdv objects are only modified within this module
+  ! so, checking is spared
 
     type(lamina_ig_point),      intent(inout) :: ig_point
     real(DP),         optional, intent(in)    :: x(NDIM), u(NDIM)

@@ -8,6 +8,7 @@ include 'elements/base_elements/wedge_element_module.f90'
 include 'elements/base_elements/coh3d6_element_module.f90'
 include 'elements/base_elements/coh3d8_element_module.f90'
 include 'elements/basePly_element_module.f90'
+include 'elements/baseCoh_element_module.f90'
 
 program compile_base_elements
 ! Purpose:
@@ -25,6 +26,7 @@ use wedge_element_module ! use everything
 use coh3d6_element_module
 use coh3d8_element_module
 use basePly_element_module
+use baseCoh_element_module
 
 implicit none
 
