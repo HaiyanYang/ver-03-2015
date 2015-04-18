@@ -51,6 +51,9 @@ private
 
 !**** auxiliary objects ****
 ! no encapsulation, no type-bound procedures
+! these objects are created to facilitate the definition of the 
+! cohesive material object
+! these objects are NOT meant to be used outside of this module
 
 ! penalty stiffness, normal and two shear directions
 type, public :: cohesive_modulus
