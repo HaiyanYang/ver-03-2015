@@ -12,7 +12,7 @@ module lamina_material_module
 !    its components, to integrate local stiffness matrix, and
 !    to update lamina sdv
 !
-!    define an integration point object of this material which stores all the 
+!    define an integration point object of this material which stores all the
 !    necessary information for calculation and output,
 !    with associated procedures to empty, update, extract and display
 !
@@ -49,7 +49,7 @@ private
 
 !**** auxiliary objects ****
 ! no encapsulation, no type-bound procedures
-! these objects are created to facilitate the definition of the 
+! these objects are created to facilitate the definition of the
 ! lamina material object
 ! these objects are NOT meant to be used outside of this module
 
@@ -92,7 +92,7 @@ type, public :: lamina_sdv
 end type lamina_sdv
 ! associated procedures: extract, display
 ! all other operations on the object are performed within this module
-! note: this means that sdv cannot be defined or modified outside of 
+! note: this means that sdv cannot be defined or modified outside of
 ! this module
 
 ! lamina material object definition
@@ -109,10 +109,10 @@ end type lamina_material
 ! stores everything needed for the integration of lamina material in elements
 type, public :: lamina_ig_point
   private
-  real(DP) :: x(NDIM)     = ZERO    ! physical coordinates
-  real(DP) :: u(NDIM)     = ZERO    ! displacement
-  real(DP) :: stress(NST) = ZERO    ! stress for output
-  real(DP) :: strain(NST) = ZERO    ! strain for output
+  real(DP), allocatable :: x(:)         ! physical coordinates
+  real(DP), allocatable :: u(:)         ! displacement
+  real(DP), allocatable :: stress(:)    ! stress for output
+  real(DP), allocatable :: strain(:)    ! strain for output
   type(lamina_sdv) :: converged_sdv ! sdv of last converged increment
   type(lamina_sdv) :: iterating_sdv ! sdv of current iteration
 end type lamina_ig_point
@@ -161,7 +161,7 @@ contains
 
 
   pure subroutine extract_lamina_sdv (sdv, df, u0, uf, fstat, ffstat, mfstat)
-  
+
     type(lamina_sdv),   intent(in)  :: sdv
     real(DP), optional, intent(out) :: df
     real(DP), optional, intent(out) :: u0
@@ -169,14 +169,14 @@ contains
     integer,  optional, intent(out) :: fstat
     integer,  optional, intent(out) :: ffstat
     integer,  optional, intent(out) :: mfstat
-    
+
     if (present(df))     df     = sdv%df
     if (present(u0))     u0     = sdv%u0
     if (present(uf))     uf     = sdv%uf
     if (present(fstat))  fstat  = sdv%fstat
     if (present(ffstat)) ffstat = sdv%ffstat
     if (present(mfstat)) mfstat = sdv%mfstat
-  
+
   end subroutine extract_lamina_sdv
 
 
@@ -263,12 +263,12 @@ contains
     ! check this_mat properties
     call check_mat_prop (this_lcl, istat, emsg)
     if (istat == STAT_FAILURE) return
-    
+
     ! update to dummy arg if inputs are valid
     this = this_lcl
-    
-    contains 
-    
+
+    contains
+
 
       pure subroutine check_mat_prop (this, istat, emsg)
       ! Purpose:
@@ -524,7 +524,7 @@ contains
     ! dee and stress input values are not used; they can be intent(out).
     ! they are defined as intent(inout) to avoid any potential memory leak.
     ! so no need to check their input values
-    
+
     ! sdv objects are only modified within this module, so no need to check
 
     ! strain components can take any real value, nothing to check
@@ -1176,7 +1176,7 @@ contains
 
   pure subroutine update_lamina_ig_point (ig_point, x, u, stress, strain, &
   & converged_sdv, iterating_sdv)
-  ! Purpose: 
+  ! Purpose:
   ! to update lamna ig point components
   ! this is an outbound procedure, so its inputs should be checked for validity
   ! x, u, traction, separation can take any value
@@ -1189,10 +1189,26 @@ contains
     type(lamina_sdv), optional, intent(in)    :: converged_sdv
     type(lamina_sdv), optional, intent(in)    :: iterating_sdv
 
-    if(present(x))                ig_point%x = x
-    if(present(u))                ig_point%u = u
-    if(present(stress))           ig_point%stress = stress
-    if(present(strain))           ig_point%strain = strain
+    if(present(x)) then
+      if (.not. allocated(ig_point%x)) allocate(ig_point%x(NDIM))
+      ig_point%x = x
+    end if
+
+    if(present(u)) then
+      if (.not. allocated(ig_point%u)) allocate(ig_point%u(NDIM))
+      ig_point%u = u
+    end if
+
+    if(present(stress)) then
+      if (.not. allocated(ig_point%stress)) allocate(ig_point%stress(NST))
+      ig_point%stress = stress
+    end if
+
+    if(present(strain)) then
+      if (.not. allocated(ig_point%strain)) allocate(ig_point%strain(NST))
+      ig_point%strain = strain
+    end if
+
     if(present(converged_sdv))    ig_point%converged_sdv = converged_sdv
     if(present(iterating_sdv))    ig_point%iterating_sdv = iterating_sdv
 
@@ -1216,10 +1232,22 @@ contains
       strain = ZERO
       ! derived types are automatically initialized upon declaration
 
-      if(present(x))                x = ig_point%x
-      if(present(u))                u = ig_point%u
-      if(present(stress))           stress = ig_point%stress
-      if(present(strain))           strain = ig_point%strain
+      if(present(x)) then
+        if(allocated(ig_point%x)) x = ig_point%x
+      end if
+
+      if(present(u)) then
+        if(allocated(ig_point%u)) u = ig_point%u
+      end if
+
+      if(present(stress)) then
+        if(allocated(ig_point%stress)) stress = ig_point%stress
+      end if
+
+      if(present(strain)) then
+        if(allocated(ig_point%strain)) strain = ig_point%strain
+      end if
+
       if(present(converged_sdv))    converged_sdv = ig_point%converged_sdv
       if(present(iterating_sdv))    iterating_sdv = ig_point%iterating_sdv
 
@@ -1253,33 +1281,41 @@ contains
                        &object :'
     write(*,'(1X, A)') ''
 
-    write(*,'(1X, A)') '- x of this lamina_ig_point is: '
-    do i = 1, NDIM
-      write(*,display_fmt,advance="no") this%x(i)
-    end do
-    write(*,'(1X, A)') ''
-    write(*,'(1X, A)') ''
+    if (allocated(this%x)) then
+      write(*,'(1X, A)') '- x of this lamina_ig_point is: '
+      do i = 1, NDIM
+        write(*,display_fmt,advance="no") this%x(i)
+      end do
+      write(*,'(1X, A)') ''
+      write(*,'(1X, A)') ''
+    end if
 
-    write(*,'(1X, A)') '- u of this lamina_ig_point is: '
-    do i = 1, NDIM
-      write(*,display_fmt,advance="no") this%u(i)
-    end do
-    write(*,'(1X, A)') ''
-    write(*,'(1X, A)') ''
+    if (allocated(this%u)) then
+      write(*,'(1X, A)') '- u of this lamina_ig_point is: '
+      do i = 1, NDIM
+        write(*,display_fmt,advance="no") this%u(i)
+      end do
+      write(*,'(1X, A)') ''
+      write(*,'(1X, A)') ''
+    end if
 
-    write(*,'(1X, A)') '- stress of this lamina_ig_point is: '
-    do i = 1, NST
-      write(*,display_fmt,advance="no") this%stress(i)
-    end do
-    write(*,'(1X, A)') ''
-    write(*,'(1X, A)') ''
+    if (allocated(this%stress)) then
+      write(*,'(1X, A)') '- stress of this lamina_ig_point is: '
+      do i = 1, NST
+        write(*,display_fmt,advance="no") this%stress(i)
+      end do
+      write(*,'(1X, A)') ''
+      write(*,'(1X, A)') ''
+    end if
 
-    write(*,'(1X, A)') '- strain of this lamina_ig_point is: '
-    do i = 1, NST
-      write(*,display_fmt,advance="no") this%strain(i)
-    end do
-    write(*,'(1X, A)') ''
-    write(*,'(1X, A)') ''
+    if (allocated(this%strain)) then
+      write(*,'(1X, A)') '- strain of this lamina_ig_point is: '
+      do i = 1, NST
+        write(*,display_fmt,advance="no") this%strain(i)
+      end do
+      write(*,'(1X, A)') ''
+      write(*,'(1X, A)') ''
+    end if
 
     write(*,'(1X, A)') '- converged lamina_sdv of this lamina_ig_point is: '
     call display_lamina_sdv(this%converged_sdv)

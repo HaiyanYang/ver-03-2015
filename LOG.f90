@@ -6,6 +6,28 @@
 !
 !
 !
+!====================== DATE: 19/04/2015 ======================================
+! 
+! :: Notes on ig_points ::
+!
+!   <lamina_ig_points>
+!     used by brick/wedge element integrate procedure, stores updated x, u, stress
+!     strain and iterating and converged lamina sdv values at an integration point
+!
+!   <cohesive_ig_points>
+!     used by coh3d6/8 element integrate procedure, only stores updated
+!     iterating and converged cohesive sdv values at an integration point. The x,
+!     u, traction and separation values are omitted for update
+!
+! :: Suggestions for future development ::
+!   make the output-only components allocatable (x, u, stress/traction, strain/
+!   separation) -> DONE!
+!
+!
+!
+!
+!
+!
 !====================== DATE: 18/04/2015 ======================================
 ! 
 ! START THIS LOG, NOTE DOWN DETAILS OF IMPLEMENTATIONS AND CHANGES

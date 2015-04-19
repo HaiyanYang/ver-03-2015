@@ -520,16 +520,6 @@ use global_toolkit_module,       only : crack_elem_centroid2d, determinant3d, &
       ! get values of shape functions and derivatives, fn and dn, at this ig point
       call init_shape (fn, dn, ig_xi(:,kig))
 
-      ! calculate integration point's physical coordinates (initial), ig_x
-      ig_x = matmul(coords,fn)
-
-      ! calculate integration point displacement, ig_u
-      do j=1, NDIM
-        do i=1, NNODE
-          ig_u(j) = ig_u(j) + fn(i) * u((i-1)*NDIM+j)
-        end do
-      end do
-
       ! get jacobian, jac
       jac = matmul(coords,dn)
 
@@ -591,9 +581,8 @@ use global_toolkit_module,       only : crack_elem_centroid2d, determinant3d, &
       end do
 
       ! update ig point components
-      call update(ig_points(kig), x=ig_x, u=ig_u,                        &
-      &           stress=ig_stress, strain=ig_strain,                   &
-      &           converged_sdv=ig_sdv_conv, iterating_sdv=ig_sdv_iter)
+      call update(ig_points(kig), converged_sdv=ig_sdv_conv, &
+      & iterating_sdv=ig_sdv_iter)
 
       ! update elem fstat to be the max current ig point fstat
       call extract (ig_sdv_iter, fstat=ig_fstat)
