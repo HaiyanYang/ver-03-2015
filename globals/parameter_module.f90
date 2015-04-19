@@ -107,15 +107,15 @@ INTEGER, PARAMETER :: TRANSITION_EDGE = 1, REFINEMENT_EDGE   = 2,             &
 
 
 ! XBRICK ELEMENT STATUS VARIABLE VALUES ----------------------------------------
-INTEGER, PARAMETER :: TRANSITION_XBRICK   = 1, REFINEMENT_XBRICK  = 2,        &
-                    & CRACK_TIP_XBRICK    = 3, CRACK_WAKE_XBRICK  = 4,        &
-                    & MATRIX_CRACK_XBRICK = 5, FIBRE_FAIL_XBRICK  = 15
+INTEGER, PARAMETER :: TRANSITION_ELEM   = 1, REFINEMENT_ELEM  = 2,        &
+                    & CRACK_TIP_ELEM    = 3, CRACK_WAKE_ELEM  = 4,        &
+                    & MATRIX_CRACK_ELEM = 5, FIBRE_FAIL_ELEM  = 15
 !-------------------------------------------------------------------------------
 
 
 
 ! FCOH ELEM STATUS VARIABLES ---------------------------------------
-INTEGER, PARAMETER :: FAIL1_FCOH    = 5, FAIL2_FCOH    = 6, FAIL3_FCOH    = 7
+INTEGER, PARAMETER :: FSTAT1_FCOH = 5, FSTAT2_FCOH = 6, FSTAT3_FCOH = 7
 !-------------------------------------------------------------------------------
 
 
