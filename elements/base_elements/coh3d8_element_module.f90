@@ -143,14 +143,14 @@ pure subroutine set_coh3d8_element (elem, connec, ID_matlist, istat, emsg)
   if ( any(connec < 1) ) then
     istat = STAT_FAILURE
     emsg  = 'connec node indices must be >=1, set, &
-    &coh3d6_element_module'
+    &coh3d8_element_module'
     return
   end if
   
   if ( ID_matlist < 1 ) then
     istat = STAT_FAILURE
     emsg  = 'ID_matlist must be >=1, set, &
-    &coh3d6_element_module'
+    &coh3d8_element_module'
     return
   end if
   

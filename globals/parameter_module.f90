@@ -114,9 +114,8 @@ INTEGER, PARAMETER :: TRANSITION_XBRICK   = 1, REFINEMENT_XBRICK  = 2,        &
 
 
 
-! XCOH AND SUBXCOH ELEM STATUS VARIABLES ---------------------------------------
-INTEGER, PARAMETER :: FAIL1_XCOH    = 5, FAIL2_XCOH    = 6, FAIL3_XCOH    = 7
-INTEGER, PARAMETER :: FAIL1_SUBXCOH = 5, FAIL2_SUBXCOH = 6, FAIL3_SUBXCOH = 7
+! FCOH ELEM STATUS VARIABLES ---------------------------------------
+INTEGER, PARAMETER :: FAIL1_FCOH    = 5, FAIL2_FCOH    = 6, FAIL3_FCOH    = 7
 !-------------------------------------------------------------------------------
 
 
