@@ -80,6 +80,10 @@ TYPE :: REAL_ALLOC_ARRAY
     REAL(DP),   ALLOCATABLE :: ARRAY(:)
 END TYPE
 
+TYPE :: REAL_ALLOC_MATRIX
+    REAL(DP),   ALLOCATABLE :: MATRIX(:)
+END TYPE
+
 ! ******************************************************************************
 
 
@@ -114,8 +118,8 @@ INTEGER, PARAMETER :: TRANSITION_ELEM   = 1, REFINEMENT_ELEM  = 2,        &
 
 
 
-! FCOH ELEM STATUS VARIABLES ---------------------------------------
-INTEGER, PARAMETER :: FSTAT1_FCOH = 5, FSTAT2_FCOH = 6, FSTAT3_FCOH = 7
+! FCOH ELEM STATUS VARIABLES ---------------------------------------------------
+INTEGER, PARAMETER :: PARTITIONED_FCOHSUB = 5
 !-------------------------------------------------------------------------------
 
 

@@ -39,8 +39,9 @@ use parameter_module, only : NST => NST_COHESIVE, NDIM, DP, ZERO, ONE, HALF, &
 ! list of external modules used in type definition and other procedures:
 ! global clock module    : needed in element definition, extract and integrate
 ! lamina material module : needed in element definition, extract and integrate
-use global_clock_module
-use cohesive_material_module
+use global_clock_module,      only : program_clock, GLOBAL_CLOCK, clock_in_sync
+use cohesive_material_module, only : cohesive_ig_point, cohesive_material, &
+                              & cohesive_sdv, ddsdde, update, extract
 
 implicit none
 private
@@ -217,7 +218,7 @@ pure subroutine integrate_coh3d8_element (elem, K_matrix, F_vector, istat, &
 ! global_node_list_module       : global node list
 ! global_material_list_module   : global material list
 ! global_toolkit_module         : global tools for element integration
-use xnode_module
+use xnode_module,                only : xnode, extract
 use global_node_list_module,     only : global_node_list
 use global_material_list_module, only : global_cohesive_list
 use global_toolkit_module,       only : cross_product3d, normalize_vect, &

@@ -29,6 +29,10 @@ type, public :: xnode ! a node with enriched d.o.f
   real(DP), allocatable :: dof(:), ddof(:)
 end type xnode
 
+type, public :: xnode_alloc_array
+  type(xnode), allocatable :: array(:)
+end type xnode_alloc_array
+
 interface empty
   module procedure empty_xnode
 end interface

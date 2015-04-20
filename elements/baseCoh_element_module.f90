@@ -15,8 +15,8 @@ module baseCoh_element_module
 use parameter_module, only : NST => NST_COHESIVE, DP, ELTYPELENGTH, &
                       & MSGLENGTH, STAT_SUCCESS, STAT_FAILURE
 
-use coh3d6_element_module
-use coh3d8_element_module
+use coh3d6_element_module  ! use everything available
+use coh3d8_element_module  ! use everything available
 
   implicit none
   private

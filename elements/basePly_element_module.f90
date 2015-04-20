@@ -15,8 +15,8 @@ module basePly_element_module
 use parameter_module, only : NST => NST_STANDARD, DP, ELTYPELENGTH, &
                       & MSGLENGTH, STAT_SUCCESS, STAT_FAILURE
 
-use wedge_element_module
-use brick_element_module
+use wedge_element_module  ! use everything available
+use brick_element_module  ! use everything available
 
   implicit none
   private

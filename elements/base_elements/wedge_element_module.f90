@@ -45,8 +45,9 @@ use parameter_module, only : NST => NST_STANDARD, NDIM, DP, ZERO, SMALLNUM,    &
 ! list of external modules used in type definition and other procedures:
 ! global clock module    : needed in element definition, extract and integrate
 ! lamina material module : needed in element definition, extract and integrate
-use global_clock_module
-use lamina_material_module
+use global_clock_module,    only : program_clock, GLOBAL_CLOCK, clock_in_sync
+use lamina_material_module, only : lamina_ig_point, lamina_material, lamina_sdv,&
+                            & ddsdde, update, extract
 
 implicit none
 private
@@ -241,17 +242,17 @@ pure subroutine integrate_wedge_element (elem, K_matrix, F_vector, istat, emsg,&
 ! used parameters:
 ! ZERO, MSGLENGTH, STAT_SUCCESS, STAT_FAILURE, SMALLNUM
 
-! list of used modules:
+! list of additionally used modules:
 ! xnode_module                  : xnode derived type and its assoc. procedures
 ! global_node_list_module       : global node list
 ! global_material_list_module   : global material list
 ! global_toolkit_module         : global tools for element integration
-use xnode_module
+use xnode_module,                only : xnode, extract
 use global_node_list_module,     only : global_node_list
 use global_material_list_module, only : global_lamina_list
 use global_toolkit_module,       only : crack_elem_centroid2d, determinant3d, &
                                       & invert_self3d, beemat3d, lcl_strain3d,&
-                                      & glb_dee3d
+                                      & glb_dee3d, distance
 
   type(wedge_element),      intent(inout) :: elem
   real(DP),    allocatable, intent(out)   :: K_matrix(:,:), F_vector(:)
@@ -300,8 +301,7 @@ use global_toolkit_module,       only : crack_elem_centroid2d, determinant3d, &
   ! - clength         : characteristic length of this element
   ! - crosspoints     : coordinates of cross points btw characteristic line and
   !                     two element edges
-  ! - cline           : line vector joining the two cross points
-  real(DP)            :: clength, crosspoints(2,2), cline(2)
+  real(DP)            :: clength, crosspoints(2,2)
 
   !** analysis logical control variables:
   ! - last_converged  : true if last iteration has converged
@@ -362,7 +362,6 @@ use global_toolkit_module,       only : crack_elem_centroid2d, determinant3d, &
   !** element characteristic length variables:
   clength         = ZERO
   crosspoints     = ZERO
-  cline           = ZERO
   !** analysis logical control variables:
   last_converged  = .false.
   nofail          = .false.
@@ -486,10 +485,8 @@ use global_toolkit_module,       only : crack_elem_centroid2d, determinant3d, &
     return
   end if
   ! if no error, proceed with the clength calculation
-  ! calculate the cline vector joining two cross points
-  cline   = crosspoints(:,2) - crosspoints(:,1)
-  ! the length of this vector is the characteristic length
-  clength = sqrt ( dot_product (cline, cline) )
+  ! the distance btw two cross points is the characteristic length
+  clength = distance (crosspoints(:,2), crosspoints(:,1), 2)
 
   !** analysis logical control variables:
   ! check if last iteration has converged by checking if the global clock has
