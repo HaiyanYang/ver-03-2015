@@ -75,8 +75,8 @@ use brick_element_module  ! use everything available
 
 
 
-  pure subroutine set_basePly_element (elem, eltype, connec, ID_matlist, &
-  & ply_angle, istat, emsg)
+  pure subroutine set_basePly_element (elem, eltype, connec, ply_angle, &
+  & istat, emsg)
   ! Purpose:
   ! this is an interface used to set the contained base element according to
   ! eltype:
@@ -94,7 +94,6 @@ use brick_element_module  ! use everything available
     type(basePly_element),       intent(inout) :: elem
     character(len=*),            intent(in)    :: eltype
     integer,                     intent(in)    :: connec(:)
-    integer,                     intent(in)    :: ID_matlist
     real(DP),                    intent(in)    :: ply_angle
     integer,                     intent(out)   :: istat
     character(len=MSGLENGTH),    intent(out)   :: emsg
@@ -125,7 +124,7 @@ use brick_element_module  ! use everything available
           ! allocate local wedge base elem
           allocate(wedge_lcl)
           ! call the set procedure of the base element
-          call set (wedge_lcl, connec, ID_matlist, ply_angle, istat, emsg)
+          call set (wedge_lcl, connec, ply_angle, istat, emsg)
           ! check istat, if istat is failure, clean up and exit program
           if (istat == STAT_FAILURE) then
             deallocate(wedge_lcl)
@@ -156,7 +155,7 @@ use brick_element_module  ! use everything available
           ! allocate local brick base elem
           allocate(brick_lcl)
           ! call the set procedure of the base element
-          call set (brick_lcl, connec, ID_matlist, ply_angle, istat, emsg)
+          call set (brick_lcl, connec, ply_angle, istat, emsg)
           ! check istat, if istat is failure, clean up and exit program
           if (istat == STAT_FAILURE) then
             deallocate(brick_lcl)
@@ -192,18 +191,15 @@ use brick_element_module  ! use everything available
 
 
   pure subroutine extract_basePly_element (elem, eltype, fstat, connec, &
-  & ID_matlist, ply_angle, local_clock, ig_points, stress, strain, df)
+  & ply_angle, ig_points, stress, strain, df)
   ! extra modules needed to declare the type of some dummy args
-  use global_clock_module
-  use lamina_material_module
+  use lamina_material_module, only : lamina_ig_point
 
     type(basePly_element),                        intent(in)  :: elem
     character(len=ELTYPELENGTH),        optional, intent(out) :: eltype
     integer,                            optional, intent(out) :: fstat
     integer,               allocatable, optional, intent(out) :: connec(:)
-    integer,                            optional, intent(out) :: ID_matlist
     real(DP),                           optional, intent(out) :: ply_angle
-    type(program_clock),                optional, intent(out) :: local_clock
     type(lamina_ig_point), allocatable, optional, intent(out) :: ig_points(:)
     real(DP),                           optional, intent(out) :: stress(NST)
     real(DP),                           optional, intent(out) :: strain(NST)
@@ -219,9 +215,7 @@ use brick_element_module  ! use everything available
       case ('wedge')
         if (present(fstat))       call extract (elem%wedge, fstat=fstat)
         if (present(connec))      call extract (elem%wedge, connec=connec)
-        if (present(ID_matlist))  call extract (elem%wedge, ID_matlist=ID_matlist)
         if (present(ply_angle))   call extract (elem%wedge, ply_angle=ply_angle)
-        if (present(local_clock)) call extract (elem%wedge, local_clock=local_clock)
         if (present(ig_points))   call extract (elem%wedge, ig_points=ig_points)
         if (present(stress))      call extract (elem%wedge, stress=stress)
         if (present(strain))      call extract (elem%wedge, strain=strain)
@@ -230,9 +224,7 @@ use brick_element_module  ! use everything available
       case ('brick')
         if (present(fstat))       call extract (elem%brick, fstat=fstat)
         if (present(connec))      call extract (elem%brick, connec=connec)
-        if (present(ID_matlist))  call extract (elem%brick, ID_matlist=ID_matlist)
         if (present(ply_angle))   call extract (elem%brick, ply_angle=ply_angle)
-        if (present(local_clock)) call extract (elem%brick, local_clock=local_clock)
         if (present(ig_points))   call extract (elem%brick, ig_points=ig_points)
         if (present(stress))      call extract (elem%brick, stress=stress)
         if (present(strain))      call extract (elem%brick, strain=strain)
@@ -248,16 +240,19 @@ use brick_element_module  ! use everything available
 
 
 
-  pure subroutine integrate_basePly_element (elem, Kmatrix, Fvector, istat, &
-  & emsg, nofailure, mnodes)
-  use xnode_module
+  pure subroutine integrate_basePly_element (elem, nodes, material, Kmatrix, &
+  & Fvector, istat, emsg, nofailure)
+  ! extra modules needed to declare the type of some dummy args
+  use xnode_module,           only : xnode
+  use lamina_material_module, only : lamina_material
 
       type(basePly_element),    intent(inout) :: elem
+      type(xnode),              intent(in)    :: nodes(:)
+      type(lamina_material),    intent(in)    :: material
       real(DP), allocatable,    intent(out)   :: Kmatrix(:,:), Fvector(:)
       integer,                  intent(out)   :: istat
       character(len=MSGLENGTH), intent(out)   :: emsg
       logical,        optional, intent(in)    :: nofailure
-      type(xnode),    optional, intent(in)    :: mnodes(:)
 
       ! local variables
       logical :: nofail
@@ -274,27 +269,38 @@ use brick_element_module  ! use everything available
       ! have already been done in the called procedure. nothing need to be done
       ! here.
       select case(elem%eltype)
-
-          case('wedge')
-            if (present(mnodes)) then
-              call integrate(elem%wedge, Kmatrix, Fvector, istat, emsg,&
-              & nofail, mnodes)
-            else
-              call integrate(elem%wedge, Kmatrix, Fvector, istat, emsg,&
-              & nofail)
+      
+        case('wedge')
+        
+            ! check no. of nodes, exit program if incorrect
+            if ( size(nodes) /= 6 ) then
+              istat = STAT_FAILURE
+              emsg  = 'size of nodes is not 6 for wedge base element, &
+              & integrate, basePly_element_module'
+              return
             end if
+            
+            call integrate(elem%wedge, nodes, material, Kmatrix, Fvector, &
+            & istat, emsg, nofail)
 
-          case('brick')
-            if (present(mnodes)) then
-              call integrate(elem%brick, Kmatrix, Fvector, istat, emsg,&
-              & nofail, mnodes)
-            else
-              call integrate(elem%brick, Kmatrix, Fvector, istat, emsg,&
-              & nofail)
+        case('brick')
+        
+            ! check no. of nodes, exit program if incorrect
+            if ( size(nodes) /= 8 ) then
+              istat = STAT_FAILURE
+              emsg  = 'size of nodes is not 8 for brick base element, &
+              & integrate, basePly_element_module'
+              return
             end if
+            
+            call integrate(elem%brick, nodes, material, Kmatrix, Fvector, &
+            & istat, emsg, nofail)
 
-          case default
-              ! this should not be reached
+        case default
+            istat = STAT_FAILURE
+            emsg  = 'unexpected elem type, integrate, basePly_element_module'
+            return
+            
       end select
 
   end subroutine integrate_basePly_element

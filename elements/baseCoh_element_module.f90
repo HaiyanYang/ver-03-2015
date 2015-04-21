@@ -75,8 +75,7 @@ use coh3d8_element_module  ! use everything available
    
   
   
-  pure subroutine set_baseCoh_element (elem, eltype, connec, ID_matlist, &
-  & istat, emsg)
+  pure subroutine set_baseCoh_element (elem, eltype, connec, istat, emsg)
   ! Purpose:
   ! this is an interface used to set the contained base element according to
   ! eltype:
@@ -94,7 +93,6 @@ use coh3d8_element_module  ! use everything available
       type(baseCoh_element),    intent(inout) :: elem
       character(len=*),         intent(in)    :: eltype
       integer,                  intent(in)    :: connec(:)
-      integer,                  intent(in)    :: ID_matlist
       integer,                  intent(out)   :: istat
       character(len=MSGLENGTH), intent(out)   :: emsg
       
@@ -124,7 +122,7 @@ use coh3d8_element_module  ! use everything available
             ! allocate local coh3d6 base elem
             allocate(coh3d6_lcl)
             ! call the set procedure of the base element
-            call set (coh3d6_lcl, connec, ID_matlist, istat, emsg)
+            call set (coh3d6_lcl, connec, istat, emsg)
             ! check istat, if istat is failure, clean up and exit program
             if (istat == STAT_FAILURE) then
               deallocate(coh3d6_lcl)
@@ -154,7 +152,7 @@ use coh3d8_element_module  ! use everything available
             ! allocate local coh3d8 base elem
             allocate(coh3d8_lcl)
             ! call the set procedure of the base element
-            call set (coh3d8_lcl, connec, ID_matlist, istat, emsg)
+            call set (coh3d8_lcl, connec, istat, emsg)
             ! check istat, if istat is failure, clean up and exit program
             if (istat == STAT_FAILURE) then
               deallocate(coh3d8_lcl)
@@ -185,7 +183,7 @@ use coh3d8_element_module  ! use everything available
   
   
   pure subroutine extract_baseCoh_element (elem, eltype, fstat, connec, &
-  & ID_matlist, local_clock, ig_points, traction, separation, dm)
+  & ig_points, traction, separation, dm)
   ! extra modules needed to declare the type of some dummy args
   use global_clock_module
   use cohesive_material_module
@@ -194,8 +192,6 @@ use coh3d8_element_module  ! use everything available
     character(len=ELTYPELENGTH),          optional, intent(out) :: eltype
     integer,                              optional, intent(out) :: fstat
     integer,                 allocatable, optional, intent(out) :: connec(:)
-    integer,                              optional, intent(out) :: ID_matlist
-    type(program_clock),                  optional, intent(out) :: local_clock
     type(cohesive_ig_point), allocatable, optional, intent(out) :: ig_points(:)
     real(DP),                             optional, intent(out) :: traction(NST)
     real(DP),                             optional, intent(out) :: separation(NST)
@@ -211,8 +207,6 @@ use coh3d8_element_module  ! use everything available
       case ('coh3d6')
         if (present(fstat))       call extract (elem%coh3d6, fstat=fstat)
         if (present(connec))      call extract (elem%coh3d6, connec=connec)
-        if (present(ID_matlist))  call extract (elem%coh3d6, ID_matlist=ID_matlist)
-        if (present(local_clock)) call extract (elem%coh3d6, local_clock=local_clock)
         if (present(ig_points))   call extract (elem%coh3d6, ig_points=ig_points)
         if (present(traction))    call extract (elem%coh3d6, traction=traction)
         if (present(separation))  call extract (elem%coh3d6, separation=separation)
@@ -221,8 +215,6 @@ use coh3d8_element_module  ! use everything available
       case ('coh3d8')
         if (present(fstat))       call extract (elem%coh3d8, fstat=fstat)
         if (present(connec))      call extract (elem%coh3d8, connec=connec)
-        if (present(ID_matlist))  call extract (elem%coh3d8, ID_matlist=ID_matlist)
-        if (present(local_clock)) call extract (elem%coh3d8, local_clock=local_clock)
         if (present(ig_points))   call extract (elem%coh3d8, ig_points=ig_points)
         if (present(traction))    call extract (elem%coh3d8, traction=traction)
         if (present(separation))  call extract (elem%coh3d8, separation=separation)
@@ -238,16 +230,19 @@ use coh3d8_element_module  ! use everything available
 
 
 
-  pure subroutine integrate_baseCoh_element (elem, Kmatrix, Fvector, istat, &
-  & emsg, nofailure, mnodes)
-  use xnode_module
+  pure subroutine integrate_baseCoh_element (elem, nodes, material, Kmatrix, &
+  & Fvector, istat, emsg, nofailure)
+  ! extra modules needed to declare the type of some dummy args
+  use xnode_module,             only : xnode
+  use cohesive_material_module, only : cohesive_material
 
       type(baseCoh_element),    intent(inout) :: elem
+      type(xnode),              intent(in)    :: nodes(:)
+      type(cohesive_material),  intent(in)    :: material
       real(DP), allocatable,    intent(out)   :: Kmatrix(:,:), Fvector(:)
       integer,                  intent(out)   :: istat
       character(len=MSGLENGTH), intent(out)   :: emsg
       logical,        optional, intent(in)    :: nofailure
-      type(xnode),    optional, intent(in)    :: mnodes(:)
 
       ! local variables
       logical :: nofail
@@ -265,26 +260,38 @@ use coh3d8_element_module  ! use everything available
       ! here.
       select case(elem%eltype)
 
-          case('coh3d6')
-            if (present(mnodes)) then
-              call integrate(elem%coh3d6, Kmatrix, Fvector, istat, emsg,&
-              & nofail, mnodes)
-            else
-              call integrate(elem%coh3d6, Kmatrix, Fvector, istat, emsg,&
-              & nofail)
-            end if
+        case('coh3d6')
 
-          case('coh3d8')
-            if (present(mnodes)) then
-              call integrate(elem%coh3d8, Kmatrix, Fvector, istat, emsg,&
-              & nofail, mnodes)
-            else
-              call integrate(elem%coh3d8, Kmatrix, Fvector, istat, emsg,&
-              & nofail)
+            ! check no. of nodes, exit program if incorrect
+            if ( size(nodes) /= 6 ) then
+              istat = STAT_FAILURE
+              emsg  = 'size of nodes is not 6 for coh3d6 base element, &
+              & integrate, baseCoh_element_module'
+              return
             end if
+            
+            call integrate(elem%coh3d6, nodes, material, Kmatrix, Fvector, &
+            & istat, emsg, nofail)
 
-          case default
-              ! this should not be reached
+        case('coh3d8')
+
+            ! check no. of nodes, exit program if incorrect
+            if ( size(nodes) /= 8 ) then
+              istat = STAT_FAILURE
+              emsg  = 'size of nodes is not 8 for coh3d8 base element, &
+              & integrate, baseCoh_element_module'
+              return
+            end if
+            
+            call integrate(elem%coh3d8, nodes, material, Kmatrix, Fvector, &
+            & istat, emsg, nofail)
+
+        case default
+            ! this should not be reached
+            istat = STAT_FAILURE
+            emsg  = 'unexpected elem type, integrate, baseCoh_element_module'
+            return
+            
       end select
 
   end subroutine integrate_baseCoh_element

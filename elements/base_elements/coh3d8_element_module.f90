@@ -59,7 +59,6 @@ type, public :: coh3d8_element
   ! list of type components:
   ! fstat         : element failure status
   ! connec        : indices of element nodes in the global node array
-  ! ID_matlist    : index of element material in its material list
   ! ig_points     : integration points of this element
   ! local_clock   : locally-saved program clock
   ! traction      : traction on the interface, for output
@@ -67,7 +66,6 @@ type, public :: coh3d8_element
   ! dm            : matrix degradation factor for output
   integer  :: fstat         = 0
   integer  :: connec(NNODE) = 0
-  integer  :: ID_matlist    = 0
   type(program_clock)     :: local_clock
   type(cohesive_ig_point) :: ig_points(NIGPOINT)
   real(DP) :: traction(NST)   = ZERO
@@ -124,7 +122,7 @@ end subroutine empty_coh3d8_element
 
 
 
-pure subroutine set_coh3d8_element (elem, connec, ID_matlist, istat, emsg)
+pure subroutine set_coh3d8_element (elem, connec, istat, emsg)
 ! Purpose:
 ! this subroutine is used to set the components of the element
 ! it is used in the initialize_lib_elem procedure in the lib_elem module
@@ -133,7 +131,6 @@ pure subroutine set_coh3d8_element (elem, connec, ID_matlist, istat, emsg)
 
   type(coh3d8_element),   intent(inout)   :: elem
   integer,                intent(in)      :: connec(NNODE)
-  integer,                intent(in)      :: ID_matlist
   integer,                  intent(out)   :: istat
   character(len=MSGLENGTH), intent(out)   :: emsg
   
@@ -148,22 +145,14 @@ pure subroutine set_coh3d8_element (elem, connec, ID_matlist, istat, emsg)
     return
   end if
   
-  if ( ID_matlist < 1 ) then
-    istat = STAT_FAILURE
-    emsg  = 'ID_matlist must be >=1, set, &
-    &coh3d8_element_module'
-    return
-  end if
-  
   elem%connec    = connec
-  elem%ID_matlist = ID_matlist
 
 end subroutine set_coh3d8_element
 
 
 
-pure subroutine extract_coh3d8_element (elem, fstat, connec, ID_matlist, &
-& local_clock, ig_points, traction, separation, dm)
+pure subroutine extract_coh3d8_element (elem, fstat, connec, ig_points, &
+& traction, separation, dm)
 ! Purpose:
 ! to extract the components of this element
 ! note that the dummy args connec and ig_points are allocatable arrays
@@ -172,8 +161,6 @@ pure subroutine extract_coh3d8_element (elem, fstat, connec, ID_matlist, &
   type(coh3d8_element),                           intent(in)  :: elem
   integer,                              optional, intent(out) :: fstat
   integer,                 allocatable, optional, intent(out) :: connec(:)
-  integer,                              optional, intent(out) :: ID_matlist
-  type(program_clock),                  optional, intent(out) :: local_clock
   type(cohesive_ig_point), allocatable, optional, intent(out) :: ig_points(:)
   real(DP),                             optional, intent(out) :: traction(NST)
   real(DP),                             optional, intent(out) :: separation(NST)
@@ -185,10 +172,6 @@ pure subroutine extract_coh3d8_element (elem, fstat, connec, ID_matlist, &
     allocate(connec(NNODE))
     connec = elem%connec
   end if
-
-  if (present(ID_matlist))  ID_matlist  = elem%ID_matlist
-
-  if (present(local_clock)) local_clock = elem%local_clock
 
   if (present(ig_points)) then
     allocate(ig_points(NIGPOINT))
@@ -205,8 +188,8 @@ end subroutine extract_coh3d8_element
 
 
 
-pure subroutine integrate_coh3d8_element (elem, K_matrix, F_vector, istat, &
-& emsg, nofailure, mnodes)
+pure subroutine integrate_coh3d8_element (elem, nodes, material, K_matrix, &
+& F_vector, istat, emsg, nofailure)
 ! Purpose:
 ! updates K matrix, F vector, integration point stress and strain,
 ! and the solution dependent variables (sdvs) of ig points and element
@@ -215,35 +198,28 @@ pure subroutine integrate_coh3d8_element (elem, K_matrix, F_vector, istat, &
 
 ! list of used modules:
 ! xnode_module                  : xnode derived type and its assoc. procedures
-! global_node_list_module       : global node list
-! global_material_list_module   : global material list
 ! global_toolkit_module         : global tools for element integration
 use xnode_module,                only : xnode, extract
-use global_node_list_module,     only : global_node_list
-use global_material_list_module, only : global_cohesive_list
 use global_toolkit_module,       only : cross_product3d, normalize_vect, &
                                  & determinant2d
 
   ! mnodes: material (interpolated) nodes
   type(coh3d8_element),     intent(inout) :: elem
+  type(xnode),              intent(in)    :: nodes(NNODE)
+  type(cohesive_material),  intent(in)    :: material
   real(DP),    allocatable, intent(out)   :: K_matrix(:,:), F_vector(:)
   integer,                  intent(out)   :: istat
   character(len=MSGLENGTH), intent(out)   :: emsg
   logical,       optional,  intent(in)    :: nofailure
-  type(xnode),   optional,  intent(in)    :: mnodes(NNODE)
 
   ! local copies of intent(inout) dummy arg./its components:
   ! - elfstat         : elem's fstat
-  ! - connec          : elem's connectivity matrix
-  ! - ID_matlist      : elem's ID_matlist
   ! - local_clock     : elem's local_clock
   ! - ig_points       : elem's ig_points
   ! - eltraction      : elem's traction
   ! - elseparation    : elem's separation
   ! - eldm            : elem's dm
   integer             :: elfstat
-  integer             :: connec(NNODE)
-  integer             :: ID_matlist
   type(program_clock) :: local_clock
   type(cohesive_ig_point) :: ig_points(NIGPOINT)
   real(DP)            :: eltraction(NST)
@@ -253,12 +229,10 @@ use global_toolkit_module,       only : cross_product3d, normalize_vect, &
   ! the rest are all local variables
 
   !** nodal variables:
-  ! - nodes           : array of element nodes
   ! - xj, uj          : nodal x and u extracted from nodes array
   ! - coords          : element nodal coordinates matrix
   ! - u               : element nodal displacemet vector
   ! - midcoords       : coordinates of the mid-plane
-  type(xnode)         :: nodes(NNODE)
   real(DP), allocatable :: xj(:), uj(:)
   real(DP)            :: coords(NDIM,NNODE), u(NDOF)
   real(DP)            :: midcoords(NDIM,NNODE/2)
@@ -272,10 +246,6 @@ use global_toolkit_module,       only : cross_product3d, normalize_vect, &
   real(DP)            :: normal(NDIM), tangent1(NDIM), tangent2(NDIM)
   logical             :: is_zero_vect
   real(DP)            :: Qmatrix(NDIM,NDIM)
-
-  !** material definition:
-  ! - this_mat        : the lamina material definition of this element
-  type(cohesive_material) :: this_mat
 
   !** analysis logical control variables:
   ! - last_converged  : true if last iteration has converged
@@ -328,8 +298,6 @@ use global_toolkit_module,       only : cross_product3d, normalize_vect, &
   emsg            = ''
   !** local copies of intent(inout) dummy args./its components:
   elfstat         = 0
-  connec          = 0
-  ID_matlist      = 0
   eltraction      = ZERO
   elseparation    = ZERO
   eldm            = ZERO
@@ -369,20 +337,6 @@ use global_toolkit_module,       only : cross_product3d, normalize_vect, &
 
 
   ! check validity of input/imported variables
-  ! here, check if global_node_list and global_lamina_list are allocated
-  if (.not. allocated(global_node_list)) then
-    istat = STAT_FAILURE
-    emsg  = 'global_node_list not allocated, coh3d8_element_module'
-  else if (.not. allocated(global_cohesive_list)) then
-    istat = STAT_FAILURE
-    emsg  = 'global_cohesive_list not allocated, coh3d8_element_module'
-  end if
-  ! if there's any error encountered above
-  ! clean up and exit the program
-  if (istat == STAT_FAILURE) then
-    call clean_up (K_matrix, F_vector, uj, xj)
-    return
-  end if
 
   ! assign values to local variables
 
@@ -396,19 +350,10 @@ use global_toolkit_module,       only : cross_product3d, normalize_vect, &
   ! eltraction  : no extraction     ! out
   ! elseparation: no extraction     ! out
   ! eldm        : no extraction     ! out
-  connec        = elem%connec       ! in
-  ID_matlist    = elem%ID_matlist   ! in
   local_clock   = elem%local_clock  ! inout
   ig_points     = elem%ig_points    ! inout
 
   !** nodal variables:
-  if (present(mnodes)) then
-  ! - extract nodes from passed-in node array
-    nodes = mnodes
-  else
-  ! - extract nodes from global node list
-    nodes = global_node_list(connec)
-  end if
   ! extract nodal components and assign to respective local arrays:
   ! nodal x -> coords
   ! nodal u -> u
@@ -488,10 +433,6 @@ use global_toolkit_module,       only : cross_product3d, normalize_vect, &
     Qmatrix(3,j)=tangent2(j)
   end do
 
-  !** material definition:
-  ! extract material definition from global material list
-  this_mat = global_cohesive_list(ID_matlist)
-
   !** analysis logical control variables:
   ! check if last iteration has converged by checking if the global clock has
   ! advanced; if so, last iteration is converged and sync the local clock
@@ -559,10 +500,10 @@ use global_toolkit_module,       only : cross_product3d, normalize_vect, &
       ! to calculate D and traction, and update sdv_iter
       if(nofail) then
       ! no failure is allowed, use ddsdde_cohesve_intact
-        call ddsdde (this_mat, dee=dee, traction=tau, separation=delta)
+        call ddsdde (material, dee=dee, traction=tau, separation=delta)
       else
       ! failure is allowed, use ddsdde_cohesive
-        call ddsdde (this_mat, dee=dee, traction=tau, sdv=ig_sdv_iter, &
+        call ddsdde (material, dee=dee, traction=tau, sdv=ig_sdv_iter, &
         & separation=delta, istat=istat, emsg=emsg)
         if (istat == STAT_FAILURE) exit loop_igpoint
       end if
@@ -622,17 +563,6 @@ use global_toolkit_module,       only : cross_product3d, normalize_vect, &
 
   ! check to see if intent(inout) derived type dummy arg's components are
   ! unintentionally modified
-  if ( any (connec /= elem%connec) ) then
-    istat = STAT_FAILURE
-    emsg  = 'elem%connec is unintentionally modified in coh3d8_element module'
-  else if (ID_matlist /= elem%ID_matlist) then
-    istat = STAT_FAILURE
-    emsg  = 'elem%ID_matlist is unintentionally modified in coh3d8_element module'
-  end if
-  if (istat == STAT_FAILURE) then
-    call clean_up (K_matrix, F_vector, uj, xj)
-    return
-  end if
 
   ! if no unintentinal modification, proceed with final calculations
   ! and updates and exit the program

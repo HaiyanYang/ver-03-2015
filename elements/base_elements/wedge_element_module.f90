@@ -36,6 +36,9 @@ module wedge_element_module
 !    Date      Programmer            Description of change
 !    ========  ====================  ========================================
 !    08/04/15  B. Y. Chen            Original code
+!    21/04/15  B. Y. Chen            removed access of glb node/mat lists, 
+!                                    remove ID_matlist, pass mat and nodes arg.
+!                                    to integrate procedure
 !
 
 use parameter_module, only : NST => NST_STANDARD, NDIM, DP, ZERO, SMALLNUM,    &
@@ -77,7 +80,6 @@ type, public :: wedge_element
   ! list of type components:
   ! fstat         : element failure status
   ! connec        : indices of element nodes in the global node list
-  ! ID_matlist    : index of element material in its material list
   ! ply_angle     : ply angle for composite lamina (rotation around z axis)
   ! ig_points     : integration points of this element
   ! local_clock   : locally-saved program clock
@@ -86,7 +88,6 @@ type, public :: wedge_element
   ! df            : fibre degradation factor for output
   integer  :: fstat         = 0
   integer  :: connec(NNODE) = 0
-  integer  :: ID_matlist    = 0
   real(DP) :: ply_angle     = ZERO
   type(program_clock)   :: local_clock
   type(lamina_ig_point) :: ig_points(NIGPOINT)
@@ -144,8 +145,7 @@ end subroutine empty_wedge_element
 
 
 
-pure subroutine set_wedge_element (elem, connec, ID_matlist, ply_angle, &
-& istat, emsg)
+pure subroutine set_wedge_element (elem, connec, ply_angle, istat, emsg)
 ! Purpose:
 ! this subroutine is used to set the components of the element
 ! it is used in the initialize_lib_elem procedure in the lib_elem module
@@ -154,7 +154,6 @@ pure subroutine set_wedge_element (elem, connec, ID_matlist, ply_angle, &
 
   type(wedge_element),    intent(inout)   :: elem
   integer,                intent(in)      :: connec(NNODE)
-  integer,                intent(in)      :: ID_matlist
   real(DP),               intent(in)      :: ply_angle
   integer,                  intent(out)   :: istat
   character(len=MSGLENGTH), intent(out)   :: emsg
@@ -170,23 +169,15 @@ pure subroutine set_wedge_element (elem, connec, ID_matlist, ply_angle, &
     return
   end if
   
-  if ( ID_matlist < 1 ) then
-    istat = STAT_FAILURE
-    emsg  = 'ID_matlist must be >=1, set, &
-    &wedge_element_module'
-    return
-  end if
-  
   elem%connec    = connec
-  elem%ID_matlist = ID_matlist
   elem%ply_angle = ply_angle
 
 end subroutine set_wedge_element
 
 
 
-pure subroutine extract_wedge_element (elem, fstat, connec, ID_matlist, &
-& ply_angle, local_clock, ig_points, stress, strain, df)
+pure subroutine extract_wedge_element (elem, fstat, connec, ply_angle, &
+& ig_points, stress, strain, df)
 ! Purpose:
 ! to extract the components of this element
 ! note that the dummy args connec and ig_points are allocatable arrays
@@ -195,9 +186,7 @@ pure subroutine extract_wedge_element (elem, fstat, connec, ID_matlist, &
   type(wedge_element),                          intent(in)  :: elem
   integer,                            optional, intent(out) :: fstat
   integer,               allocatable, optional, intent(out) :: connec(:)
-  integer,                            optional, intent(out) :: ID_matlist
   real(DP),                           optional, intent(out) :: ply_angle
-  type(program_clock),                optional, intent(out) :: local_clock
   type(lamina_ig_point), allocatable, optional, intent(out) :: ig_points(:)
   real(DP),                           optional, intent(out) :: stress(NST)
   real(DP),                           optional, intent(out) :: strain(NST)
@@ -210,11 +199,7 @@ pure subroutine extract_wedge_element (elem, fstat, connec, ID_matlist, &
     connec = elem%connec
   end if
 
-  if (present(ID_matlist))  ID_matlist  = elem%ID_matlist
-
   if (present(ply_angle))   ply_angle   = elem%ply_angle
-
-  if (present(local_clock)) local_clock = elem%local_clock
 
   if (present(ig_points)) then
     allocate(ig_points(NIGPOINT))
@@ -231,8 +216,8 @@ end subroutine extract_wedge_element
 
 
 
-pure subroutine integrate_wedge_element (elem, K_matrix, F_vector, istat, emsg,&
-& nofailure, mnodes)
+pure subroutine integrate_wedge_element (elem, nodes, material, K_matrix, &
+& F_vector, istat, emsg, nofailure)
 ! Purpose:
 ! updates K matrix, F vector, integration point stress and strain,
 ! and the solution dependent variables (sdvs) of ig points and element
@@ -244,28 +229,23 @@ pure subroutine integrate_wedge_element (elem, K_matrix, F_vector, istat, emsg,&
 
 ! list of additionally used modules:
 ! xnode_module                  : xnode derived type and its assoc. procedures
-! global_node_list_module       : global node list
-! global_material_list_module   : global material list
 ! global_toolkit_module         : global tools for element integration
 use xnode_module,                only : xnode, extract
-use global_node_list_module,     only : global_node_list
-use global_material_list_module, only : global_lamina_list
 use global_toolkit_module,       only : crack_elem_centroid2d, determinant3d, &
                                       & invert_self3d, beemat3d, lcl_strain3d,&
                                       & glb_dee3d, distance
 
   type(wedge_element),      intent(inout) :: elem
+  type(xnode),              intent(in)    :: nodes(NNODE)
+  type(lamina_material),    intent(in)    :: material
   real(DP),    allocatable, intent(out)   :: K_matrix(:,:), F_vector(:)
   integer,                  intent(out)   :: istat
   character(len=MSGLENGTH), intent(out)   :: emsg
   logical,        optional, intent(in)    :: nofailure
-  type(xnode),    optional, intent(in)    :: mnodes(NNODE)
 
 
   ! local copies of intent(inout) dummy arg./its components:
   ! - elfstat         : elem's fstat
-  ! - connec          : elem's connectivity matrix
-  ! - ID_matlist      : elem's ID_matlist
   ! - ply_angle       : elem's ply_angle
   ! - local_clock     : elem's local_clock
   ! - ig_points       : elem's ig_points
@@ -273,8 +253,6 @@ use global_toolkit_module,       only : crack_elem_centroid2d, determinant3d, &
   ! - elstrain        : elem's strain
   ! - eldf            : elem's df
   integer             :: elfstat
-  integer             :: connec(NNODE)
-  integer             :: ID_matlist
   real(DP)            :: ply_angle
   type(program_clock) :: local_clock
   type(lamina_ig_point) :: ig_points(NIGPOINT)
@@ -285,17 +263,11 @@ use global_toolkit_module,       only : crack_elem_centroid2d, determinant3d, &
   ! the rest are all local variables
 
   !** nodal variables:
-  ! - nodes           : array of element nodes
   ! - xj, uj          : nodal x and u extracted from nodes array
   ! - coords          : element nodal coordinates matrix
   ! - u               : element nodal displacemet vector
-  type(xnode)         :: nodes(NNODE)
   real(DP), allocatable :: xj(:), uj(:)
   real(DP)            :: coords(NDIM,NNODE), u(NDOF)
-
-  !** material definition:
-  ! - this_mat        : the lamina material definition of this element
-  type(lamina_material) :: this_mat
 
   !** element characteristic length variables:
   ! - clength         : characteristic length of this element
@@ -350,8 +322,6 @@ use global_toolkit_module,       only : crack_elem_centroid2d, determinant3d, &
   emsg            = ''
   !** local copies of intent(inout) dummy args./its components:
   elfstat         = 0
-  connec          = 0
-  ID_matlist      = 0
   ply_angle       = ZERO
   elstress        = ZERO
   elstrain        = ZERO
@@ -388,20 +358,6 @@ use global_toolkit_module,       only : crack_elem_centroid2d, determinant3d, &
 
 
   ! check validity of input/imported variables
-  ! here, check if global_node_list and global_lamina_list are allocated
-  if (.not. allocated(global_node_list)) then
-    istat = STAT_FAILURE
-    emsg  = 'global_node_list not allocated, wedge_element_module'
-  else if (.not. allocated(global_lamina_list)) then
-    istat = STAT_FAILURE
-    emsg  = 'global_lamina_list not allocated, wedge_element_module'
-  end if
-  ! if there's any error encountered above
-  ! clean up and exit the program
-  if (istat == STAT_FAILURE) then
-    call clean_up (K_matrix, F_vector, uj, xj)
-    return
-  end if
 
   ! assign values to local variables
 
@@ -415,22 +371,11 @@ use global_toolkit_module,       only : crack_elem_centroid2d, determinant3d, &
   ! elstress  : no extraction     ! out
   ! elstrain  : no extraction     ! out
   ! eldf      : no extraction     ! out
-  connec      = elem%connec       ! in
-  ID_matlist  = elem%ID_matlist   ! in
   ply_angle   = elem%ply_angle    ! in
   local_clock = elem%local_clock  ! inout
   ig_points   = elem%ig_points    ! inout
 
   !** nodal variables:
-  ! copy nodes from global nodes array to local nodes array
-  ! using element node indices stored in connectivity array
-  if (present(mnodes)) then
-  ! - extract nodes from passed-in node array
-    nodes = mnodes
-  else
-  ! - extract nodes from global node list
-    nodes = global_node_list(connec)
-  end if
   ! extract nodal components and assign to respective local arrays:
   ! nodal x -> coords
   ! nodal u -> u
@@ -462,10 +407,6 @@ use global_toolkit_module,       only : crack_elem_centroid2d, determinant3d, &
     call clean_up (K_matrix, F_vector, uj, xj)
     return
   end if
-
-  !** material definition:
-  ! extract material definition from global material list
-  this_mat = global_lamina_list(ID_matlist)
 
   !** element characteristic length:
   ! this is the length of the line segment orthogonal to the fibre angle,
@@ -557,10 +498,10 @@ use global_toolkit_module,       only : crack_elem_centroid2d, determinant3d, &
       ! to calculate D and stress, and update sdv_iter
       if(nofail) then
       ! no failure is allowed, use ddsdde_lamina_intact
-        call ddsdde (this_mat, dee=dee, stress=ig_stress, strain=ig_strain)
+        call ddsdde (material, dee=dee, stress=ig_stress, strain=ig_strain)
       else
       ! failure is allowed, use ddsdde_lamina
-        call ddsdde (this_mat, dee=dee, stress=ig_stress, sdv=ig_sdv_iter, &
+        call ddsdde (material, dee=dee, stress=ig_stress, sdv=ig_sdv_iter, &
         & strain=ig_strain, clength=clength, istat=istat, emsg=emsg)
         if (istat == STAT_FAILURE) exit loop_igpoint
       end if
@@ -623,13 +564,7 @@ use global_toolkit_module,       only : crack_elem_centroid2d, determinant3d, &
 
   ! check to see if intent(inout) derived type dummy arg's components are
   ! unintentionally modified
-  if ( any (connec /= elem%connec) ) then
-    istat = STAT_FAILURE
-    emsg  = 'elem%connec is unintentionally modified in wedge_element module'
-  else if (ID_matlist /= elem%ID_matlist) then
-    istat = STAT_FAILURE
-    emsg  = 'elem%ID_matlist is unintentionally modified in wedge_element module'
-  else if (abs(ply_angle - elem%ply_angle) > SMALLNUM) then
+  if (abs(ply_angle - elem%ply_angle) > SMALLNUM) then
     istat = STAT_FAILURE
     emsg  = 'elem%ply_angle is unintentionally modified in wedge_element module'
   end if
