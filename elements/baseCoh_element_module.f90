@@ -15,8 +15,8 @@ module baseCoh_element_module
 use parameter_module, only : NST => NST_COHESIVE, DP, ELTYPELENGTH, &
                       & MSGLENGTH, STAT_SUCCESS, STAT_FAILURE
 
-use coh3d6_element_module  ! use everything available
-use coh3d8_element_module  ! use everything available
+use coh3d6_element_module, only : coh3d6_element
+use coh3d8_element_module, only : coh3d8_element
 
   implicit none
   private
@@ -89,6 +89,8 @@ use coh3d8_element_module  ! use everything available
   ! left for the called eltype's set procedure for checking
   ! - local copies of elem's components are used for set operation;
   ! they are copied to actual elem's components only before successful return
+  use coh3d6_element_module, only : coh3d6_element, set
+  use coh3d8_element_module, only : coh3d8_element, set
   
       type(baseCoh_element),    intent(inout) :: elem
       character(len=*),         intent(in)    :: eltype
@@ -185,8 +187,9 @@ use coh3d8_element_module  ! use everything available
   pure subroutine extract_baseCoh_element (elem, eltype, fstat, connec, &
   & ig_points, traction, separation, dm)
   ! extra modules needed to declare the type of some dummy args
-  use global_clock_module
-  use cohesive_material_module
+  use cohesive_material_module, only :cohesive_ig_point
+  use coh3d6_element_module,    only : extract
+  use coh3d8_element_module,    only : extract
 
     type(baseCoh_element),                          intent(in)  :: elem
     character(len=ELTYPELENGTH),          optional, intent(out) :: eltype
@@ -235,6 +238,8 @@ use coh3d8_element_module  ! use everything available
   ! extra modules needed to declare the type of some dummy args
   use xnode_module,             only : xnode
   use cohesive_material_module, only : cohesive_material
+  use coh3d6_element_module,    only : integrate
+  use coh3d8_element_module,    only : integrate
 
       type(baseCoh_element),    intent(inout) :: elem
       type(xnode),              intent(in)    :: nodes(:)

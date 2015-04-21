@@ -15,8 +15,8 @@ module basePly_element_module
 use parameter_module, only : NST => NST_STANDARD, DP, ELTYPELENGTH, &
                       & MSGLENGTH, STAT_SUCCESS, STAT_FAILURE
 
-use wedge_element_module  ! use everything available
-use brick_element_module  ! use everything available
+use wedge_element_module, only : wedge_element
+use brick_element_module, only : brick_element
 
   implicit none
   private
@@ -90,6 +90,8 @@ use brick_element_module  ! use everything available
   ! left for the called eltype's set procedure for checking
   ! - local copies of elem's components are used for set operation;
   ! they are copied to actual elem's components only before successful return
+  use wedge_element_module, only : wedge_element, set
+  use brick_element_module, only : brick_element, set
 
     type(basePly_element),       intent(inout) :: elem
     character(len=*),            intent(in)    :: eltype
@@ -194,6 +196,8 @@ use brick_element_module  ! use everything available
   & ply_angle, ig_points, stress, strain, df)
   ! extra modules needed to declare the type of some dummy args
   use lamina_material_module, only : lamina_ig_point
+  use wedge_element_module,   only : extract
+  use brick_element_module,   only : extract
 
     type(basePly_element),                        intent(in)  :: elem
     character(len=ELTYPELENGTH),        optional, intent(out) :: eltype
@@ -245,6 +249,8 @@ use brick_element_module  ! use everything available
   ! extra modules needed to declare the type of some dummy args
   use xnode_module,           only : xnode
   use lamina_material_module, only : lamina_material
+  use wedge_element_module,   only : integrate
+  use brick_element_module,   only : integrate
 
       type(basePly_element),    intent(inout) :: elem
       type(xnode),              intent(in)    :: nodes(:)

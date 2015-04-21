@@ -47,7 +47,7 @@ module fCoh3d8_subelem_module
 !
 
 ! load the modules and entities used for derived type declaration only
-use parameter_module, only : NDIM, DP, ZERO, INT_ALLOC_ARRAY
+use parameter_module,       only : NDIM, DP, ZERO, INT_ALLOC_ARRAY
 use baseCoh_element_module, only : baseCoh_element
 
 implicit none
@@ -141,7 +141,7 @@ end subroutine empty_fCoh3d8_subelem
 pure subroutine set_fCoh3d8_subelem (elem, node_connec, edge_connec, istat, emsg)
 ! Purpose:
 ! to set the element ready for first use
-use parameter_module, only : MSGLENGTH, STAT_FAILURE, STAT_SUCCESS
+use parameter_module,       only : MSGLENGTH, STAT_FAILURE, STAT_SUCCESS
 use baseCoh_element_module, only : set
 
   type(fCoh3d8_subelem),    intent(inout) :: elem
@@ -245,7 +245,7 @@ pure subroutine extract_fCoh3d8_subelem (elem, pstat, node_connec, edge_connec,&
 ! ** Note: **
 ! to output this element, subelem array needs to be extracted first, then
 ! extract the connec, fstat, dm, traction, separation, etc. from each sub elem
-use parameter_module, only : DP, INT_ALLOC_ARRAY
+use parameter_module,       only : DP, INT_ALLOC_ARRAY
 use baseCoh_element_module, only : baseCoh_element
 
   type(fCoh3d8_subelem),                        intent(in)  :: elem
@@ -303,7 +303,7 @@ pure subroutine integrate_fCoh3d8_subelem (elem, nodes, edge_status, material, &
 ! to integrate this fCoh3d8 subelem and update its internal nodes in nodes array
 use parameter_module, only : DP, MSGLENGTH, STAT_FAILURE, STAT_SUCCESS, ZERO, &
                       & INTACT, PARTITIONED_FCOHSUB
-use xnode_module, only : xnode
+use xnode_module,             only : xnode
 use cohesive_material_module, only : cohesive_material
 
   type(fCoh3d8_subelem),    intent(inout) :: elem
@@ -559,9 +559,9 @@ pure subroutine partition_element (el, nodes, istat, emsg)
 ! according to the edge status of top edges of this element
 use parameter_module, only : MSGLENGTH, STAT_SUCCESS, STAT_FAILURE, INT_ALLOC_ARRAY, &
                       & DP
-use xnode_module, only : xnode, extract
+use xnode_module,           only : xnode, extract
 use baseCoh_element_module, only : set
-use global_toolkit_module, only : distance
+use global_toolkit_module,  only : distance
 
   ! passed-in variables
   type(fCoh3d8_subelem),    intent(inout) :: el
@@ -957,7 +957,7 @@ pure subroutine update_internal_nodes (el, nodes)
 ! Purpose:
 ! - update the components of the internal nodes of this element
 use parameter_module, only : ZERO, ONE
-use xnode_module, only : xnode, operator(+), operator(*)
+use xnode_module,     only : xnode, operator(+), operator(*)
 
   type(fCoh3d8_subelem), intent(in)    :: el
   type(xnode),           intent(inout) :: nodes(NNODE)
@@ -1005,10 +1005,10 @@ pure subroutine integrate_assemble_subelem (elem, nodes, material, K_matrix, &
 ! integrate and assemble sub element system arrays
 use parameter_module, only : DP, MSGLENGTH, STAT_SUCCESS, STAT_FAILURE, ZERO, &
                       & INTACT, PARTITIONED_FCOHSUB, NDIM
-use xnode_module, only : xnode
+use xnode_module,             only : xnode
 use cohesive_material_module, only : cohesive_material
-use baseCoh_element_module, only : integrate
-use global_toolkit_module, only : assembleKF
+use baseCoh_element_module,   only : integrate
+use global_toolkit_module,    only : assembleKF
 
   ! - passed in variables
   type(fCoh3d8_subelem),    intent(inout) :: elem
