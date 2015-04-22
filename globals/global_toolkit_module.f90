@@ -20,11 +20,11 @@ module global_toolkit_module
 !       and flag error when their sizes are not expected
 !   ALWAYS CHECK the validity of intent in/inout dummy args if they are expected
 !       to be within a certain range of values
-!       EXCEPTION: if the input arg is a size parameter of other input args, 
+!       EXCEPTION: if the input arg is a size parameter of other input args,
 !       then its checking can be left to the compilor
-!   ALWAYS USE LOCAL COPY OF INTENT(INOUT) and OPTIONAL dummy args. for 
+!   ALWAYS USE LOCAL COPY OF INTENT(INOUT) and OPTIONAL dummy args. for
 !       calculation, only update to the original arg. before successful return
-!   
+!
 !
 !  Record of revision:
 !    Date      Programmer            Description of change
@@ -789,6 +789,498 @@ contains
 
   end subroutine crack_elem_centroid2d
 
+
+
+  pure subroutine crack_elem_cracktip2d (cracktip_point, cracktip_edge_index, &
+  & nedge, crack_angle, coords, nodes_on_edges, istat, emsg, edge_crack_point,&
+  & crack_edge_index)
+  ! Purpose:
+  ! to find the OTHER cross point between the crack line (starting from existing
+  ! crack tip) and another edge of an element, and the index of the edge crossed
+
+  use parameter_module, only : DP, MSGLENGTH, STAT_SUCCESS, STAT_FAILURE, &
+                        & ZERO, HALF, HALFCIRC, PI, SMALLNUM,             &
+                        & CROSS_ON_EDGE_ON_CRACK,  CROSS_ON_EDGE_OFF_CRACK
+
+    ! list of dummy args:
+    ! - cracktip_point     : coords of the crack tip
+    ! - cracktip_edge_index: index of the edge containing the cracktip
+    ! - nedge              : no. of edges in this element; = no. of nodes
+    ! - crack_angle
+    ! - coords             : nodal coordinates of this element
+    ! - nodes_on_edges(:,i) : indices of the two end nodes of the edge i
+    ! - edge_crack_point   : coords of the crack point on the cracked edge
+    ! - crack_edge_index   : index of the cracked edge
+    real(DP), intent(in)  :: cracktip_point(2)
+    integer,  intent(in)  :: cracktip_edge_index
+    integer,  intent(in)  :: nedge
+    real(DP), intent(in)  :: crack_angle
+    real(DP), intent(in)  :: coords(2, nedge)
+    integer,  intent(in)  :: nodes_on_edges(2, nedge)
+    integer,                  intent(out) :: istat
+    character(len=MSGLENGTH), intent(out) :: emsg
+    real(DP),                 intent(out) :: edge_crack_point(2)
+    integer,        optional, intent(out) :: crack_edge_index
+
+    ! local variables
+    ! - theta             : ply angle in radiant
+    ! - crack_unit_vector : unit vector along the crack line
+    ! - coords_crack      : coordinates of end nodes of crack line segment
+    ! - coords_edge       : coordinates of end nodes of an element edge
+    ! - cross_point       : coordinates of the cross point btw crack and edge
+    ! - n_crack_edge      : no. of cracked edges
+    ! - cross_stat        : status of crossing btw a crack and an edge
+    ! - crack_edge_ID     : local copy of optional arg crack_edge_index
+    real(DP) :: theta, crack_unit_vect(2)
+    real(DP) :: coords_crack(2,2), coords_edge(2,2), cross_point(2)
+    integer  :: n_crack_edge, cross_stat, crack_edge_ID
+    character(len=MSGLENGTH) :: msgloc
+
+    integer :: i, j
+
+    ! initialize intent out variables
+    istat             = STAT_SUCCESS
+    emsg              = ''
+    edge_crack_point  = ZERO
+    if (present(crack_edge_index)) crack_edge_index = 0
+    ! initialize local variables
+    theta        = ZERO
+    crack_unit_vect = ZERO
+    coords_crack = ZERO
+    coords_edge  = ZERO
+    cross_point  = ZERO
+    cross_stat     = 0
+    n_crack_edge   = 0
+    crack_edge_ID  = 0
+    msgloc = ' crack_elem_cracktip2d, global_toolkit_module.'
+    i=0; j=0
+
+    ! check validity of inputs: nedge, crack_angle, coords, nodes_on_edges
+    ! nedge must be > 0, this check is omitted as if it is not satisfied,
+    ! compilor should flag error as it sets the size of coords and nodes_on_edges
+    ! crack_angle and coords can take any values
+    ! nodes_on_edges must be >= 1, this need to be checked
+    if ( cracktip_edge_index < 1 ) then
+      istat = STAT_FAILURE
+      emsg  = 'cracktip edge index must be >=1,'//trim(msgloc)
+      return
+    end if
+    if ( any(nodes_on_edges < 1) ) then
+      istat = STAT_FAILURE
+      emsg  = 'end node indices must be >=1,'//trim(msgloc)
+      return
+    end if
+
+    ! find crack line unit vector
+    theta           = crack_angle / HALFCIRC * PI
+    crack_unit_vect = [cos(theta), sin(theta)]
+
+    ! set cracktip as node 1 of crack line segment
+    coords_crack(:,1) = cracktip_point(:)
+    ! set node 2 coordinates of crack line segment
+    ! to be a unit distance away from node 1 along the crack line
+    coords_crack(:,2) = coords_crack(:,1) + crack_unit_vect(:)
+
+
+
+    !**** MAIN CALCULATIONS ****
+
+    ! loop over all edges to find ONE cross point with the crack line
+    ! theoretically, this should find EXACTLY ONE cross point, as the
+    ! crack line passes the element's cracktip edge and it must cross ANOTHER
+    do i = 1, nedge
+      ! if edge i is the cracktip edge, cycle to the next one
+      if ( i == cracktip_edge_index ) cycle
+      ! the two end nodes' coords of edge i
+      coords_edge(:, 1) = coords(:, nodes_on_edges(1,i))
+      coords_edge(:, 2) = coords(:, nodes_on_edges(2,i))
+      ! zero cross_stat and cross_point for reuse
+      cross_stat  = 0
+      cross_point = ZERO
+      ! check if the edge and crack cross each other
+      call edge_crack_cross2d (coords_edge, coords_crack, cross_stat, cross_point)
+      ! check cross_stat, update only if cross point is on edge
+      if (cross_stat == CROSS_ON_EDGE_ON_CRACK .or. &
+      &   cross_stat == CROSS_ON_EDGE_OFF_CRACK) then
+          ! the other cracked edge found
+          n_crack_edge = 1
+          ! store the index of this cracked edge
+          crack_edge_ID = i
+          ! store the cross point coords of this cracked edge
+          edge_crack_point(:) = cross_point(:)
+          ! task finished, exit the do loop
+          exit
+       end if
+    end do
+
+    !**** END MAIN CALCULATIONS ****
+
+    ! check if indeed ONE cracked edge has been found; if not, then the elem
+    ! is likely to be poorly shaped, flag an error, clean up and return
+    if (n_crack_edge /= 1) then
+      istat = STAT_FAILURE
+      emsg  = 'two cracked edges cannot be found, element is likely to be &
+      &poorly shaped, crack_elem_centroid2d, global_toolkit_module'
+      ! clean up intent out variable before error exit
+      edge_crack_point = ZERO
+      return
+    end if
+
+    ! update optional intent out dummy arg only before successful return
+    if (present(crack_edge_index)) crack_edge_index = crack_edge_ID
+
+  end subroutine crack_elem_cracktip2d
+
+
+
+  pure subroutine partition_quad_elem (NODES_ON_EDGES, lcl_ID_crack_edges, &
+  & subelem_connec, istat, emsg)
+  ! Purpose :
+  ! partition a quad element into sub elems based on passed in local indices of
+  ! its cracked edges
+  ! the topology of the quad elem is defined by NODES_ON_EDGES
+  ! currently, the algorithm does partition with ONE or TWO cracked edges only
+  ! (support for more cracked edges can be included in the future)
+  !
+  ! **** topology definition of a quad element: ****
+  !
+  !     4_______10________E3________9________3
+  !     |                                    |
+  !     |                                    |
+  !     |                                    |
+  !   11|                                    |8
+  !     |                                    |
+  !     |                                    |
+  !     |                                    |
+  !   E4|                                    |E2
+  !     |                                    |
+  !     |                                    |
+  !   12|                                    |7
+  !     |                                    |
+  !     |                                    |
+  !     |____________________________________|
+  !     1        5        E1        6        2
+  !
+  ! **** Each edge is topologically defined by FOUR nodes : ****
+  !
+  ! nodes on edge E1 ::   <end nodes: 1, 2>   <fl. nodes:  5,  6>
+  ! nodes on edge E2 ::   <end nodes: 2, 3>   <fl. nodes:  7,  8>
+  ! nodes on edge E3 ::   <end nodes: 3, 4>   <fl. nodes:  9, 10>
+  ! nodes on edge E4 ::   <end nodes: 4, 1>   <fl. nodes: 11, 12>
+  !
+  use parameter_module, only : INT_ALLOC_ARRAY, MSGLENGTH, STAT_SUCCESS, STAT_FAILURE
+
+    INTEGER,    PARAMETER :: NNODE = 12, NEDGE = 4
+
+    integer,  intent (in) :: NODES_ON_EDGES(4, NEDGE)
+    integer,  intent (in) :: lcl_ID_crack_edges(NEDGE)
+    type(INT_ALLOC_ARRAY), allocatable, intent(out) :: subelem_connec(:)
+    integer, intent(out)  :: istat
+    character(len=MSGLENGTH), intent(out) :: emsg
+
+    ! local variables
+    character(len=MSGLENGTH) :: msgloc
+    integer :: n_crackedges, Icrackedge1, Icrackedge2
+    integer :: nsub, e1, e2, e3, e4
+    integer :: i, j
+
+    ! initialize intent out and local variables
+    istat  = STAT_SUCCESS
+    emsg   = ''
+    msgloc = ' partition_quad_elem, global_toolkit_module.'
+    n_crackedges = 0
+    Icrackedge1  = 0
+    Icrackedge2  = 0
+    nsub = 0
+    e1 = 0; e2 = 0; e3 = 0; e4 = 0
+    i = 0; j = 0
+
+    ! check input validity
+    if ( any (NODES_ON_EDGES < 1) ) then
+      istat = STAT_FAILURE
+      emsg  = 'incorrect NODES_ON_EDGES in'//trim(msgloc)
+      return
+    end if
+    if ( any(lcl_ID_crack_edges < 0) .or. any(lcl_ID_crack_edges > NEDGE) ) then
+      istat = STAT_FAILURE
+      emsg  = 'incorrect lcl_ID_crack_edges in'//trim(msgloc)
+      return
+    end if
+    ! check format: lcl ID of cracked edges must be stored first in array elements
+    do i = 1, NEDGE-1
+        ! when the array elem becomes 0, all the rest must also be 0
+        if (lcl_ID_crack_edges(i) == 0) then
+            ! check the terms after the ith term
+            do j = i+1, NEDGE
+                ! if any of the following term is NOT 0, flag error and exit program
+                if (lcl_ID_crack_edges(j) /= 0) then
+                  istat = STAT_FAILURE
+                  emsg  = "cracked edges' local indices must be stored first in &
+                  & lcl_ID_crack_edges array in"//trim(msgloc)
+                  return
+                end if
+            end do
+        end if
+    end do
+
+    ! find no. of cracked edges
+    n_crackedges = count (lcl_ID_crack_edges > 0)
+
+    select_ncrackedges: select case (n_crackedges)
+
+      ! ***********************************************************************!
+      ! one edge cracked, partition this element into a transition element
+      ! with three triangular sub elems sharing NODE 3 of the cracked edge
+      ! ***********************************************************************!
+      case (1) select_ncrackedges
+
+          ! find the index of the cracked edge
+          Icrackedge1 = lcl_ID_crack_edges(1)
+
+          ! find e1 - e4
+          ! e1 - e4: re-index edges to facilitate partitioning domain
+          select case(Icrackedge1)
+              case (1)
+                  e1=1; e2=2; e3=3; e4=4
+              case (2)
+                  e1=2; e3=3; e3=4; e4=1
+              case (3)
+                  e1=3; e2=4; e3=1; e4=2
+              case (4)
+                  e1=4; e2=1; e3=2; e4=3
+              case default
+                  istat = STAT_FAILURE
+                  emsg  = 'wrong 1st broken edge in'//trim(msgloc)
+                  return
+          end select
+
+          ! nsub: no. of sub elems; here, 3 tri sub elems
+          nsub = 3
+
+          ! allocate nsub no. of subelem_connec
+          allocate(subelem_connec(nsub))
+          ! allocate&initialize the internal arrays of these arrays
+          do j=1, nsub
+            ! allocate connec for 3 nodes of tri sub elems
+            allocate(subelem_connec(j)%array(3))
+            ! initialize these arrays
+            subelem_connec(j)%array = 0
+          end do
+
+          !:::::::::::::::::::::::::!
+          !*** define sub elm 1 ***
+          !:::::::::::::::::::::::::!
+          ! define its local connec with parent element nodes
+          ! top 3 nodes: e1 nodes 3, and e2 nodes 1 & 2
+          subelem_connec(1)%array(1)=NODES_ON_EDGES(3,e1)
+          subelem_connec(1)%array(2)=NODES_ON_EDGES(1,e2)
+          subelem_connec(1)%array(3)=NODES_ON_EDGES(2,e2)
+          !:::::::::::::::::::::::::!
+          !*** define sub elm 2 ***
+          !:::::::::::::::::::::::::!
+          ! define its local connec with parent element nodes
+          ! top 3 nodes: e2 node 3, and e3 nodes 1 & 2
+          subelem_connec(2)%array(1)=NODES_ON_EDGES(3,e1)
+          subelem_connec(2)%array(2)=NODES_ON_EDGES(1,e3)
+          subelem_connec(2)%array(3)=NODES_ON_EDGES(2,e3)
+          !:::::::::::::::::::::::::!
+          !*** define sub elm 3 ***
+          !:::::::::::::::::::::::::!
+          ! define its local connec with parent element nodes
+          ! top 3 nodes: e4 nodes 1 & 2, and e1 node 3
+          subelem_connec(3)%array(1)=NODES_ON_EDGES(1,e4)
+          subelem_connec(3)%array(2)=NODES_ON_EDGES(2,e4)
+          subelem_connec(3)%array(3)=NODES_ON_EDGES(3,e1)
+
+          ! ** NOTE : ONLY NODE 3 of the cracked edge is used for this partition
+
+
+      ! ***********************************************************************!
+      ! TWO edge cracked, partition this element into two quad sub elems or
+      ! four triangular sub elems
+      ! ***********************************************************************!
+      case (2) select_ncrackedges
+      !- two edges cracked
+
+          ! find the indices of the two broken edges, sorted in ascending order
+          Icrackedge1 = min( lcl_ID_crack_edges(1), lcl_ID_crack_edges(2) )
+          Icrackedge2 = max( lcl_ID_crack_edges(1), lcl_ID_crack_edges(2) )
+
+          ! Icrackedge1 must be between 1 to 3, and Icrackedge2 between 2 to 4,
+          ! with Icrackedge2 > Icrackedge1
+          if (Icrackedge1<1 .or. Icrackedge1>3 .or. &
+          &   Icrackedge2<2 .or. Icrackedge2>4 .or. &
+          &   Icrackedge2 <= Icrackedge1) then
+            istat = STAT_FAILURE
+            emsg = 'wrong crack edge indices, &
+            & case n_crackedges=2, in'//trim(msgloc)
+            return
+          end if
+
+          ! :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::!
+          ! determine partition based on the indices of the two broken edges
+          ! :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::!
+          ! find nsub and e1 - e4
+          ! nsub: no. of sub domains
+          ! e1 - e4: re-index edges to facilitate partitioning domain
+          select case(Icrackedge1)
+            case(1)
+            ! 1st cracked edge is lcl edge 1, decide on nsub and e1-e4 based on
+            ! the lcl ID of the 2nd cracked edge
+                select case (Icrackedge2)
+                  case(2)
+                    nsub=4
+                    e1=1; e2=2; e3=3; e4=4
+                  case(3)
+                    nsub=2
+                    e1=1; e2=2; e3=3; e4=4
+                  case(4)
+                    nsub=4
+                    e1=4; e2=1; e3=2; e4=3
+                  case default
+                    istat = STAT_FAILURE
+                    emsg = 'wrong 2nd broken edge in'//trim(msgloc)
+                    return
+                end select
+            case(2)
+                select case (Icrackedge2)
+                  case(3)
+                    nsub=4
+                    e1=2; e2=3; e3=4; e4=1
+                  case(4)
+                    nsub=2
+                    e1=2; e2=3; e3=4; e4=1
+                  case default
+                    istat = STAT_FAILURE
+                    emsg = 'wrong 2nd broken edge in'//trim(msgloc)
+                    return
+                end select
+            case(3)
+                if(Icrackedge2==4) then
+                    nsub=4
+                    e1=3; e2=4; e3=1; e4=2
+                else
+                    istat = STAT_FAILURE
+                    emsg = 'wrong 2nd broken edge in'//trim(msgloc)
+                    return
+                end if
+            case default
+                istat = STAT_FAILURE
+                emsg = 'wrong 1st broken edge in'//trim(msgloc)
+                return
+          end select
+
+          ! :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::!
+          ! form sub elements based on nsub values
+          ! :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::!
+          select_nsub: select case(nsub)
+
+            ! :::::::::::::::::::::::::::::::::::::::::!
+            ! two quad subdomains
+            ! :::::::::::::::::::::::::::::::::::::::::!
+            case(2) select_nsub
+                !:::::::::::::::::::::::::!
+                !*** prepare arrays ***
+                !:::::::::::::::::::::::::!
+                ! allocate nsub no. of subelem_connec
+                allocate(subelem_connec(nsub))
+                ! allocate&initialize the internal arrays of these arrays
+                do j=1, nsub
+                  ! allocate connec for the 4 nodes of quad sub elems
+                  allocate(subelem_connec(j)%array(4))
+                  ! initialize these arrays
+                  subelem_connec(j)%array = 0
+                end do
+                !:::::::::::::::::::::::::!
+                !*** define sub elm 1 ***
+                !:::::::::::::::::::::::::!
+                ! define its local connec with parent element nodes
+                ! top 4 nodes: e1 nodes 1 & 3, and e3 nodes 4 & 2
+                subelem_connec(1)%array(1)=NODES_ON_EDGES(1,e1)
+                subelem_connec(1)%array(2)=NODES_ON_EDGES(3,e1)
+                subelem_connec(1)%array(3)=NODES_ON_EDGES(4,e3)
+                subelem_connec(1)%array(4)=NODES_ON_EDGES(2,e3)
+                !:::::::::::::::::::::::::!
+                !*** define sub elm 2 ***
+                !:::::::::::::::::::::::::!
+                ! define its local connec with parent element nodes
+                ! top 4 nodes: e1 nodes 4 & 2, and e3 nodes 1 & 3
+                subelem_connec(2)%array(1)=NODES_ON_EDGES(4,e1)
+                subelem_connec(2)%array(2)=NODES_ON_EDGES(2,e1)
+                subelem_connec(2)%array(3)=NODES_ON_EDGES(1,e3)
+                subelem_connec(2)%array(4)=NODES_ON_EDGES(3,e3)
+
+            ! :::::::::::::::::::::::::::::::::::::::::!
+            ! four tri subdomains
+            ! :::::::::::::::::::::::::::::::::::::::::!
+            case(4) select_nsub
+                !:::::::::::::::::::::::::!
+                !*** prepare arrays ***
+                !:::::::::::::::::::::::::!
+                ! allocate nsub no. of subelem_connec
+                allocate(subelem_connec(nsub))
+                ! allocate&initialize the internal arrays of these arrays
+                do j=1, nsub
+                  ! allocate connec for 3 nodes of tri sub elems
+                  allocate(subelem_connec(j)%array(3))
+                  ! initialize these arrays
+                  subelem_connec(j)%array = 0
+                end do
+                !:::::::::::::::::::::::::!
+                !*** define sub elm 1 ***
+                !:::::::::::::::::::::::::!
+                ! define its local connec with parent element nodes
+                ! top 3 nodes: e1 nodes 4, and e2 nodes 1 & 3
+                subelem_connec(1)%array(1)=NODES_ON_EDGES(4,e1)
+                subelem_connec(1)%array(2)=NODES_ON_EDGES(1,e2)
+                subelem_connec(1)%array(3)=NODES_ON_EDGES(3,e2)
+                !:::::::::::::::::::::::::!
+                !*** define sub elm 2 ***
+                !:::::::::::::::::::::::::!
+                ! define its local connec with parent element nodes
+                ! top 3 nodes: e2 node 4, and e3 nodes 1 & 2
+                subelem_connec(2)%array(1)=NODES_ON_EDGES(4,e2)
+                subelem_connec(2)%array(2)=NODES_ON_EDGES(1,e3)
+                subelem_connec(2)%array(3)=NODES_ON_EDGES(2,e3)
+                !:::::::::::::::::::::::::!
+                !*** define sub elm 3 ***
+                !:::::::::::::::::::::::::!
+                ! define its local connec with parent element nodes
+                ! top 3 nodes: e4 nodes 1 & 2, and e1 node 3
+                subelem_connec(3)%array(1)=NODES_ON_EDGES(1,e4)
+                subelem_connec(3)%array(2)=NODES_ON_EDGES(2,e4)
+                subelem_connec(3)%array(3)=NODES_ON_EDGES(3,e1)
+                !:::::::::::::::::::::::::!
+                !*** define sub elm 4 ***
+                !:::::::::::::::::::::::::!
+                ! define its local connec with parent element nodes
+                ! top 3 nodes: e1 node 3, e2 node 4 and e3 node 2
+                subelem_connec(4)%array(1)=NODES_ON_EDGES(3,e1)
+                subelem_connec(4)%array(2)=NODES_ON_EDGES(4,e2)
+                subelem_connec(4)%array(3)=NODES_ON_EDGES(2,e3)
+            ! :::::::::::::::::::::::::::::::::::::::::!
+            ! unsupported no. of sub elems, ERROR
+            ! :::::::::::::::::::::::::::::::::::::::::!
+            case default select_nsub
+                istat = STAT_FAILURE
+                emsg = 'wrong nsub in'//trim(msgloc)
+                return
+          end select select_nsub
+
+
+      ! ***********************************************************************!
+      ! Unsupported number of cracked edge
+      ! return with error
+      ! ***********************************************************************!
+      case default select_ncrackedges
+          istat = STAT_FAILURE
+          emsg = 'unexpected n_crackedges value in'//trim(msgloc)
+          return
+
+      end select select_ncrackedges
+
+
+  end subroutine partition_quad_elem
 
 
 

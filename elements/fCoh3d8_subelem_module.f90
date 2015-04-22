@@ -56,8 +56,8 @@ private
 
 ! list of private parameters in this module:
 ! NNDRL     : no. of real     nodes in this element
+! NEDGE_SURF: no. of edges in this element on the top/bot surface
 ! NNDFL     : no. of floating nodes in this element
-! NEDGE_TOP : no. of edges in this element on the top surface
 ! NNDIN     : no. of internal nodes in this element
 ! NNODE     : total no. of nodes in this element
 ! NDOF      : no. of degree-of-freedom in this element
@@ -65,12 +65,21 @@ private
 !             of the top edges in this element. Each edge is topologically
 !             composed of its two end nodes and two floating nodes. This
 !             term stores the local nodal index of the i_th node on edge j
-integer, parameter :: NNDRL=8, NEDGE_TOP=4, NEDGE_BOT=4, NNDFL=2*NEDGE_TOP, &
-                    & NNDIN=1*NEDGE_BOT, NNODE=NNDRL+NNDFL+NNDIN, NDOF=NDIM*NNODE
-integer, parameter :: NODES_ON_TOP_EDGES(4,NEDGE_TOP) = &
-         & reshape([5,6,9,10, 6,7,11,12, 7,8,13,14, 8,5,15,16], [4,NEDGE_TOP])
-integer, parameter :: NODES_ON_BOT_EDGES(3,NEDGE_BOT) = &
-         & reshape([1,2,17,   2,3,18,    3,4,19,    4,1,20   ], [3,NEDGE_BOT])
+! NODES_ON_BOT_EDGES(i,j) : this is a matrix to describe the nodal connectivity
+!             of the bottom edges in this element. Each edge is topologically
+!             composed of its two end nodes and one internal node (duplicated
+!             for the sake of convenience when partitioning the bottom surf).
+!             This term stores the local nodal index of the i_th node on edge j
+integer, parameter :: NNDRL       = 8,                      &
+                   &  NEDGE_SURF  = 4,                      &
+                   &  NNDFL       = 2 * NEDGE_SURF,         &
+                   &  NNDIN       = 1 * NEDGE_SURF,         &
+                   &  NNODE       = NNDRL + NNDFL + NNDIN,  &
+                   &  NDOF        = NDIM * NNODE
+integer, parameter :: NODES_ON_TOP_EDGES(4,NEDGE_SURF) =    &
+& reshape([5,6,9,10,   6,7,11,12,  7,8,13,14,  8,5,15,16], [4,NEDGE_SURF])
+integer, parameter :: NODES_ON_BOT_EDGES(4,NEDGE_SURF) =    &
+& reshape([1,2,17,17,  2,3,18,18,  3,4,19,19,  4,1,20,20], [4,NEDGE_SURF])
 
 
 type, public :: fCoh3d8_subelem
@@ -78,7 +87,7 @@ type, public :: fCoh3d8_subelem
   ! list of components of this type:
   ! pstat               : elem partition status
   ! node_connec         : nodes global connectivity
-  ! edge_connec         : edges global connectivity
+  ! edge_connec         : edges global connectivity (only the top surf. edges)
   ! lcl_ID_crack_edges  : local indices of cracked edges, this array is passed
   !                       from adj. ply elem. it is used to extract no. and ID
   !                       of cracked edges
@@ -88,9 +97,9 @@ type, public :: fCoh3d8_subelem
   ! subelem_lcl_connec  : lcl connec of subelems' nodes
   integer  :: pstat                         = 0
   integer  :: node_connec(NNODE)            = 0
-  integer  :: edge_connec(NEDGE_TOP)        = 0
-  integer  :: lcl_ID_crack_edges(NEDGE_TOP) = 0
-  real(DP) :: edge_lambda(NEDGE_BOT)        = ZERO
+  integer  :: edge_connec(NEDGE_SURF)        = 0
+  integer  :: lcl_ID_crack_edges(NEDGE_SURF) = 0
+  real(DP) :: edge_lambda(NEDGE_SURF)        = ZERO
   type(baseCoh_element), allocatable :: subelem(:)
   type(INT_ALLOC_ARRAY), allocatable :: subelem_lcl_connec(:)
 end type fCoh3d8_subelem
@@ -146,7 +155,7 @@ use baseCoh_element_module, only : set
 
   type(fCoh3d8_subelem),    intent(inout) :: elem
   integer,                  intent(in)    :: node_connec(NNODE)
-  integer,                  intent(in)    :: edge_connec(NEDGE_TOP)
+  integer,                  intent(in)    :: edge_connec(NEDGE_SURF)
   integer,                  intent(out)   :: istat
   character(len=MSGLENGTH), intent(out)   :: emsg
 
@@ -217,21 +226,51 @@ pure subroutine update_fCoh3d8_subelem (elem, lcl_ID_crack_edges, istat, emsg)
 use parameter_module, only : MSGLENGTH, STAT_FAILURE, STAT_SUCCESS
 
   type(fCoh3d8_subelem),    intent(inout) :: elem
-  integer,                  intent(in)    :: lcl_ID_crack_edges(NEDGE_TOP)
+  integer,                  intent(in)    :: lcl_ID_crack_edges(NEDGE_SURF)
   integer,                  intent(out)   :: istat
   character(len=MSGLENGTH), intent(out)   :: emsg
+
+  integer :: i, j
 
   istat = STAT_SUCCESS
   emsg  = ''
 
   ! check validity of inputs
-  if ( any(lcl_ID_crack_edges < 0) .or. any(lcl_ID_crack_edges > NEDGE_TOP) ) then
+
+  ! check values
+  if ( any(lcl_ID_crack_edges < 0) .or. any(lcl_ID_crack_edges > NEDGE_SURF) ) then
     istat = STAT_FAILURE
     emsg  = "cracked edges' local indices must be within [0, 4], update, &
     &fCoh3d8_subelem_module"
     return
   end if
 
+  ! check format: lcl ID of cracked edges must be stored first in array elements
+  do i = 1, NEDGE_SURF-1
+
+      ! when the array elem becomes 0, all the rest must also be 0
+      if (lcl_ID_crack_edges(i) == 0) then
+
+          ! check the terms after the ith term
+          do j = i+1, NEDGE_SURF
+
+              ! if any of the following term is NOT 0, flag error and exit program
+              if (lcl_ID_crack_edges(j) /= 0) then
+
+                istat = STAT_FAILURE
+                emsg  = "cracked edges' local indices must be stored first in &
+                & lcl_ID_crack_edges array, update, fCoh3d8_subelem_module"
+                return
+
+              end if
+
+          end do
+
+      end if
+
+  end do
+
+  ! update to elem component if checkings are passed
   elem%lcl_ID_crack_edges = lcl_ID_crack_edges
 
 end subroutine update_fCoh3d8_subelem
@@ -265,17 +304,17 @@ use baseCoh_element_module, only : baseCoh_element
   end if
 
   if(present(edge_connec)) then
-      allocate(edge_connec(NEDGE_TOP))
+      allocate(edge_connec(NEDGE_SURF))
       edge_connec=elem%edge_connec
   end if
 
   if(present(lcl_ID_crack_edges)) then
-      allocate(lcl_ID_crack_edges(NEDGE_TOP))
+      allocate(lcl_ID_crack_edges(NEDGE_SURF))
       lcl_ID_crack_edges=elem%lcl_ID_crack_edges
   end if
 
   if(present(edge_lambda)) then
-      allocate(edge_lambda(NEDGE_BOT))
+      allocate(edge_lambda(NEDGE_SURF))
       edge_lambda=elem%edge_lambda
   end if
 
@@ -302,13 +341,15 @@ pure subroutine integrate_fCoh3d8_subelem (elem, nodes, edge_status, material, &
 ! Purpose:
 ! to integrate this fCoh3d8 subelem and update its internal nodes in nodes array
 use parameter_module, only : DP, MSGLENGTH, STAT_FAILURE, STAT_SUCCESS, ZERO, &
-                      & INTACT, PARTITIONED_FCOHSUB
+                      & INTACT, PARTITIONED_FCOHSUB, TRANSITION_EDGE,         &
+                      & REFINEMENT_EDGE, CRACK_TIP_EDGE, WEAK_CRACK_EDGE,     &
+                      & COH_CRACK_EDGE, STRONG_CRACK_EDGE
 use xnode_module,             only : xnode
 use cohesive_material_module, only : cohesive_material
 
   type(fCoh3d8_subelem),    intent(inout) :: elem
   type(xnode),              intent(inout) :: nodes(NNODE)
-  integer,                  intent(in)    :: edge_status(NEDGE_TOP)
+  integer,                  intent(in)    :: edge_status(NEDGE_SURF)
   type(cohesive_material),  intent(in)    :: material
   real(DP),    allocatable, intent(out)   :: K_matrix(:,:), F_vector(:)
   integer,                  intent(out)   :: istat
@@ -329,9 +370,29 @@ use cohesive_material_module, only : cohesive_material
   nofail   = .false.
 
   ! check for input
+
+  ! check elem
   if (.not. allocated(elem%subelem)) then
     istat = STAT_FAILURE
     emsg  = 'sub element is NOT yet allocated, integrate, fCoh3d8_subelem module'
+    return
+  end if
+
+  ! check nodes and material:
+  ! nodes x and u must be allocated, and material must be properly defined
+  ! but this should NOT be checked here, they should be ensured correct at
+  ! the beginning of analysis.
+
+  ! check edge status, see if there's any unexpected edge status value
+  if ( any( .not. ( edge_status == INTACT          .or.         &
+  &                 edge_status == TRANSITION_EDGE .or.         &
+  &                 edge_status == REFINEMENT_EDGE .or.         &
+  &                 edge_status == CRACK_TIP_EDGE  .or.         &
+  &                 edge_status == WEAK_CRACK_EDGE .or.         &
+  &                 edge_status == COH_CRACK_EDGE  .or.         &
+  &                 edge_status == STRONG_CRACK_EDGE )  )  ) then
+    istat = STAT_FAILURE
+    emsg  = 'edge status value is NOT recognized, integrate, fCoh3d8_subelem module'
     return
   end if
 
@@ -449,7 +510,7 @@ use parameter_module, only : MSGLENGTH, STAT_SUCCESS, STAT_FAILURE, &
 
   ! passed-in variables
   type(fCoh3d8_subelem),    intent(inout) :: el
-  integer,                  intent(in)    :: edge_status(NEDGE_TOP)
+  integer,                  intent(in)    :: edge_status(NEDGE_SURF)
   integer,                  intent(out)   :: istat
   character(len=MSGLENGTH), intent(out)   :: emsg
 
@@ -482,9 +543,6 @@ use parameter_module, only : MSGLENGTH, STAT_SUCCESS, STAT_FAILURE, &
   ! Note: no need to check for input validity or create local copy of intent
   ! inout dummy arg because this is an internal procedure
 
-  ! no need to update partition if elem is already in final partition
-  if(el%pstat == PARTITIONED_FCOHSUB) return
-
   ! find the no. of broken edges; local indices of broken edges are stored in
   ! lcl_ID_crack_edges array. this array is passed from adj. ply elem
   !************************* IMPORTANT NOTE: **** ***************************!
@@ -507,19 +565,8 @@ use parameter_module, only : MSGLENGTH, STAT_SUCCESS, STAT_FAILURE, &
         continue
 
     case (1)
-    ! adj. ply elem is in transition partition; edge status should be
-    ! TRANSITION_EDGE
-        if(edge_status(el%lcl_ID_crack_edges(1)) == TRANSITION_EDGE) then
-          ! edge marks the refinement end and the trans elem start in the upper
-          ! ply element. for this fCoh elem, no partition is done for this
-          ! case
-          continue
-        else
-          ! lcl_ID_crack_edges is not correct / edge_status not correct
-          istat = STAT_FAILURE
-          emsg  = 'wrong edge status for n_crackedges=1 in fCoh3d8'
-          return
-        end if
+    ! adj. ply elem is in transition partition, do nothing
+        continue
 
     case (2)
     ! adj. ply elem could be cracked(final), wake, tip, refinement elem
@@ -558,10 +605,10 @@ pure subroutine partition_element (el, nodes, istat, emsg)
 ! - subelem
 ! according to the edge status of top edges of this element
 use parameter_module, only : MSGLENGTH, STAT_SUCCESS, STAT_FAILURE, INT_ALLOC_ARRAY, &
-                      & DP
+                      & DP, ELTYPELENGTH, ZERO, ONE, SMALLNUM
 use xnode_module,           only : xnode, extract
 use baseCoh_element_module, only : set
-use global_toolkit_module,  only : distance
+use global_toolkit_module,  only : distance, partition_quad_elem
 
   ! passed-in variables
   type(fCoh3d8_subelem),    intent(inout) :: el
@@ -570,40 +617,57 @@ use global_toolkit_module,  only : distance
   character(len=MSGLENGTH), intent(out)   :: emsg
 
   ! local variables
-  ! subelem_glb_connec  : global connec of sub elem nodes
-  ! Icrackedge1, Icrackedge2  : indices of cracked edges
-  ! e1, e2, e3, e4      : renumbered edge indices to facilitate elem partition
-  ! nsub                : no. of sub elements
-  ! jcracknode1/2       : fl. node indices on 2 cracked top edges
-  ! jendnode1/2         : end node indices of an edge
-  ! x1, x2, xc          : coords of crack edge end nodes (x1 & x2) and
-  !                       crack tip (xc)
-
-  type(INT_ALLOC_ARRAY), allocatable :: subelem_glb_connec(:)
-  integer               :: n_crackedges, Icrackedge1, Icrackedge2
-  integer               :: e1, e2, e3, e4
-  integer               :: nsub
-  integer               :: jcracknode1, jcracknode2, jendnode1, jendnode2
+  ! msgloc : location of this procedure, attached at the end of error message
+  ! n_crackedges              : no. of cracked edges on top surf.
+  ! jcrackedge                : lcl ID of a cracked edge
+  ! jcracknode                : fl. node indices on cracked top edges
+  ! jendnode1/2               : end node indices of an edge
+  ! x1, x2, xc                : coords of crack edge end nodes (x1 & x2) and
+  !                             crack tip (xc)
+  ! distn1n2, distn1nc        : distance btw 2 endnodes of an edge, and distance
+  !                             btw endnode1 and crack point on this edge
+  ! lambda                    : = distn1nc / distn1n2
+  ! subelem_lcl_connec_top    : local connec of sub elem top    surf. nodes
+  ! subelem_lcl_connec_bot    : local connec of sub elem bottom surf. nodes
+  ! subelem_glb_connec        : global connec of sub elem nodes
+  ! nsub                      : no. of sub elements
+  ! subelem_nnode             : no. of nodes in a sub elem
+  ! subelem_type              : eltype of sub elem
+  !
+  character(len=MSGLENGTH) :: msgloc
+  ! variables to define edge lambda
+  integer               :: n_crackedges, jcrackedge
+  integer               :: jcracknode, jendnode1, jendnode2
   real(DP), allocatable :: x1(:), x2(:), xc(:)
+  real(DP)              :: distn1n2, distn1nc, lambda
+  ! variables to define sub elems
+  type(INT_ALLOC_ARRAY), allocatable :: subelem_lcl_connec_top(:)
+  type(INT_ALLOC_ARRAY), allocatable :: subelem_lcl_connec_bot(:)
+  type(INT_ALLOC_ARRAY), allocatable :: subelem_glb_connec(:)
+  integer                            :: nsub, subelem_nnode
+  character(len=ELTYPELENGTH)        :: subelem_type
   ! counters
   integer :: i, j, l
 
   ! initialize intent out and local variables
-  istat = STAT_SUCCESS
-  emsg  = ''
+  istat  = STAT_SUCCESS
+  emsg   = ''
+  msgloc = ' partition_element, fCoh3d8_subelem_module'
   n_crackedges = 0
-  Icrackedge1 = 0
-  Icrackedge2 = 0
-  e1 = 0
-  e2 = 0
-  e3 = 0
-  e4 = 0
-  nsub = 0
-  jcracknode1 = 0
-  jcracknode2 = 0
-  jendnode1   = 0
-  jendnode2   = 0
+  jcrackedge   = 0
+  jcracknode   = 0
+  jendnode1    = 0
+  jendnode2    = 0
+  distn1n2     = ZERO
+  distn1nc     = ZERO
+  lambda       = ZERO
+  nsub          = 0
+  subelem_nnode = 0
+  subelem_type  = ''
   i=0; j=0; l=0
+
+  ! Note: no need to check for input validity or create local copy of intent
+  ! inout dummy arg because this is an internal procedure
 
   ! find the no. of broken edges; local indices of broken edges are stored in
   ! lcl_ID_crack_edges array. this array is passed from adj. ply elem
@@ -613,340 +677,175 @@ use global_toolkit_module,  only : distance
   !**************************************************************************!
   n_crackedges = count (el%lcl_ID_crack_edges > 0)
 
-  select_ncrackedges: select case (n_crackedges)
 
-    case (2) select_ncrackedges
-    !- two edges cracked
-        ! :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::!
-        ! determine partition based on the indices of the two broken edges
-        ! :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::!
-        ! find the indices of the two broken edges, sorted in ascending order
-        Icrackedge1 = min( el%lcl_ID_crack_edges(1), el%lcl_ID_crack_edges(2) )
-        Icrackedge2 = max( el%lcl_ID_crack_edges(1), el%lcl_ID_crack_edges(2) )
-        ! Icrackedge1 must be between 1 to 3, and Icrackedge2 between 2 to 4,
-        ! with Icrackedge2 > Icrackedge1
-        if (Icrackedge1<1 .or. Icrackedge1>3 .or. &
-        &   Icrackedge2<2 .or. Icrackedge2>4 .or. &
-        &   Icrackedge2 <= Icrackedge1) then
-          istat = STAT_FAILURE
-          emsg = 'wrong crack edge indices in fCoh3d8 update subelem_lcl_connec &
-          & case n_crackedges=2'
-          return
-        end if
-        ! find nsub and e1 - e4
-        ! nsub: no. of sub domains
-        ! e1 - e4: re-index edges to facilitate partitioning domain
-        select case(Icrackedge1)
-          case(1)
-          ! 1st cracked edge is lcl edge 1, decide on nsub and e1-e4 based on
-          ! the lcl ID of the 2nd cracked edge
-              select case (Icrackedge2)
-                case(2)
-                  nsub=4
-                  e1=1; e2=2; e3=3; e4=4
-                case(3)
-                  nsub=2
-                  e1=1; e2=2; e3=3; e4=4
-                case(4)
-                  nsub=4
-                  e1=4; e2=1; e3=2; e4=3
-                case default
-                  istat = STAT_FAILURE
-                  emsg = 'wrong 2nd broken edge in update subelem_lcl_connec fCoh3d8'
-                  return
-              end select
-          case(2)
-              select case (Icrackedge2)
-                case(3)
-                  nsub=4
-                  e1=2; e2=3; e3=4; e4=1
-                case(4)
-                  nsub=2
-                  e1=2; e2=3; e3=4; e4=1
-                case default
-                  istat = STAT_FAILURE
-                  emsg = 'wrong 2nd broken edge in update subelem_lcl_connec fCoh3d8'
-                  return
-              end select
-          case(3)
-              if(Icrackedge2==4) then
-                  nsub=4
-                  e1=3; e2=4; e3=1; e4=2
-              else
-                  istat = STAT_FAILURE
-                  emsg = 'wrong 2nd broken edge in update subelem_lcl_connec fCoh3d8'
-                  return
-              end if
-          case default
-              istat = STAT_FAILURE
-              emsg = 'wrong broken edge in update subelem_lcl_connec fCoh3d8'
-              return
-        end select
-        !
-        ! :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::!
-        ! form sub elements based on nsub values
-        ! :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::!
-        select_nsub: select case(nsub)
-          ! :::::::::::::::::::::::::::::::::::::::::!
-          ! two quad subdomains, two coh3d8 sub elems
-          ! :::::::::::::::::::::::::::::::::::::::::!
-          case(2) select_nsub
-              !:::::::::::::::::::::::::!
-              !*** prepare arrays ***
-              !:::::::::::::::::::::::::!
-              ! allocate nsub no. of subelem, subelem_lcl_connec and
-              ! subelem_glb_connec
-              if(allocated(el%subelem)) &
-              & deallocate(el%subelem)
-              if(allocated(el%subelem_lcl_connec)) &
-              & deallocate(el%subelem_lcl_connec)
-              if(allocated(subelem_glb_connec)) &
-              & deallocate(subelem_glb_connec)
-              allocate(el%subelem(nsub))
-              allocate(el%subelem_lcl_connec(nsub))
-              allocate(subelem_glb_connec(nsub))
-              ! allocate&initialize the internal arrays of these arrays
-              do j=1, nsub
-                ! allocate connec for the 8 nodes of coh3d8 sub elems
-                allocate(el%subelem_lcl_connec(j)%array(8))
-                allocate(subelem_glb_connec(j)%array(8))
-                ! initialize these arrays
-                el%subelem_lcl_connec(j)%array = 0
-                subelem_glb_connec(j)%array    = 0
-              end do
-              !:::::::::::::::::::::::::!
-              !*** calculate lambdas ***
-              !:::::::::::::::::::::::::!
-              ! find the rel. position of crack pnt on e1 w.r.t its endnode 1
-              jcracknode1 = NODES_ON_TOP_EDGES(3,e1)
-              jendnode1   = NODES_ON_TOP_EDGES(1,e1)
-              jendnode2   = NODES_ON_TOP_EDGES(2,e1)
-              call extract(nodes(jendnode1),   x=x1)
-              call extract(nodes(jendnode2),   x=x2)
-              call extract(nodes(jcracknode1), x=xc)
-              el%edge_lambda(e1) = distance(x1,xc,NDIM) / distance(x1,x2,NDIM)
-              ! find the rel. position of crack pnt on e3 w.r.t its endnode 1
-              jcracknode2 = NODES_ON_TOP_EDGES(3,e3)
-              jendnode1   = NODES_ON_TOP_EDGES(1,e3)
-              jendnode2   = NODES_ON_TOP_EDGES(2,e3)
-              call extract(nodes(jendnode1),   x=x1)
-              call extract(nodes(jendnode2),   x=x2)
-              call extract(nodes(jcracknode2), x=xc)
-              el%edge_lambda(e3) = distance(x1,xc,NDIM) / distance(x1,x2,NDIM)
-              !:::::::::::::::::::::::::!
-              !*** define sub elm 1 ***
-              !:::::::::::::::::::::::::!
-              ! define its local connec with parent element nodes
-              ! bot 4 nodes: e1 nodes 1 & 3, and e3 nodes 3 & 2
-              ! top 4 nodes: e1 nodes 1 & 3, and e3 nodes 4 & 2
-              el%subelem_lcl_connec(1)%array(1)=NODES_ON_BOT_EDGES(1,e1)
-              el%subelem_lcl_connec(1)%array(2)=NODES_ON_BOT_EDGES(3,e1)
-              el%subelem_lcl_connec(1)%array(3)=NODES_ON_BOT_EDGES(3,e3)
-              el%subelem_lcl_connec(1)%array(4)=NODES_ON_BOT_EDGES(2,e3)
-              el%subelem_lcl_connec(1)%array(5)=NODES_ON_TOP_EDGES(1,e1)
-              el%subelem_lcl_connec(1)%array(6)=NODES_ON_TOP_EDGES(3,e1)
-              el%subelem_lcl_connec(1)%array(7)=NODES_ON_TOP_EDGES(4,e3)
-              el%subelem_lcl_connec(1)%array(8)=NODES_ON_TOP_EDGES(2,e3)
-              ! define its global connec with global node list
-              subelem_glb_connec(1)%array(:) = &
-              & el%node_connec(el%subelem_lcl_connec(1)%array(:))
-              ! set sub element 1
-              call set(el%subelem(1), eltype='coh3d8', &
-              & connec=subelem_glb_connec(1)%array, istat=istat, emsg=emsg)
-              if (istat == STAT_FAILURE) then
-                call clean_up (subelem_glb_connec, x1, x2, xc)
-                return
-              end if
-              !:::::::::::::::::::::::::!
-              !*** define sub elm 2 ***
-              !:::::::::::::::::::::::::!
-              ! define its local connec with parent element nodes
-              ! bot 4 nodes: e1 nodes 3 & 2, and e3 nodes 1 & 3
-              ! top 4 nodes: e1 nodes 4 & 2, and e3 nodes 1 & 3
-              el%subelem_lcl_connec(2)%array(1)=NODES_ON_BOT_EDGES(3,e1)
-              el%subelem_lcl_connec(2)%array(2)=NODES_ON_BOT_EDGES(2,e1)
-              el%subelem_lcl_connec(2)%array(3)=NODES_ON_BOT_EDGES(1,e3)
-              el%subelem_lcl_connec(2)%array(4)=NODES_ON_BOT_EDGES(3,e3)
-              el%subelem_lcl_connec(2)%array(5)=NODES_ON_TOP_EDGES(4,e1)
-              el%subelem_lcl_connec(2)%array(6)=NODES_ON_TOP_EDGES(2,e1)
-              el%subelem_lcl_connec(2)%array(7)=NODES_ON_TOP_EDGES(1,e3)
-              el%subelem_lcl_connec(2)%array(8)=NODES_ON_TOP_EDGES(3,e3)
-              ! define its global connec with global node list
-              subelem_glb_connec(2)%array(:) = &
-              & el%node_connec(el%subelem_lcl_connec(2)%array(:))
-              ! set sub element 2
-              call set(el%subelem(2), eltype='coh3d8', &
-              & connec=subelem_glb_connec(2)%array, istat=istat, emsg=emsg)
-              if (istat == STAT_FAILURE) then
-                call clean_up (subelem_glb_connec, x1, x2, xc)
-                return
-              end if
-          ! :::::::::::::::::::::::::::::::::::::::::!
-          ! four tri subdomains, four coh3d6 sub elems
-          ! :::::::::::::::::::::::::::::::::::::::::!
-          case(4) select_nsub
-              !:::::::::::::::::::::::::!
-              !*** prepare arrays ***
-              !:::::::::::::::::::::::::!
-              ! allocate nsub no. of subelem, subelem_lcl_connec and subelem_T
-              if(allocated(el%subelem)) &
-              & deallocate(el%subelem)
-              if(allocated(el%subelem_lcl_connec)) &
-              & deallocate(el%subelem_lcl_connec)
-              if(allocated(subelem_glb_connec)) &
-              & deallocate(subelem_glb_connec)
-              allocate(el%subelem(nsub))
-              allocate(el%subelem_lcl_connec(nsub))
-              allocate(subelem_glb_connec(nsub))
-              do j=1, nsub
-                ! allocate connec for 6 nodes of coh3d6 sub elems
-                allocate(el%subelem_lcl_connec(j)%array(6))
-                allocate(subelem_glb_connec(j)%array(6))
-                ! initialize these arrays
-                el%subelem_lcl_connec(j)%array = 0
-                subelem_glb_connec(j)%array    = 0
-              end do
-              !:::::::::::::::::::::::::!
-              !*** calculate lambdas ***
-              !:::::::::::::::::::::::::!
-              ! find the rel. position of crack pnt on e1 w.r.t its endnode 1
-              jcracknode1 = NODES_ON_TOP_EDGES(3,e1)
-              jendnode1   = NODES_ON_TOP_EDGES(1,e1)
-              jendnode2   = NODES_ON_TOP_EDGES(2,e1)
-              call extract(nodes(jendnode1),   x=x1)
-              call extract(nodes(jendnode2),   x=x2)
-              call extract(nodes(jcracknode1), x=xc)
-              el%edge_lambda(e1) = distance(x1,xc,NDIM) / distance(x1,x2,NDIM)
-              ! find the rel. position of crack pnt on e2 w.r.t its endnode 1
-              jcracknode2 = NODES_ON_TOP_EDGES(3,e2)
-              jendnode1   = NODES_ON_TOP_EDGES(1,e2)
-              jendnode2   = NODES_ON_TOP_EDGES(2,e2)
-              call extract(nodes(jendnode1),   x=x1)
-              call extract(nodes(jendnode2),   x=x2)
-              call extract(nodes(jcracknode2), x=xc)
-              el%edge_lambda(e2) = distance(x1,xc,NDIM) / distance(x1,x2,NDIM)
-              !:::::::::::::::::::::::::!
-              !*** define sub elm 1 ***
-              !:::::::::::::::::::::::::!
-              ! define its local connec with parent element nodes
-              ! bot 3 nodes: e1 nodes 3, and e2 nodes 1 & 3
-              ! top 3 nodes: e1 nodes 4, and e2 nodes 1 & 3
-              el%subelem_lcl_connec(1)%array(1)=NODES_ON_BOT_EDGES(3,e1)
-              el%subelem_lcl_connec(1)%array(2)=NODES_ON_BOT_EDGES(1,e2)
-              el%subelem_lcl_connec(1)%array(3)=NODES_ON_BOT_EDGES(3,e2)
-              el%subelem_lcl_connec(1)%array(4)=NODES_ON_TOP_EDGES(4,e1)
-              el%subelem_lcl_connec(1)%array(5)=NODES_ON_TOP_EDGES(1,e2)
-              el%subelem_lcl_connec(1)%array(6)=NODES_ON_TOP_EDGES(3,e2)
-              subelem_glb_connec(1)%array(:) = &
-              & el%node_connec(el%subelem_lcl_connec(1)%array(:))
-              ! set sub elem 1
-              call set(el%subelem(1), eltype='coh3d6', &
-              & connec=subelem_glb_connec(1)%array, istat=istat, emsg=emsg)
-              if (istat == STAT_FAILURE) then
-                call clean_up (subelem_glb_connec, x1, x2, xc)
-                return
-              end if
-              !:::::::::::::::::::::::::!
-              !*** define sub elm 2 ***
-              !:::::::::::::::::::::::::!
-              ! define its local connec with parent element nodes
-              ! bot 3 nodes: e2 node 3, and e3 nodes 1 & 2
-              ! top 3 nodes: e2 node 4, and e3 nodes 1 & 2
-              el%subelem_lcl_connec(2)%array(1)=NODES_ON_BOT_EDGES(3,e2)
-              el%subelem_lcl_connec(2)%array(2)=NODES_ON_BOT_EDGES(1,e3)
-              el%subelem_lcl_connec(2)%array(3)=NODES_ON_BOT_EDGES(2,e3)
-              el%subelem_lcl_connec(2)%array(4)=NODES_ON_TOP_EDGES(4,e2)
-              el%subelem_lcl_connec(2)%array(5)=NODES_ON_TOP_EDGES(1,e3)
-              el%subelem_lcl_connec(2)%array(6)=NODES_ON_TOP_EDGES(2,e3)
-              subelem_glb_connec(2)%array(:) = &
-              & el%node_connec(el%subelem_lcl_connec(2)%array(:))
-              ! set sub elem 2
-              call set(el%subelem(2),eltype='coh3d6', &
-              & connec=subelem_glb_connec(2)%array, istat=istat, emsg=emsg)
-              if (istat == STAT_FAILURE) then
-                call clean_up (subelem_glb_connec, x1, x2, xc)
-                return
-              end if
-              !:::::::::::::::::::::::::!
-              !*** define sub elm 3 ***
-              !:::::::::::::::::::::::::!
-              ! define its local connec with parent element nodes
-              ! bot 3 nodes: e4 nodes 1 & 2, and e1 node 3
-              ! top 3 nodes: e4 nodes 1 & 2, and e1 node 3
-              el%subelem_lcl_connec(3)%array(1)=NODES_ON_BOT_EDGES(1,e4)
-              el%subelem_lcl_connec(3)%array(2)=NODES_ON_BOT_EDGES(2,e4)
-              el%subelem_lcl_connec(3)%array(3)=NODES_ON_BOT_EDGES(3,e1)
-              el%subelem_lcl_connec(3)%array(4)=NODES_ON_TOP_EDGES(1,e4)
-              el%subelem_lcl_connec(3)%array(5)=NODES_ON_TOP_EDGES(2,e4)
-              el%subelem_lcl_connec(3)%array(6)=NODES_ON_TOP_EDGES(3,e1)
-              subelem_glb_connec(3)%array(:) = &
-              & el%node_connec(el%subelem_lcl_connec(3)%array(:))
-              ! set sub elem 3
-              call set(el%subelem(3),eltype='coh3d6', &
-              & connec=subelem_glb_connec(3)%array, istat=istat, emsg=emsg)
-              if (istat == STAT_FAILURE) then
-                call clean_up (subelem_glb_connec, x1, x2, xc)
-                return
-              end if
-              !:::::::::::::::::::::::::!
-              !*** define sub elm 4 ***
-              !:::::::::::::::::::::::::!
-              ! define its local connec with parent element nodes
-              ! bot 3 nodes: e1 node 3, e2 node 3 and e3 node 2
-              ! top 3 nodes: e1 node 3, e2 node 4 and e3 node 2
-              el%subelem_lcl_connec(4)%array(1)=NODES_ON_BOT_EDGES(3,e1)
-              el%subelem_lcl_connec(4)%array(2)=NODES_ON_BOT_EDGES(3,e2)
-              el%subelem_lcl_connec(4)%array(3)=NODES_ON_BOT_EDGES(2,e3)
-              el%subelem_lcl_connec(4)%array(4)=NODES_ON_TOP_EDGES(3,e1)
-              el%subelem_lcl_connec(4)%array(5)=NODES_ON_TOP_EDGES(4,e2)
-              el%subelem_lcl_connec(4)%array(6)=NODES_ON_TOP_EDGES(2,e3)
-              subelem_glb_connec(4)%array(:) = &
-              & el%node_connec(el%subelem_lcl_connec(4)%array(:))
-              ! set sub elem 4
-              call set(el%subelem(4),eltype='coh3d6', &
-              & connec=subelem_glb_connec(4)%array, istat=istat, emsg=emsg)
-              if (istat == STAT_FAILURE) then
-                call clean_up (subelem_glb_connec, x1, x2, xc)
-                return
-              end if
-          ! :::::::::::::::::::::::::::::::::::::::::!
-          ! unsupported no. of sub elems, ERROR
-          ! :::::::::::::::::::::::::::::::::::::::::!
-          case default select_nsub
-              istat = STAT_FAILURE
-              emsg = 'wrong nsub in update subelem_lcl_connec fCoh3d8'
-              call clean_up (subelem_glb_connec, x1, x2, xc)
-              return
-        end select select_nsub
+  ! :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::!
+  ! calculate lambdas (crack point relative loc.) of the cracked edges
+  ! :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::!
+  do j = 1, n_crackedges
+    ! find the edge index of the jth cracked edge
+    jcrackedge = el%lcl_ID_crack_edges(j)
+    ! find the fl. node (crack point) and the real nodes (endnodes) on this edge
+    jcracknode = NODES_ON_TOP_EDGES(3,jcrackedge)
+    jendnode1  = NODES_ON_TOP_EDGES(1,jcrackedge)
+    jendnode2  = NODES_ON_TOP_EDGES(2,jcrackedge)
+    ! extract the coordinates of these nodes
+    call extract(nodes(jendnode1),  x=x1)
+    call extract(nodes(jendnode2),  x=x2)
+    call extract(nodes(jcracknode), x=xc)
+    ! calculate distance btw endnode1 and endnode 2
+    distn1n2 = distance(x1,x2,NDIM)
+    ! calculate distance btw endnode1 and crack point
+    distn1nc = distance(x1,xc,NDIM)
+    ! distance cannot be ZERO
+    if (distn1n2 < SMALLNUM .or. distn1nc < SMALLNUM) then
+      istat = STAT_FAILURE
+      emsg  = 'coords of edge end nodes or fl. nodes are incorrect'//trim(msgloc)
+      if (allocated(x1)) deallocate(x1)
+      if (allocated(x2)) deallocate(x2)
+      if (allocated(xc)) deallocate(xc)
+      return
+    end if
+    ! calculate lambda
+     lambda = distn1nc / distn1n2
+    ! lambda must be within (0, 1)
+    if ( .not. (SMALLNUM < lambda .and. lambda < ONE-SMALLNUM) ) then
+      istat = STAT_FAILURE
+      emsg  = 'edge lambda is out of range'//trim(msgloc)
+      if (allocated(x1)) deallocate(x1)
+      if (allocated(x2)) deallocate(x2)
+      if (allocated(xc)) deallocate(xc)
+      return
+    end if
+    ! update lambda to el components
+    el%edge_lambda(jcrackedge) = lambda
+  end do
 
-    case default select_ncrackedges
+  ! :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::!
+  ! call the partition quad elem subroutine from global toolkit module
+  ! :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::!
+
+  ! pass the TOP surface topology NODES_ON_TOP_EDGES into the subroutine,
+  ! this will partition the element top surface into 2D sub elems,
+  ! whose nodes (in lcl indices) will be stored in subelem_lcl_connec_top
+  call partition_quad_elem (NODES_ON_TOP_EDGES, el%lcl_ID_crack_edges, &
+  & subelem_lcl_connec_top, istat, emsg)
+  if (istat == STAT_FAILURE) then
+    emsg = emsg//trim(msgloc)
+    call clean_up (subelem_glb_connec, subelem_lcl_connec_top, &
+    & subelem_lcl_connec_bot, x1, x2, xc)
+    return
+  end if
+
+  ! pass the BOTTOM surface topology NODES_ON_BOT_EDGES into the subroutine,
+  ! this will partition the element bottom surface into 2D sub elems,
+  ! whose nodes (in lcl indices) will be stored in subelem_lcl_connec_bot
+  call partition_quad_elem (NODES_ON_BOT_EDGES, el%lcl_ID_crack_edges, &
+  & subelem_lcl_connec_bot, istat, emsg)
+  if (istat == STAT_FAILURE) then
+    emsg = emsg//trim(msgloc)
+    call clean_up (subelem_glb_connec, subelem_lcl_connec_top, &
+    & subelem_lcl_connec_bot, x1, x2, xc)
+    return
+  end if
+
+  ! ** NOTE **
+  ! the lcl_ID_crack_edges array is applicable to both top and bottom edges; so
+  ! the top and bottom surfaces are partitioned in exactly the same way, i.e.,
+  ! same number of sub elems, same sub elem types.
+
+  ! :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::!
+  ! based on the top/bot surface partitions in subelem_lcl_connec_top/bot,
+  ! allocate and populate the el%subelem_lcl_connec array
+  ! :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::!
+
+  ! extract no. of sub elems
+  nsub = size(subelem_lcl_connec_top)
+
+  ! allocate nsub no. of subelem, subelem_lcl_connec and
+  ! subelem_glb_connec
+  if(allocated(el%subelem))            deallocate(el%subelem)
+  if(allocated(el%subelem_lcl_connec)) deallocate(el%subelem_lcl_connec)
+  if(allocated(subelem_glb_connec))    deallocate(subelem_glb_connec)
+  allocate(el%subelem(nsub))
+  allocate(el%subelem_lcl_connec(nsub))
+  allocate(subelem_glb_connec(nsub))
+
+  ! allocate & define these arrays
+  do j = 1, nsub
+
+    ! determine no. of nodes in sub elem j
+    subelem_nnode = 2 * size(subelem_lcl_connec_top(j)%array)
+
+    ! determine sub elem type based on subelem_nnode
+    select case (subelem_nnode)
+      case (6)
+        subelem_type = 'coh3d6'
+      case (8)
+        subelem_type = 'coh3d8'
+      case default
         istat = STAT_FAILURE
-        emsg = 'unexpected n_crackedges value in fCoh3d8 update subelem_lcl_connec!'
-        call clean_up (subelem_glb_connec, x1, x2, xc)
+        emsg  = 'unexpected no. of nodes for sub elem in'//trim(msgloc)
+        call clean_up (subelem_glb_connec, subelem_lcl_connec_top, &
+        & subelem_lcl_connec_bot, x1, x2, xc)
         return
+    end select
 
-    end select select_ncrackedges
+    ! allocate connec for sub elems
+    allocate(el%subelem_lcl_connec(j)%array(subelem_nnode))
+    allocate(subelem_glb_connec(j)%array(subelem_nnode))
+
+    ! initialize these arrays
+    el%subelem_lcl_connec(j)%array = 0
+    subelem_glb_connec(j)%array    = 0
+
+    ! populate lcl connec
+    ! copy top surf. lcl connec
+    el%subelem_lcl_connec(j)%array( subelem_nnode/2 + 1 : subelem_nnode   ) = &
+    &  subelem_lcl_connec_top(j)%array(:)
+    ! copy bot surf. lcl connec
+    el%subelem_lcl_connec(j)%array(                   1 : subelem_nnode/2 ) = &
+    &  subelem_lcl_connec_bot(j)%array(:)
+
+    ! populate glb connec through el%node_connec
+    subelem_glb_connec(j)%array = el%node_connec(el%subelem_lcl_connec(j)%array)
+
+    ! set this sub element
+    call set(el%subelem(j), eltype=trim(subelem_type), &
+    & connec=subelem_glb_connec(j)%array, istat=istat, emsg=emsg)
+    if (istat == STAT_FAILURE) then
+      emsg = emsg//trim(msgloc)
+      call clean_up (subelem_glb_connec, subelem_lcl_connec_top, &
+      & subelem_lcl_connec_bot, x1, x2, xc)
+      return
+    end if
+
+  end do
+
+  ! deallocate local array
+
+  call clean_up (subelem_glb_connec, subelem_lcl_connec_top, &
+  & subelem_lcl_connec_bot, x1, x2, xc)
 
 
-    ! deallocate local array
 
-    call clean_up (subelem_glb_connec, x1, x2, xc)
-
-
-
-    contains
+  contains
 
 
 
-      pure subroutine clean_up (subelem_glb_connec, x1, x2, xc)
-        type(INT_ALLOC_ARRAY), allocatable, intent(inout) :: subelem_glb_connec(:)
-        real(DP),              allocatable, intent(inout) :: x1(:), x2(:), xc(:)
+    pure subroutine clean_up (subelem_glb_connec, subelem_lcl_connec_top, &
+    & subelem_lcl_connec_bot, x1, x2, xc)
+      type(INT_ALLOC_ARRAY), allocatable, intent(inout) :: subelem_glb_connec(:)
+      type(INT_ALLOC_ARRAY), allocatable, intent(inout) :: subelem_lcl_connec_top(:)
+      type(INT_ALLOC_ARRAY), allocatable, intent(inout) :: subelem_lcl_connec_bot(:)
+      real(DP),              allocatable, intent(inout) :: x1(:), x2(:), xc(:)
 
-        if(allocated(subelem_glb_connec)) deallocate(subelem_glb_connec)
-        if(allocated(x1)) deallocate(x1)
-        if(allocated(x2)) deallocate(x2)
-        if(allocated(xc)) deallocate(xc)
-      end subroutine clean_up
+      if(allocated(subelem_glb_connec)) deallocate(subelem_glb_connec)
+      if(allocated(subelem_lcl_connec_top)) deallocate(subelem_lcl_connec_top)
+      if(allocated(subelem_lcl_connec_bot)) deallocate(subelem_lcl_connec_bot)
+      if(allocated(x1)) deallocate(x1)
+      if(allocated(x2)) deallocate(x2)
+      if(allocated(xc)) deallocate(xc)
+    end subroutine clean_up
 
 
 end subroutine partition_element
@@ -975,7 +874,7 @@ use xnode_module,     only : xnode, operator(+), operator(*)
   lambda     = ZERO
   j = 0
 
-  do j = 1, NEDGE_TOP
+  do j = 1, NEDGE_SURF
     ! extract the jth cracked edge local index
     Icrackedge  = el%lcl_ID_crack_edges(j)
     ! if it is 0, then no more cracked edges, exit loop
@@ -1204,7 +1103,7 @@ use parameter_module, only : DP, ZERO, ONE
   ! Populate Tmatrix rows corresponding to internal nodes
   ! find all the cracked edges and the corresponding internal nodes for
   ! condensation
-  do j = 1, NEDGE_TOP
+  do j = 1, NEDGE_SURF
     ! extract the jth cracked edge local index
     Icrackedge  = el%lcl_ID_crack_edges(j)
     ! if it is 0, then no more cracked edges, exit loop
