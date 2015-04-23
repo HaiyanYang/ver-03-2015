@@ -144,9 +144,12 @@ type, public :: fCoh3d8_element
     private
     
     integer :: node_connec(NNODE) = 0
+    logical :: top_subelem_set    = .false.
+    logical :: bot_subelem_set    = .false.
     type(coh3d8_element),  allocatable   :: intact_elem
     type(fCoh3d8_subelem), allocatable   :: top_subelem
     type(fCoh3d8_subelem), allocatable   :: bot_subelem
+    
 end type fCoh3d8_element
 
 interface empty
@@ -269,6 +272,9 @@ use parameter_module, only : MSGLENGTH, STAT_FAILURE, STAT_SUCCESS,&
   type(fCoh3d8_element)    :: el
   character(len=MSGLENGTH) :: msgloc
   integer                  :: n_crackedges
+  
+  ! if both top and bot sub elems have already been set, return directly
+  if (elem%top_subelem_set .and. elem%bot_subelem_set) return
 
   istat  = STAT_SUCCESS
   emsg   = ''
@@ -304,6 +310,9 @@ use parameter_module, only : MSGLENGTH, STAT_FAILURE, STAT_SUCCESS,&
   select case (trim(adjustl(top_or_bottom))
     
     case ('top')
+        ! return if top subelem is already set
+        if (el%top_subelem_set) return
+        
         ! check, flag error if top elem has already been set
         if (allocated(el%top_subelem)) then 
           istat = STAT_FAILURE
@@ -326,8 +335,13 @@ use parameter_module, only : MSGLENGTH, STAT_FAILURE, STAT_SUCCESS,&
           emsg = emsg//trim(msgloc)
           return
         end if
+        
+        el%top_subelem_set = .true.
     
     case ('bottom')
+        ! return if bot subelem is already set
+        if (el%bot_subelem_set) return
+    
         ! check, flag error if bot elem has already been set
         if (allocated(el%bot_subelem)) then 
           istat = STAT_FAILURE
@@ -352,6 +366,8 @@ use parameter_module, only : MSGLENGTH, STAT_FAILURE, STAT_SUCCESS,&
           emsg = emsg//trim(msgloc)
           return
         end if
+        
+        el%bot_subelem_set = .true.
     
     case default
         istat = STAT_FAILURE
@@ -368,14 +384,20 @@ end subroutine update_fCoh3d8_element
 
 
 
-pure subroutine extract_fCoh3d8_element (elem, intact_elem, top_subelem, bot_subelem)
+pure subroutine extract_fCoh3d8_element (elem, top_subelem_set, bot_subelem_set, &
+& intact_elem, top_subelem, bot_subelem)
 use coh3d8_element_module,  only : coh3d8_element
 use fCoh3d8_subelem_module, only : fCoh3d8_subelem
 
     type(fCoh3d8_element),                        intent(in)   :: elem
+    logical,                            optional, intent(out)  :: top_subelem_set
+    logical,                            optional, intent(out)  :: bot_subelem_set    
     type(coh3d8_element),  allocatable, optional, intent(out)  :: intact_elem
     type(fCoh3d8_subelem), allocatable, optional, intent(out)  :: top_subelem
     type(fCoh3d8_subelem), allocatable, optional, intent(out)  :: bot_subelem
+
+    if (present(top_subelem_set)) top_subelem_set = elem%top_subelem_set 
+    if (present(bot_subelem_set)) bot_subelem_set = elem%bot_subelem_set
 
     if (present(intact_elem)) then
       if (allocated(elem%intact_elem)) then
