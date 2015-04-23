@@ -87,7 +87,6 @@ type, public :: fCoh3d8_subelem
   ! list of components of this type:
   ! pstat               : elem partition status
   ! node_connec         : nodes global connectivity
-  ! edge_connec         : edges global connectivity (only the top surf. edges)
   ! lcl_ID_crack_edges  : local indices of cracked edges, this array is passed
   !                       from adj. ply elem. it is used to extract no. and ID
   !                       of cracked edges
@@ -97,7 +96,6 @@ type, public :: fCoh3d8_subelem
   ! subelem_lcl_connec  : lcl connec of subelems' nodes
   integer  :: pstat                         = 0
   integer  :: node_connec(NNODE)            = 0
-  integer  :: edge_connec(NEDGE_SURF)        = 0
   integer  :: lcl_ID_crack_edges(NEDGE_SURF) = 0
   real(DP) :: edge_lambda(NEDGE_SURF)        = ZERO
   type(baseCoh_element), allocatable :: subelem(:)
@@ -147,7 +145,7 @@ end subroutine empty_fCoh3d8_subelem
 
 
 
-pure subroutine set_fCoh3d8_subelem (elem, node_connec, edge_connec, istat, emsg)
+pure subroutine set_fCoh3d8_subelem (elem, node_connec, istat, emsg)
 ! Purpose:
 ! to set the element ready for first use
 use parameter_module,       only : MSGLENGTH, STAT_FAILURE, STAT_SUCCESS
@@ -155,7 +153,6 @@ use baseCoh_element_module, only : set
 
   type(fCoh3d8_subelem),    intent(inout) :: elem
   integer,                  intent(in)    :: node_connec(NNODE)
-  integer,                  intent(in)    :: edge_connec(NEDGE_SURF)
   integer,                  intent(out)   :: istat
   character(len=MSGLENGTH), intent(out)   :: emsg
 
@@ -177,16 +174,8 @@ use baseCoh_element_module, only : set
     return
   end if
 
-  if ( any(edge_connec < 1) ) then
-    istat = STAT_FAILURE
-    emsg  = 'edge connec indices must be >=1, set, &
-    &fCoh3d8_subelem_module'
-    return
-  end if
-
   ! update to elem_lcl first
   elem_lcl%node_connec = node_connec
-  elem_lcl%edge_connec = edge_connec
 
   ! allocate 1 coh3d8 subelem
   allocate(elem_lcl%subelem(1))
@@ -277,7 +266,7 @@ end subroutine update_fCoh3d8_subelem
 
 
 
-pure subroutine extract_fCoh3d8_subelem (elem, pstat, node_connec, edge_connec,&
+pure subroutine extract_fCoh3d8_subelem (elem, pstat, node_connec, &
 & lcl_ID_crack_edges, edge_lambda, subelem, subelem_lcl_connec)
 ! Purpose:
 ! to extract components of this element, generally used in output
@@ -290,7 +279,6 @@ use baseCoh_element_module, only : baseCoh_element
   type(fCoh3d8_subelem),                        intent(in)  :: elem
   integer,                            optional, intent(out) :: pstat
   integer,               allocatable, optional, intent(out) :: node_connec(:)
-  integer,               allocatable, optional, intent(out) :: edge_connec(:)
   integer,               allocatable, optional, intent(out) :: lcl_ID_crack_edges(:)
   real(DP),              allocatable, optional, intent(out) :: edge_lambda(:)
   type(baseCoh_element), allocatable, optional, intent(out) :: subelem(:)
@@ -301,11 +289,6 @@ use baseCoh_element_module, only : baseCoh_element
   if(present(node_connec)) then
       allocate(node_connec(NNODE))
       node_connec=elem%node_connec
-  end if
-
-  if(present(edge_connec)) then
-      allocate(edge_connec(NEDGE_SURF))
-      edge_connec=elem%edge_connec
   end if
 
   if(present(lcl_ID_crack_edges)) then
@@ -336,7 +319,7 @@ end subroutine extract_fCoh3d8_subelem
 
 
 
-pure subroutine integrate_fCoh3d8_subelem (elem, nodes, edge_status, material, &
+pure subroutine integrate_fCoh3d8_subelem (elem, nodes, top_edge_status, material, &
 & K_matrix, F_vector, istat, emsg, nofailure)
 ! Purpose:
 ! to integrate this fCoh3d8 subelem and update its internal nodes in nodes array
@@ -349,7 +332,7 @@ use cohesive_material_module, only : cohesive_material
 
   type(fCoh3d8_subelem),    intent(inout) :: elem
   type(xnode),              intent(inout) :: nodes(NNODE)
-  integer,                  intent(in)    :: edge_status(NEDGE_SURF)
+  integer,                  intent(in)    :: top_edge_status(NEDGE_SURF)
   type(cohesive_material),  intent(in)    :: material
   real(DP),    allocatable, intent(out)   :: K_matrix(:,:), F_vector(:)
   integer,                  intent(out)   :: istat
@@ -384,13 +367,13 @@ use cohesive_material_module, only : cohesive_material
   ! the beginning of analysis.
 
   ! check edge status, see if there's any unexpected edge status value
-  if ( any( .not. ( edge_status == INTACT          .or.         &
-  &                 edge_status == TRANSITION_EDGE .or.         &
-  &                 edge_status == REFINEMENT_EDGE .or.         &
-  &                 edge_status == CRACK_TIP_EDGE  .or.         &
-  &                 edge_status == WEAK_CRACK_EDGE .or.         &
-  &                 edge_status == COH_CRACK_EDGE  .or.         &
-  &                 edge_status == STRONG_CRACK_EDGE )  )  ) then
+  if ( any( .not. ( top_edge_status == INTACT          .or.         &
+  &                 top_edge_status == TRANSITION_EDGE .or.         &
+  &                 top_edge_status == REFINEMENT_EDGE .or.         &
+  &                 top_edge_status == CRACK_TIP_EDGE  .or.         &
+  &                 top_edge_status == WEAK_CRACK_EDGE .or.         &
+  &                 top_edge_status == COH_CRACK_EDGE  .or.         &
+  &                 top_edge_status == STRONG_CRACK_EDGE )  )  ) then
     istat = STAT_FAILURE
     emsg  = 'edge status value is NOT recognized, integrate, fCoh3d8_subelem module'
     return
@@ -426,7 +409,7 @@ use cohesive_material_module, only : cohesive_material
     ! elem is not yet partitioned
 
         ! check for edge status, update pstat
-        call edge_status_update (el, edge_status, istat, emsg)
+        call edge_status_update (el, top_edge_status, istat, emsg)
         if (istat == STAT_FAILURE) then
           call clean_up(K_matrix, F_vector)
           return
@@ -502,32 +485,35 @@ end subroutine integrate_fCoh3d8_subelem
 
 
 
-pure subroutine edge_status_update (el, edge_status, istat, emsg)
+pure subroutine edge_status_update (el, top_edge_status, istat, emsg)
 ! Purpose:
 ! update pass arg. el's pstat and its partition w.r.t its edge status variables
-use parameter_module, only : MSGLENGTH, STAT_SUCCESS, STAT_FAILURE, &
-                      & PARTITIONED_FCOHSUB, TRANSITION_EDGE, COH_CRACK_EDGE
+!** NOTE: this subroutine is meant for elem pstat = INTACT **
+use parameter_module, only : MSGLENGTH, STAT_SUCCESS, STAT_FAILURE,   &
+                      & INTACT, PARTITIONED_FCOHSUB, TRANSITION_EDGE, &
+                      & COH_CRACK_EDGE
 
   ! passed-in variables
   type(fCoh3d8_subelem),    intent(inout) :: el
-  integer,                  intent(in)    :: edge_status(NEDGE_SURF)
+  integer,                  intent(in)    :: top_edge_status(NEDGE_SURF)
   integer,                  intent(out)   :: istat
   character(len=MSGLENGTH), intent(out)   :: emsg
 
   ! local variables
   ! n_crackedges : no. of cracked edges in this elem
   ! edge1, edge2 : indices of broken edges
+  character(len=MSGLENGTH)  :: msgloc
   integer :: n_crackedges
   integer :: edge1, edge2
   integer :: i ! counters
 
   ! ----------------------------------------------------------------------------
-  ! *** workings of edge_status, n_crackedges, lcl_ID_crack_edges ***
+  ! *** workings of top_edge_status, n_crackedges, lcl_ID_crack_edges ***
   !
   ! e.g.: element edge 1 and 3 are broken, then:
   !
   ! - n_crackedges=2
-  ! - edge_status(1)>0; edge_status(2)=0; edge_status(3)>0; edge_status(4)=0
+  ! - top_edge_status(1)>0; top_edge_status(2)=0; top_edge_status(3)>0; top_edge_status(4)=0
   ! - lcl_ID_crack_edges(1)=1; lcl_ID_crack_edges(2)=3; lcl_ID_crack_edges(3:)=0
   !
   ! ----------------------------------------------------------------------------
@@ -535,18 +521,27 @@ use parameter_module, only : MSGLENGTH, STAT_SUCCESS, STAT_FAILURE, &
   ! initialize intent out and local variables
   istat = STAT_SUCCESS
   emsg  = ''
+  msgloc = ' edge_status_update, fCoh3d8_subelem_module'
   n_crackedges = 0
   edge1 = 0
   edge2 = 0
   i = 0
 
   ! Note: no need to check for input validity or create local copy of intent
-  ! inout dummy arg because this is an internal procedure
+  ! inout dummy arg because this is an internal procedure; but check the expected
+  ! values of elem components for this subroutine
+
+  ! this subroutine is meant for elem pstat = INTACT
+  if (el%pstat /= INTACT) then
+    istat = STAT_FAILURE
+    emsg  = 'unexpected elem pstat value in'//trim(msgloc)
+    return
+  end if
 
   ! find the no. of broken edges; local indices of broken edges are stored in
   ! lcl_ID_crack_edges array. this array is passed from adj. ply elem
   !************************* IMPORTANT NOTE: **** ***************************!
-  ! use this array instead of edge_status array to extract no. of cracked
+  ! use this array instead of top_edge_status array to extract no. of cracked
   ! edges and local indices of cracked edges.
   !**************************************************************************!
   n_crackedges = count (el%lcl_ID_crack_edges > 0)
@@ -574,8 +569,8 @@ use parameter_module, only : MSGLENGTH, STAT_SUCCESS, STAT_FAILURE, &
         ! store local edge indices to edge 1 and edge2
         edge1 = el%lcl_ID_crack_edges(1)
         edge2 = el%lcl_ID_crack_edges(2)
-        if (edge_status(edge1) >= COH_CRACK_EDGE .and. &
-        &   edge_status(edge2) >= COH_CRACK_EDGE) then
+        if (top_edge_status(edge1) >= COH_CRACK_EDGE .and. &
+        &   top_edge_status(edge2) >= COH_CRACK_EDGE) then
         ! ply elem status is matrix_crack_elem or fibre_fail_elem, this is the
         ! final partition of the ply elem.
         ! update fCoh pstat
@@ -585,7 +580,7 @@ use parameter_module, only : MSGLENGTH, STAT_SUCCESS, STAT_FAILURE, &
     case default
         istat = STAT_FAILURE
         emsg  = 'unsupported n_crackedges value for edge and el stat update &
-        &in fCoh3d8 edge stat partition!'
+        & in'//trim(msgloc)
         return
 
   end select
@@ -604,6 +599,7 @@ pure subroutine partition_element (el, nodes, istat, emsg)
 ! - subelem_lcl_connec
 ! - subelem
 ! according to the edge status of top edges of this element
+!** NOTE: ONLY PARTITION WITH TWO CRACKED EDGES IS ALLOWED **
 use parameter_module, only : MSGLENGTH, STAT_SUCCESS, STAT_FAILURE, INT_ALLOC_ARRAY, &
                       & DP, ELTYPELENGTH, ZERO, ONE, SMALLNUM
 use xnode_module,           only : xnode, extract
@@ -672,10 +668,17 @@ use global_toolkit_module,  only : distance, partition_quad_elem
   ! find the no. of broken edges; local indices of broken edges are stored in
   ! lcl_ID_crack_edges array. this array is passed from adj. ply elem
   !************************* IMPORTANT NOTE: **** ***************************!
-  ! use this array instead of edge_status array to extract no. of cracked
+  ! use this array instead of top_edge_status array to extract no. of cracked
   ! edges and local indices of cracked edges.
   !**************************************************************************!
   n_crackedges = count (el%lcl_ID_crack_edges > 0)
+
+  ! check if n_crackedges is 2
+  if (n_crackedges /= 2) then
+    istat = STAT_FAILURE
+    emsg = 'unexpected no. of cracked edges in'//trim(msgloc)
+    return
+  end if
 
 
   ! :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::!
@@ -700,9 +703,8 @@ use global_toolkit_module,  only : distance, partition_quad_elem
     if (distn1n2 < SMALLNUM .or. distn1nc < SMALLNUM) then
       istat = STAT_FAILURE
       emsg  = 'coords of edge end nodes or fl. nodes are incorrect'//trim(msgloc)
-      if (allocated(x1)) deallocate(x1)
-      if (allocated(x2)) deallocate(x2)
-      if (allocated(xc)) deallocate(xc)
+      call clean_up (subelem_glb_connec, subelem_lcl_connec_top, &
+      & subelem_lcl_connec_bot, x1, x2, xc)
       return
     end if
     ! calculate lambda
@@ -711,9 +713,8 @@ use global_toolkit_module,  only : distance, partition_quad_elem
     if ( .not. (SMALLNUM < lambda .and. lambda < ONE-SMALLNUM) ) then
       istat = STAT_FAILURE
       emsg  = 'edge lambda is out of range'//trim(msgloc)
-      if (allocated(x1)) deallocate(x1)
-      if (allocated(x2)) deallocate(x2)
-      if (allocated(xc)) deallocate(xc)
+      call clean_up (subelem_glb_connec, subelem_lcl_connec_top, &
+      & subelem_lcl_connec_bot, x1, x2, xc)
       return
     end if
     ! update lambda to el components
@@ -919,6 +920,7 @@ use global_toolkit_module,    only : assembleKF
   logical,        optional, intent(in)    :: nofailure
 
   ! - local variables
+  character(len=MSGLENGTH) :: msgloc
   real(DP), allocatable :: Ki(:,:), Fi(:)
   integer,  allocatable :: dofcnc(:)
   real(DP), allocatable :: Kmat_r(:,:), Fvec_r(:)
@@ -931,6 +933,7 @@ use global_toolkit_module,    only : assembleKF
   F_vector = ZERO
   istat  = STAT_SUCCESS
   emsg   = ''
+  msgloc = ', integrate_assemble_subelem, fCoh3d8_subelem_module'
   nofail = .false.
   isub=0; j=0; k=0; l=0; n=0
 
@@ -948,8 +951,7 @@ use global_toolkit_module,    only : assembleKF
         ! verify that there's only 1 subelem
         if (isub /= 1) then
           istat = STAT_FAILURE
-          emsg = 'incompatible no. of subelem with INTACT partition status, &
-          & integrate_assemble_subelem, fCoh3d8_subelem_module'
+          emsg = 'incompatible no. of subelem with INTACT partition status'
           exit
         end if
 
@@ -1043,13 +1045,13 @@ use global_toolkit_module,    only : assembleKF
 
   else
       istat = STAT_FAILURE
-      emsg = 'unsupported elem pstat value in integrate_assemble_subelem, &
-      & fCoh3d8_subelem_module'
+      emsg = 'unsupported elem pstat value'
 
   end if
 
   ! clean up if above loop exit upon error
   if (istat == STAT_FAILURE) then
+    emsg = emsg//trim(msgloc)
     K_matrix = ZERO
     F_vector = ZERO
   end if

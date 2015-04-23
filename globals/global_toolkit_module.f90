@@ -919,8 +919,8 @@ contains
     ! is likely to be poorly shaped, flag an error, clean up and return
     if (n_crack_edge /= 1) then
       istat = STAT_FAILURE
-      emsg  = 'two cracked edges cannot be found, element is likely to be &
-      &poorly shaped, crack_elem_centroid2d, global_toolkit_module'
+      emsg  = 'Another cracked edge cannot be found, element is likely to be &
+      &poorly shaped,'//trim(msgloc)
       ! clean up intent out variable before error exit
       edge_crack_point = ZERO
       return
