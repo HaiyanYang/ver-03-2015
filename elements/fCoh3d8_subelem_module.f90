@@ -85,14 +85,12 @@ integer, parameter :: NODES_ON_BOT_EDGES(4,NEDGE_SURF) =    &
 type, public :: fCoh3d8_subelem
   private
   ! list of components of this type:
-  ! pstat               : elem partition status
   ! node_connec         : nodes global connectivity
   ! top_edge_status     : edge status of top surf. edges
   ! edge_lambda         : = (distance btw the crack pnt (if present) on an edge
   !                       and the endnode 1 of the edge) / (length of the edge)
   ! subelem             : list of subelems of type baseCoh
   ! subelem_lcl_connec  : lcl connec of subelems' nodes
-  integer  :: pstat                         = 0
   integer  :: node_connec(NNODE)            = 0
   integer  :: top_edge_status(NEDGE_SURF)   = 0
   real(DP) :: edge_lambda(NEDGE_SURF)       = ZERO
@@ -108,10 +106,6 @@ interface set
     module procedure set_fCoh3d8_subelem
 end interface
 
-interface update
-    module procedure update_fCoh3d8_subelem
-end interface
-
 interface integrate
     module procedure integrate_fCoh3d8_subelem
 end interface
@@ -121,7 +115,7 @@ interface extract
 end interface
 
 
-public :: empty, set, update, integrate, extract
+public :: empty, set, integrate, extract
 
 
 
@@ -143,107 +137,7 @@ end subroutine empty_fCoh3d8_subelem
 
 
 
-pure subroutine set_fCoh3d8_subelem (elem, node_connec, istat, emsg)
-! Purpose:
-! to set the element ready for first use
-use parameter_module,       only : MSGLENGTH, STAT_FAILURE, STAT_SUCCESS
-use baseCoh_element_module, only : set
-
-  type(fCoh3d8_subelem),    intent(inout) :: elem
-  integer,                  intent(in)    :: node_connec(NNODE)
-  integer,                  intent(out)   :: istat
-  character(len=MSGLENGTH), intent(out)   :: emsg
-
-  ! local copy of elem
-  type(fCoh3d8_subelem) :: elem_lcl
-  ! global_connec of sub element
-  integer, allocatable  :: global_connec(:)
-  integer :: i
-
-  istat = STAT_SUCCESS
-  emsg  = ''
-  i = 0
-
-  ! check validity of inputs
-  if ( any(node_connec < 1) ) then
-    istat = STAT_FAILURE
-    emsg  = 'node connec indices must be >=1, set, &
-    &fCoh3d8_subelem_module'
-    return
-  end if
-
-  ! update to elem_lcl first
-  elem_lcl%node_connec = node_connec
-
-  ! allocate 1 coh3d8 subelem
-  allocate(elem_lcl%subelem(1))
-  allocate(elem_lcl%subelem_lcl_connec(1))
-  allocate(elem_lcl%subelem_lcl_connec(1)%array(NNDRL))
-  allocate(global_connec(NNDRL))
-
-  ! sub elem 1 local connec
-  elem_lcl%subelem_lcl_connec(1)%array = [(i, i=1,NNDRL)]
-
-  ! sub elem 1 global connec
-  global_connec(:) = elem_lcl%node_connec( elem_lcl%subelem_lcl_connec(1)%array(:) )
-
-  ! set sub elem 1
-  call set (elem_lcl%subelem(1), eltype='coh3d8', connec=global_connec, &
-  & istat=istat, emsg=emsg)
-
-  ! if an error is encountered in set, clean up and exit program
-  if (istat == STAT_FAILURE) then
-    if (allocated(global_connec)) deallocate(global_connec)
-    return
-  end if
-
-  ! update to dummy arg. elem before successful return
-  elem = elem_lcl
-
-  if (allocated(global_connec)) deallocate(global_connec)
-
-end subroutine set_fCoh3d8_subelem
-
-
-
-pure subroutine update_fCoh3d8_subelem (elem, top_edge_status, istat, emsg)
-! Purpose:
-! this subroutine is used solely to update the top_edge_status array of the element
-! it is passed in from the adjacent ply element
-use parameter_module, only : MSGLENGTH, STAT_FAILURE, STAT_SUCCESS,&
-                      & INTACT, TRANSITION_EDGE, REFINEMENT_EDGE,  &
-                      & CRACK_TIP_EDGE, WEAK_CRACK_EDGE,           &
-                      & COH_CRACK_EDGE, STRONG_CRACK_EDGE
-
-  type(fCoh3d8_subelem),    intent(inout) :: elem
-  integer,                  intent(in)    :: top_edge_status(NEDGE_SURF)
-  integer,                  intent(out)   :: istat
-  character(len=MSGLENGTH), intent(out)   :: emsg
-
-  istat = STAT_SUCCESS
-  emsg  = ''
-
-  ! check edge status, see if there's any unexpected edge status value
-  if ( any( .not. ( top_edge_status == INTACT          .or.         &
-  &                 top_edge_status == TRANSITION_EDGE .or.         &
-  &                 top_edge_status == REFINEMENT_EDGE .or.         &
-  &                 top_edge_status == CRACK_TIP_EDGE  .or.         &
-  &                 top_edge_status == WEAK_CRACK_EDGE .or.         &
-  &                 top_edge_status == COH_CRACK_EDGE  .or.         &
-  &                 top_edge_status == STRONG_CRACK_EDGE )  )  ) then
-    istat = STAT_FAILURE
-    emsg  = 'edge status value is NOT recognized, update, fCoh3d8_subelem module'
-    return
-  end if
-
-  ! update to elem component if checkings are passed
-  elem%top_edge_status = top_edge_status
-
-end subroutine update_fCoh3d8_subelem
-
-
-
-pure subroutine extract_fCoh3d8_subelem (elem, pstat, subelem)
+pure subroutine extract_fCoh3d8_subelem (elem, subelem)
 ! Purpose:
 ! to extract components of this element, generally used in output
 ! ** Note: **
@@ -252,10 +146,7 @@ pure subroutine extract_fCoh3d8_subelem (elem, pstat, subelem)
 use baseCoh_element_module, only : baseCoh_element
 
   type(fCoh3d8_subelem),                        intent(in)  :: elem
-  integer,                            optional, intent(out) :: pstat
   type(baseCoh_element), allocatable, optional, intent(out) :: subelem(:)
-
-  if(present(pstat)) pstat=elem%pstat
 
   if(present(subelem)) then
     if(allocated(elem%subelem)) then
@@ -268,12 +159,74 @@ end subroutine extract_fCoh3d8_subelem
 
 
 
+pure subroutine set_fCoh3d8_subelem (elem, node_connec, top_edge_status, &
+& istat, emsg)
+! Purpose:
+! to set the element ready for first use
+use parameter_module, only : MSGLENGTH, STAT_FAILURE, STAT_SUCCESS,&
+                      & INTACT, TRANSITION_EDGE, REFINEMENT_EDGE,  &
+                      & CRACK_TIP_EDGE, WEAK_CRACK_EDGE,           &
+                      & COH_CRACK_EDGE, STRONG_CRACK_EDGE
+
+  type(fCoh3d8_subelem),    intent(inout) :: elem
+  integer,                  intent(in)    :: node_connec(NNODE)
+  integer,                  intent(in)    :: top_edge_status(NEDGE_SURF)
+  integer,                  intent(out)   :: istat
+  character(len=MSGLENGTH), intent(out)   :: emsg
+
+  ! location for emsg
+  character(len=MSGLENGTH) :: msgloc
+  integer :: n_crackedges
+
+  istat  = STAT_SUCCESS
+  emsg   = ''
+  msgloc = ' set, fCoh3d8_subelem module'
+  n_crackedges = 0
+  
+  ! check validity of inputs
+  
+  ! check node connec
+  if ( any(node_connec < 1) ) then
+    istat = STAT_FAILURE
+    emsg  = 'node connec indices must be >=1,'//trim(msgloc)
+    return
+  end if
+  
+  ! check edge status, see if there's any unexpected edge status value
+  if ( any( .not. ( top_edge_status == INTACT          .or.         &
+  &                 top_edge_status == TRANSITION_EDGE .or.         &
+  &                 top_edge_status == REFINEMENT_EDGE .or.         &
+  &                 top_edge_status == CRACK_TIP_EDGE  .or.         &
+  &                 top_edge_status == WEAK_CRACK_EDGE .or.         &
+  &                 top_edge_status == COH_CRACK_EDGE  .or.         &
+  &                 top_edge_status == STRONG_CRACK_EDGE )  )  ) then
+    istat = STAT_FAILURE
+    emsg  = 'edge status value is NOT recognized,'//trim(msgloc)
+    return
+  end if
+  
+  ! check the no. of broken edges; only accepts TWO cracked edges
+  n_crackedges = count (top_edge_status >= COH_CRACK_EDGE)
+  if (n_crackedges /= 2) then
+    istat = STAT_FAILURE
+    emsg  = 'no. of cracked edges must be TWO,'//trim(msgloc)
+    return
+  end if
+
+  ! update to elem
+  elem%node_connec     = node_connec
+  elem%top_edge_status = top_edge_status
+
+end subroutine set_fCoh3d8_subelem
+
+
+
+
 pure subroutine integrate_fCoh3d8_subelem (elem, nodes, material, K_matrix, &
 & F_vector, istat, emsg, nofailure)
 ! Purpose:
 ! to integrate this fCoh3d8 subelem and update its internal nodes in nodes array
-use parameter_module, only : DP, MSGLENGTH, STAT_FAILURE, STAT_SUCCESS, ZERO, &
-                      & INTACT, PARTITIONED_FCOHSUB
+use parameter_module,         only : DP, MSGLENGTH, STAT_FAILURE, STAT_SUCCESS, ZERO
 use xnode_module,             only : xnode
 use cohesive_material_module, only : cohesive_material
 
@@ -298,15 +251,6 @@ use cohesive_material_module, only : cohesive_material
   emsg     = ''
   nofail   = .false.
 
-  ! check for input
-
-  ! check elem
-  if (.not. allocated(elem%subelem)) then
-    istat = STAT_FAILURE
-    emsg  = 'sub element is NOT yet allocated, integrate, fCoh3d8_subelem module'
-    return
-  end if
-
   ! check nodes and material:
   ! nodes x and u must be allocated, and material must be properly defined
   ! but this should NOT be checked here, they should be ensured correct at
@@ -323,79 +267,26 @@ use cohesive_material_module, only : cohesive_material
 
 
   !**** MAIN CALCULATIONS ****
-  !
-  ! select what to do based on elem's pstat:
-  ! if elem is at INTACT:
-  !   - check edge status variables to see if the neighbour top ply has matrix
-  !     crack; if so, update pstat to PARTITIONED_FCOHSUB and partition sub elems.
-  !   - interpolate internal nodes and update to global node list
-  !   - integrate and assemble sub elems
-  ! if elem is at PARTITIONED_FCOHSUB:
-  !   - no need to check edge status variables; no need to update partition.
-  !   - interpolate internal nodes and update to global node list
-  !   - integrate and assemble sub elems
-  ! other status of pstat variable is NOT allowed
-  !
-  select case (el%pstat)
 
-    case (INTACT)
-    ! elem is not yet partitioned
+  ! partition element if first time integration
+  if (.not. allocated(elem%subelem)) then
+    call partition_element (el, nodes_lcl, istat, emsg)
+    if (istat == STAT_FAILURE) then
+      call clean_up(K_matrix, F_vector)
+      return
+    end if
+  end if
 
-        ! check for edge status, update pstat
-        call edge_status_update (el, istat, emsg)
-        if (istat == STAT_FAILURE) then
-          call clean_up(K_matrix, F_vector)
-          return
-        end if
+  ! update internal nodes
+  call update_internal_nodes (el, nodes_lcl)
 
-        ! partition element into sub elems and update internal nodes when
-        ! the elem reaches PARTITIONED_FCOHSUB status
-        if (el%pstat == PARTITIONED_FCOHSUB) then
-
-          ! partition elem into sub elems
-          call partition_element (el, nodes_lcl, istat, emsg)
-          if (istat == STAT_FAILURE) then
-            call clean_up(K_matrix, F_vector)
-            return
-          end if
-
-          ! update internal nodes
-          call update_internal_nodes (el, nodes_lcl)
-
-        end if
-
-        ! integrate sub elems and assemble system matrices
-        call integrate_assemble_subelem(el, nodes_lcl, material, K_matrix, &
-        & F_vector, istat, emsg, nofail)
-        if (istat == STAT_FAILURE) then
-          call clean_up(K_matrix, F_vector)
-          return
-        end if
-
-
-
-    case (PARTITIONED_FCOHSUB)
-    ! elem is already partitioned
-
-        ! update internal nodes
-        call update_internal_nodes (el, nodes_lcl)
-
-        ! integrate sub elems and assemble system matrices
-        call integrate_assemble_subelem(el, nodes_lcl, material, K_matrix, &
-        & F_vector, istat, emsg, nofail)
-        if (istat == STAT_FAILURE) then
-          call clean_up(K_matrix, F_vector)
-          return
-        end if
-
-    case default
-    ! this place should NOT be reached
-        istat = STAT_FAILURE
-        emsg  = 'unsupported pstat value in fCoh3d8 elem module'
-        call clean_up(K_matrix, F_vector)
-        return
-
-  end select
+  ! integrate sub elems and assemble system matrices
+  call integrate_assemble_subelem(el, nodes_lcl, material, K_matrix, &
+  & F_vector, istat, emsg, nofail)
+  if (istat == STAT_FAILURE) then
+    call clean_up(K_matrix, F_vector)
+    return
+  end if
 
   !**** END MAIN CALCULATIONS ****
 
@@ -415,81 +306,6 @@ use cohesive_material_module, only : cohesive_material
     end subroutine clean_up
 
 end subroutine integrate_fCoh3d8_subelem
-
-
-
-pure subroutine edge_status_update (el, istat, emsg)
-! Purpose:
-! update pass arg. el's pstat and its partition w.r.t its edge status variables
-!** NOTE: this subroutine is meant for elem pstat = INTACT **
-use parameter_module, only : MSGLENGTH, STAT_SUCCESS, STAT_FAILURE,   &
-                      & INTACT, PARTITIONED_FCOHSUB, COH_CRACK_EDGE
-
-  ! passed-in variables
-  type(fCoh3d8_subelem),    intent(inout) :: el
-  integer,                  intent(out)   :: istat
-  character(len=MSGLENGTH), intent(out)   :: emsg
-
-  ! local variables
-  ! n_crackedges : no. of cracked edges in this elem
-  character(len=MSGLENGTH)  :: msgloc
-  integer :: n_crackedges
-
-  ! initialize intent out and local variables
-  istat = STAT_SUCCESS
-  emsg  = ''
-  msgloc = ' edge_status_update, fCoh3d8_subelem_module'
-  n_crackedges = 0
-
-  ! Note: no need to check for input validity or create local copy of intent
-  ! inout dummy arg because this is an internal procedure; but check the expected
-  ! values of elem components for this subroutine
-
-  ! this subroutine is meant for elem pstat = INTACT
-  if (el%pstat /= INTACT) then
-    istat = STAT_FAILURE
-    emsg  = 'unexpected elem pstat value in'//trim(msgloc)
-    return
-  end if
-
-  ! find the no. of broken edges
-  n_crackedges = count (el%top_edge_status >= COH_CRACK_EDGE)
-
-  !**** MAIN CALCULATIONS ****
-
-  ! update el%pstat w.r.t no. of failed edges and edge status
-  ! only update el%pstat to the final partition status, PARTITIONED_FCOHSUB, when
-  ! the top ply elem has reached its final partition status (MATRIX_CRACK_ELEM
-  ! or FIBRE_FAILED_ELEM)
-  select case (n_crackedges)
-
-    case (0)
-    ! adj. ply elem is INTACT, TRANSITION_ELEM, REFINEMENT_ELEM, or CRACK_TIP_ELEM
-    ! do nothing
-        continue
-
-    case (1)
-    ! adj. ply elem is CRACK_WAKE_ELEM, do nothing
-        continue
-
-    case (2)
-    ! TWO broken edges
-    ! ply elem status is MATRIX_CRACK_ELEM or FIBRE_FAIL_ELEM, this is the
-    ! final partition of the ply elem.
-    ! update fCoh pstat
-        el%pstat = PARTITIONED_FCOHSUB
-
-    case default
-        istat = STAT_FAILURE
-        emsg  = 'unsupported n_crackedges value for edge and el stat update &
-        & in'//trim(msgloc)
-        return
-
-  end select
-
-  !**** END MAIN CALCULATIONS ****
-
-end subroutine edge_status_update
 
 
 
@@ -585,8 +401,6 @@ use global_toolkit_module,  only : distance, partition_quad_elem
     emsg = 'unexpected no. of cracked edges in'//trim(msgloc)
     return
   end if
-
-
 
   ! :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::!
   ! calculate lambdas (crack point relative loc.) of the cracked edges
@@ -811,7 +625,7 @@ pure subroutine integrate_assemble_subelem (elem, nodes, material, K_matrix, &
 ! Purpose:
 ! integrate and assemble sub element system arrays
 use parameter_module, only : DP, MSGLENGTH, STAT_SUCCESS, STAT_FAILURE, ZERO, &
-                      & INTACT, PARTITIONED_FCOHSUB, NDIM
+                      & NDIM
 use xnode_module,             only : xnode
 use cohesive_material_module, only : cohesive_material
 use baseCoh_element_module,   only : integrate
@@ -844,117 +658,68 @@ use global_toolkit_module,    only : assembleKF
   nofail = .false.
   isub=0; j=0; k=0; l=0; n=0
 
-
   if (present(nofailure)) nofail = nofailure
 
-  ! loop over all sub elements to
-  ! integrate their system arrays and assemble together
-  if (elem%pstat == INTACT) then
-  ! element is not yet partitioned, there should be only 1 sub elem allocated
-  ! only integrate subelem 1 without using mnodes
 
-      do isub = 1, size(elem%subelem)
+  !:::::::::::::::::::::::::::::::::::::!
+  ! integrate and assemble sub elems
+  !:::::::::::::::::::::::::::::::::::::!
+  do isub = 1, size(elem%subelem)
 
-        ! verify that there's only 1 subelem
-        if (isub /= 1) then
-          istat = STAT_FAILURE
-          emsg = 'incompatible no. of subelem with INTACT partition status'
-          exit
-        end if
+    ! call the integrate procedure asoc. with the subelem type
+    ! exit the do loop (and if-else subsequently) if an error is encountered
+    call integrate(elem%subelem(isub), &
+    & nodes(elem%subelem_lcl_connec(isub)%array(:)), material, Ki, Fi, &
+    & istat, emsg, nofail)
+    if (istat == STAT_FAILURE) exit
 
-        ! call the integrate procedure asoc. with the subelem type
-        ! exit the do loop (and if-else subsequently) if an error is encountered
-        call integrate(elem%subelem(isub), &
-        & nodes(elem%subelem_lcl_connec(isub)%array(:)), material, Ki, Fi, &
-        & istat, emsg, nofail)
-        if (istat == STAT_FAILURE) exit
+    ! prepare to assemble sub K and sub F to elem's K and F
+    if(allocated(dofcnc)) deallocate(dofcnc)
+    allocate(dofcnc(size(Fi))); dofcnc = 0
 
-        ! if no error, prepare to assemble Ki and Fi to elem's K and F
-        if(allocated(dofcnc)) deallocate(dofcnc)
-        allocate(dofcnc(size(Fi))); dofcnc = 0
-
-        ! loop over no. of nodes in sub elem i, = NNDRL
-        do j = 1, NNDRL
-          do l = 1, NDIM
-            ! obtain dof indices of the jth node of sub elem i
-            dofcnc( (j-1) * NDIM + l ) = &
-            & ( elem%subelem_lcl_connec(isub)%array(j) - 1 ) * NDIM + l
-          end do
-        end do
-
-        ! assemble the sub elem K and F
-        call assembleKF(K_matrix, F_vector, Ki, Fi, dofcnc, istat, emsg)
-        if (istat == STAT_FAILURE) exit
-
+    ! loop over no. of nodes in sub elem i
+    do j = 1, size(elem%subelem_lcl_connec(isub)%array)
+      do l = 1, NDIM
+        ! dof indices of the jth node of sub elem i
+        dofcnc( (j-1) * NDIM + l ) = &
+        & ( elem%subelem_lcl_connec(isub)%array(j) - 1 ) * NDIM + l
       end do
+    end do
 
-  else if (elem%pstat == PARTITIONED_FCOHSUB) then
-  ! element is partitioned into subelems
+    ! assemble the sub elem K and F
+    call assembleKF(K_matrix, F_vector, Ki, Fi, dofcnc, istat, emsg)
+    if (istat == STAT_FAILURE) exit
 
-      !:::::::::::::::::::::::::::::::::::::!
-      ! integrate and assemble sub elems
-      !:::::::::::::::::::::::::::::::::::::!
-      do isub = 1, size(elem%subelem)
+  end do
 
-        ! call the integrate procedure asoc. with the subelem type
-        ! exit the do loop (and if-else subsequently) if an error is encountered
-        call integrate(elem%subelem(isub), &
-        & nodes(elem%subelem_lcl_connec(isub)%array(:)), material, Ki, Fi, &
-        & istat, emsg, nofail)
-        if (istat == STAT_FAILURE) exit
+  !:::::::::::::::::::::::::::::::::::::!
+  ! condense the terms of internal nodes
+  !:::::::::::::::::::::::::::::::::::::!
+  if (istat == STAT_SUCCESS) then
 
-        ! prepare to assemble sub K and sub F to elem's K and F
-        if(allocated(dofcnc)) deallocate(dofcnc)
-        allocate(dofcnc(size(Fi))); dofcnc = 0
+    ! get the Tmatrix for condensing the internal nodes
+    call get_Tmatrix (elem, Tmatrixfull)
 
-        ! loop over no. of nodes in sub elem i
-        do j = 1, size(elem%subelem_lcl_connec(isub)%array)
-          do l = 1, NDIM
-            ! dof indices of the jth node of sub elem i
-            dofcnc( (j-1) * NDIM + l ) = &
-            & ( elem%subelem_lcl_connec(isub)%array(j) - 1 ) * NDIM + l
-          end do
-        end do
+    ! allocate the condensed K mat and F vec
+    n = size(Tmatrixfull(1,:))
+    allocate( Kmat_r(n,n), Fvec_r(n) )
+    Kmat_r = ZERO
+    Fvec_r = ZERO
 
-        ! assemble the sub elem K and F
-        call assembleKF(K_matrix, F_vector, Ki, Fi, dofcnc, istat, emsg)
-        if (istat == STAT_FAILURE) exit
+    ! calculate the condensed K matrix and F vector
+    Kmat_r = matmul( matmul( transpose(Tmatrixfull), K_matrix ), Tmatrixfull )
+    Fvec_r = matmul( transpose(Tmatrixfull), F_vector )
 
-      end do
+    ! zero K_matrix and F_vector for re-value
+    K_matrix = ZERO
+    F_vector = ZERO
 
-      !:::::::::::::::::::::::::::::::::::::!
-      ! condense the terms of internal nodes
-      !:::::::::::::::::::::::::::::::::::::!
-      if (istat == STAT_SUCCESS) then
-
-        ! get the Tmatrix for condensing the internal nodes
-        call get_Tmatrix (elem, Tmatrixfull)
-
-        ! allocate the condensed K mat and F vec
-        n = size(Tmatrixfull(1,:))
-        allocate( Kmat_r(n,n), Fvec_r(n) )
-        Kmat_r = ZERO
-        Fvec_r = ZERO
-
-        ! calculate the condensed K matrix and F vector
-        Kmat_r = matmul( matmul( transpose(Tmatrixfull), K_matrix ), Tmatrixfull )
-        Fvec_r = matmul( transpose(Tmatrixfull), F_vector )
-
-        ! zero K_matrix and F_vector for re-value
-        K_matrix = ZERO
-        F_vector = ZERO
-
-        ! copy the condensed K and F into K_matrix and F_vector
-        K_matrix(1:n, 1:n) = Kmat_r(:,:)
-        F_vector(1:n)      = Fvec_r(:)
-
-      end if
-
-  else
-      istat = STAT_FAILURE
-      emsg = 'unsupported elem pstat value'
+    ! copy the condensed K and F into K_matrix and F_vector
+    K_matrix(1:n, 1:n) = Kmat_r(:,:)
+    F_vector(1:n)      = Fvec_r(:)
 
   end if
+
 
   ! clean up if above loop exit upon error
   if (istat == STAT_FAILURE) then

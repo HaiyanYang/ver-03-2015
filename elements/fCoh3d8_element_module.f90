@@ -10,7 +10,7 @@ module fCoh3d8_element_module
 !  |\                  |\
 !  | \23               | \20
 !  |  \(32)            |  \(30)     Top    edges (anti-clock wise from front):
-!  |   \24             |   \19      E5, E6, E7, E8
+!  |   \24             |   \19      topE1, topE2, topE3, topE4
 !  |    \              |    \
 !  |     \5___17__(29)_|_18__\6
 !  |______|____________|      |
@@ -18,7 +18,7 @@ module fCoh3d8_element_module
 !   \     |             \     |
 !  15\    |            12\    |
 ! (28)\   |           (26)\   |     Bottom edges (anti-clock wise from front):
-!    16\  |              11\  |     E1, E2, E3, E4
+!    16\  |              11\  |     botE1, botE2, botE3, botE4
 !       \ |                 \ |
 !        \|__________________\|
 !         1    9  (25)  10    2
@@ -27,19 +27,19 @@ module fCoh3d8_element_module
 !  real     nodes on bot edges :  1,  2,  3,  4
 !  floating nodes on bot edges :  9, 10, 11, 12, 13, 14, 15, 16
 !  internal nodes on bot edges : 25, 26, 27, 28
-!  nodes of bot E1 ::    <end nodes: 1, 2>  <fl. nodes:  9, 10>  <in. node: 25>
-!  nodes of bot E2 ::    <end nodes: 2, 3>  <fl. nodes: 11, 12>  <in. node: 26>
-!  nodes of bot E3 ::    <end nodes: 3, 4>  <fl. nodes: 13, 14>  <in. node: 27>
-!  nodes of bot E4 ::    <end nodes: 4, 1>  <fl. nodes: 15, 16>  <in. node: 28>
+!  nodes of botE1 ::    <end nodes: 1, 2>  <fl. nodes:  9, 10>  <in. node: 25>
+!  nodes of botE2 ::    <end nodes: 2, 3>  <fl. nodes: 11, 12>  <in. node: 26>
+!  nodes of botE3 ::    <end nodes: 3, 4>  <fl. nodes: 13, 14>  <in. node: 27>
+!  nodes of botE4 ::    <end nodes: 4, 1>  <fl. nodes: 15, 16>  <in. node: 28>
 !
 !  :::: top surface definition ::::
 !  real     nodes on top edges :  5,  6,  7,  8
 !  floating nodes on top edges : 17, 18, 19, 20, 21, 22, 23, 24
 !  internal nodes on top edges : 29, 30, 31, 32
-!  nodes of top E1 ::    <end nodes: 5, 6>  <fl. nodes: 17, 18>  <in. node: 29>
-!  nodes of top E2 ::    <end nodes: 6, 7>  <fl. nodes: 19, 20>  <in. node: 30>
-!  nodes of top E3 ::    <end nodes: 7, 8>  <fl. nodes: 21, 22>  <in. node: 31>
-!  nodes of top E4 ::    <end nodes: 8, 5>  <fl. nodes: 23, 24>  <in. node: 32>
+!  nodes of topE1 ::    <end nodes: 5, 6>  <fl. nodes: 17, 18>  <in. node: 29>
+!  nodes of topE2 ::    <end nodes: 6, 7>  <fl. nodes: 19, 20>  <in. node: 30>
+!  nodes of topE3 ::    <end nodes: 7, 8>  <fl. nodes: 21, 22>  <in. node: 31>
+!  nodes of topE4 ::    <end nodes: 8, 5>  <fl. nodes: 23, 24>  <in. node: 32>
 !
 !
 !
@@ -66,13 +66,13 @@ module fCoh3d8_element_module
 !
 !  topological definition of top sub element, type fCoh3d8_subelem:
 !
-!  8____22________21___7
+!  8____22__TE3___21___7
 !  |\                  |\
 !  | \23               | \20
-!  |  \                |  \         Top edges : E5, E6, E7, E8
-!  |   \24             |   \19
-!  |    \              |    \
-!  |     \5___17_______|_18__\6
+!  |  \TE4             |  \TE2      top subelem top edges in this elem top edges  
+!  |   \24             |   \19      (anti-clock wise from front): 
+!  |    \              |    \       topE1, topE2, topE3, topE4
+!  |     \5___17___TE1_|_18__\6
 !  |______|____________|      |
 ! 4\      |  27       3\      |
 !   \     |             \     |
@@ -87,13 +87,13 @@ module fCoh3d8_element_module
 !
 !  topological definition of bot sub element (reverse view), type fCoh3d8_subelem:
 !
-!  1_____9________10___2
+!  1_____9___BE1__10___2
 !  |\                  |\
 !  | \16               | \11
-!  |  \                |  \         Top edges : E3, E2, E1, E4
-!  |   \15             |   \12
-!  |    \              |    \
-!  |     \4___14_______|_13__\3
+!  |  \BE4             |  \BE2       bot subelem top edges in this elem bot edges  
+!  |   \15             |   \12      (anti-clock wise from front):
+!  |    \              |    \       botE3, botE2, botE1, botE4
+!  |     \4___14___BE3_|_13__\3
 !  |______|____________|      |
 ! 5\      |  29       6\      |
 !   \     |             \     |
@@ -129,29 +129,24 @@ integer, parameter :: NNDRL       = 8,                      &
                    &  NNODE       = NNDRL + NNDFL + NNDIN,  &
                    &  NDOF        = NDIM * NNODE
                    
-! NODAL CONNEC OF INTACT ELEM: REAL NODES ONLY
-integer, parameter :: INTACTELEM_NODES(8) = [1,2,3,4,5,6,7,8]
+! NODAL CONNEC OF INTACT  ELEM: REAL NODES ONLY
+integer, parameter :: INTACT_ELEM_NODES(8) = [1,2,3,4,5,6,7,8]
 
-! NODAL CONNEC OF 2 SUB ELEMS: REAL NODES, FLOATING NODES AND INTERNAL NODES
-integer, parameter :: TOPSUBELEM_NODES(20) = [1,2,3,4,5,6,7,8,  &
+! NODAL CONNEC OF TOP SUB ELEM: REAL NODES, FLOATING NODES AND INTERNAL NODES
+integer, parameter :: TOP_SUBELEM_NODES(20) = [1,2,3,4,5,6,7,8,  &
                    &  17,18,19,20,21,22,23,24,   25,26,27,28]
-integer, parameter :: BOTSUBELEM_NODES(20) = [8,7,6,5,4,3,2,1,  &
-                   &  14,13,12,11,10, 9,16,15,   31,30,29,32]
 
-! EDGE CONNEC OF 2 SUB ELEMS:
-integer, parameter :: TOPSUBELEM_TOPEDGES(4) = [5, 6, 7, 8]
-integer, parameter :: BOTSUBELEM_TOPEDGES(4) = [3, 2, 1, 4]
+! NODAL CONNEC OF BOT SUB ELEM: REAL NODES, FLOATING NODES AND INTERNAL NODES                   
+integer, parameter :: BOT_SUBELEM_NODES(20) = [8,7,6,5,4,3,2,1,  &
+                   &  14,13,12,11,10, 9,16,15,   31,30,29,32]
 
 type, public :: fCoh3d8_element
     private
     
-    integer :: pstat                      = 0
-    integer :: node_connec(NNODE)         = 0
-    integer :: lcl_ID_crack_edges(NEDGE)  = 0
-    type(coh3d8_element),  allocatable   :: intactElem
-    type(fCoh3d8_subelem), allocatable   :: topSubElem
-    type(fCoh3d8_subelem), allocatable   :: botSubElem
-    
+    integer :: node_connec(NNODE) = 0
+    type(coh3d8_element),  allocatable   :: intact_elem
+    type(fCoh3d8_subelem), allocatable   :: top_subelem
+    type(fCoh3d8_subelem), allocatable   :: bot_subelem
 end type fCoh3d8_element
 
 interface empty
@@ -185,113 +180,222 @@ contains
 
 pure subroutine empty_fCoh3d8_element (elem)
 
-    type(fCoh3d8_element), intent(inout) :: elem
-    
-    type(fCoh3d8_element) :: elem_lcl
-     
-    elem = elem_lcl
+  type(fCoh3d8_element), intent(inout) :: elem
+  
+  type(fCoh3d8_element) :: elem_lcl
+   
+  elem = elem_lcl
     
 end subroutine empty_fCoh3d8_element
 
 
 
-! this subroutine is used to set the connectivity and material lib index of the element
-! it is used in the initialize_lib_elem procedure in the lib_elem module
-pure subroutine set_fCoh3d8_element (elem, node_connec, edge_connec)
+pure subroutine set_fCoh3d8_element (elem, node_connec, istat, emsg)
+! Purpose:
+! to set the element ready for first use
+use parameter_module,       only : MSGLENGTH, STAT_FAILURE, STAT_SUCCESS
+use coh3d8_element_module,  only : set
 
-    type(fCoh3d8_element),  intent(inout)   :: elem
-    integer,                intent(in)      :: node_connec(nnode)
-    integer,                intent(in)      :: edge_connec(nedge)
+  type(fCoh3d8_element),    intent(inout) :: elem
+  integer,                  intent(in)    :: node_connec(nnode)
+  integer,                  intent(out)   :: istat
+  character(len=MSGLENGTH), intent(out)   :: emsg
+    
+  ! local copy of elem
+  type(fCoh3d8_element) :: elem_lcl
+  ! global_connec of sub element
+  integer, allocatable  :: global_connec(:)
+  ! location for emsg
+  character(len=MSGLENGTH) :: msgloc
 
+  istat = STAT_SUCCESS
+  emsg  = ''
+  msgloc = ' set, fCoh3d8_element module'
 
-    elem%node_connec=node_connec
-    elem%edge_connec=edge_connec
+  ! check validity of inputs
+  if ( any(node_connec < 1) ) then
+    istat = STAT_FAILURE
+    emsg  = 'node connec indices must be >=1, set, &
+    &fCoh3d8_subelem_module'
+    return
+  end if
+
+  ! update to elem_lcl first
+  elem_lcl%node_connec = node_connec
+  
+  ! allocate intact elem
+  allocate(elem_lcl%intact_elem)
+  allocate(global_connec(NNDRL))
+  
+  ! populate the global connec of intact element
+  global_connec(:) = node_connec(INTACT_ELEM_NODES(:))
+  
+  ! set the intact element
+  call set (elem_lcl%intact_elem, connec=global_connec, istat=istat, emsg=emsg)
+  
+  ! if an error is encountered in set, clean up and exit program
+  if (istat == STAT_FAILURE) then
+    if (allocated(global_connec)) deallocate(global_connec)
+    emsg = emsg//trim(msgloc)
+    return
+  end if
+
+  ! update to dummy arg. elem before successful return
+  elem = elem_lcl
+
+  if (allocated(global_connec)) deallocate(global_connec)
 
 end subroutine set_fCoh3d8_element
 
 
 
-! this subroutine is used to update the lcl_ID_crack_edges array of the element
-pure subroutine update_fCoh3d8_element (elem, lcl_ID_crack_edges)
+pure subroutine update_fCoh3d8_element (elem, surf_edge_status, top_or_bottom, &
+& istat, emsg)
+! Purpose:
+! this subroutine is used to update the edge_status array of the element
+! passed in from the adjacent ply elements, and then alloc and set the subelem
+use parameter_module, only : MSGLENGTH, STAT_FAILURE, STAT_SUCCESS,&
+                      & INTACT, TRANSITION_EDGE, REFINEMENT_EDGE,  &
+                      & CRACK_TIP_EDGE, WEAK_CRACK_EDGE,           &
+                      & COH_CRACK_EDGE, STRONG_CRACK_EDGE
+                      
+  type(fCoh3d8_element),    intent(inout) :: elem
+  integer,                  intent(in)    :: surf_edge_status(NEDGE/2)
+  character(len=*),         intent(in)    :: top_or_bottom
+  integer,                  intent(out)   :: istat
+  character(len=MSGLENGTH), intent(out)   :: emsg
 
-    type(fCoh3d8_element),    intent(inout)    :: elem
-    integer,                  intent(in)    :: lcl_ID_crack_edges(nedge)
+  ! local copy of elem
+  type(fCoh3d8_element)    :: el
+  character(len=MSGLENGTH) :: msgloc
+  integer                  :: n_crackedges
 
-    elem%lcl_ID_crack_edges=lcl_ID_crack_edges
+  istat  = STAT_SUCCESS
+  emsg   = ''
+  msgloc = ' update, fCoh3d8_element module'
+  n_crackedges = 0
 
+  ! check edge status, see if there's any unexpected edge status value
+  if ( any( .not. ( surf_edge_status == INTACT          .or.         &
+  &                 surf_edge_status == TRANSITION_EDGE .or.         &
+  &                 surf_edge_status == REFINEMENT_EDGE .or.         &
+  &                 surf_edge_status == CRACK_TIP_EDGE  .or.         &
+  &                 surf_edge_status == WEAK_CRACK_EDGE .or.         &
+  &                 surf_edge_status == COH_CRACK_EDGE  .or.         &
+  &                 surf_edge_status == STRONG_CRACK_EDGE )  )  ) then
+    istat = STAT_FAILURE
+    emsg  = 'surf edge status value is NOT recognized,'//trim(msgloc)
+    return
+  end if
+
+  ! check the no. of broken edges; only accepts TWO cracked edges, as this is 
+  ! the final partition from the ply element
+  n_crackedges = count (surf_edge_status >= COH_CRACK_EDGE)
+  if (n_crackedges /= 2) then
+    istat = STAT_FAILURE
+    emsg  = 'no. of cracked edges must be TWO,'//trim(msgloc)
+    return
+  end if
+  
+  ! copy elem to its local copy
+  el = elem
+
+  ! update to elem component if checkings are passed
+  select case (trim(adjustl(top_or_bottom))
+    
+    case ('top')
+        ! check, flag error if top elem has already been set
+        if (allocated(el%top_subelem)) then 
+          istat = STAT_FAILURE
+          emsg  = 'top sub elem has already been defined,'//trim(msgloc)
+          return
+        end if
+        ! proceed if no error encountered
+        
+        ! deallocate intact elem
+        if (allocated(el%intact_elem)) deallocate(el%intact_elem)
+        
+        ! allocate top sub elem
+        allocate(el%top_subelem)
+        
+        ! set top sub elem; note that the top sub elem's top edges are just
+        ! this elem's top edges, without any change of order 
+        call set (el%top_subelem, node_connec=el%node_connec(TOP_SUBELEM_NODES),&
+        & top_edge_status=surf_edge_status, istat=istat, emsg=emsg)
+        if (istat == STAT_FAILURE) then
+          emsg = emsg//trim(msgloc)
+          return
+        end if
+    
+    case ('bottom')
+        ! check, flag error if bot elem has already been set
+        if (allocated(el%bot_subelem)) then 
+          istat = STAT_FAILURE
+          emsg  = 'bot sub elem has already been defined,'//trim(msgloc)
+          return
+        end if
+        ! proceed if no error encountered
+        
+        ! deallocate intact elem
+        if (allocated(el%intact_elem)) deallocate(el%intact_elem)
+        
+        ! allocate top sub elem
+        allocate(el%bot_subelem)
+        
+        ! set top sub elem; note that the bot sub elem's top edges are
+        ! this elem's bot edges but with permutated order (see illustration at top
+        ! of this module, in comment)
+        call set (el%bot_subelem, node_connec=el%node_connec(BOT_SUBELEM_NODES),&
+        & top_edge_status=surf_edge_status([3, 2, 1, 4]), istat=istat, &
+        & emsg=emsg)
+        if (istat == STAT_FAILURE) then
+          emsg = emsg//trim(msgloc)
+          return
+        end if
+    
+    case default
+        istat = STAT_FAILURE
+        emsg  = "unsupported top_or_bottom value, input either 'top' or &
+        &'bottom',"//trim(msgloc)
+        return
+  
+  end select
+  
+  ! copy definition to input arg. before successful return
+  elem = el
+    
 end subroutine update_fCoh3d8_element
 
 
 
-pure subroutine extract_fCoh3d8_element (elem, pstat, key, matkey, node_connec, edge_connec, &
-& lcl_ID_crack_edges,intelem,subelem,intelem_lcl_connec,subelem_lcl_connec,sdv)
+pure subroutine extract_fCoh3d8_element (elem, intact_elem, top_subelem, bot_subelem)
+use coh3d8_element_module,  only : coh3d8_element
+use fCoh3d8_subelem_module, only : fCoh3d8_subelem
 
-    type(fCoh3d8_element),                      intent(in)  :: elem
-    integer,                        optional, intent(out) :: pstat
-    integer,                        optional, intent(out) :: key
-    integer,                        optional, intent(out) :: matkey
-    integer,            allocatable,optional, intent(out) :: node_connec(:)
-    integer,            allocatable,optional, intent(out) :: edge_connec(:)
-    integer,            allocatable,optional, intent(out) :: lcl_ID_crack_edges(:)
-    type(coh3d8_element),allocatable,optional,intent(out) :: intelem(:)
-    type(fCoh3d8_subelem),allocatable,optional, intent(out) :: subelem(:)
-    type(int_alloc_array),allocatable,optional,intent(out):: intelem_lcl_connec(:),subelem_lcl_connec(:)
-    type(sdv_array),    allocatable,optional, intent(out) :: sdv(:)
+    type(fCoh3d8_element),                        intent(in)   :: elem
+    type(coh3d8_element),  allocatable, optional, intent(out)  :: intact_elem
+    type(fCoh3d8_subelem), allocatable, optional, intent(out)  :: top_subelem
+    type(fCoh3d8_subelem), allocatable, optional, intent(out)  :: bot_subelem
 
-    if(present(pstat)) pstat=elem%pstat
-    if(present(key)) key=elem%key 
-    if(present(matkey)) matkey=elem%matkey
-    
-    if(present(node_connec)) then 
-        allocate(node_connec(nnode))
-        node_connec=elem%node_connec
+    if (present(intact_elem)) then
+      if (allocated(elem%intact_elem)) then
+        allocate(intact_elem)
+        intact_elem = elem%intact_elem
+      end if
     end if
     
-    if(present(edge_connec)) then 
-        allocate(edge_connec(nedge))
-        edge_connec=elem%edge_connec
+    if (present(top_subelem)) then
+      if (allocated(elem%top_subelem)) then
+        allocate(top_subelem)
+        top_subelem = elem%top_subelem
+      end if
     end if
 
-    if(present(lcl_ID_crack_edges)) then 
-        allocate(lcl_ID_crack_edges(nedge))
-        lcl_ID_crack_edges=elem%lcl_ID_crack_edges
-    end if
-    
-    if(present(intelem)) then
-        if(allocated(elem%intelem)) then
-            allocate(intelem(size(elem%intelem)))
-            intelem=elem%intelem
-        end if
-    end if
-    
-    if(present(subelem)) then
-        if(allocated(elem%subelem)) then
-            allocate(subelem(size(elem%subelem)))
-            subelem=elem%subelem
-        end if
-    end if
-    
-    
-    if(present(intelem_lcl_connec)) then
-        if(allocated(elem%intelem_lcl_connec)) then
-            allocate(intelem_lcl_connec(size(elem%intelem_lcl_connec)))
-            intelem_lcl_connec=elem%intelem_lcl_connec
-        end if
-    end if
-    
-    
-    if(present(subelem_lcl_connec)) then
-        if(allocated(elem%subelem_lcl_connec)) then
-            allocate(subelem_lcl_connec(size(elem%subelem_lcl_connec)))
-            subelem_lcl_connec=elem%subelem_lcl_connec
-        end if
-    end if
-    
-    if(present(sdv)) then        
-        if(allocated(elem%sdv)) then
-            allocate(sdv(size(elem%sdv)))
-            sdv=elem%sdv
-        end if
+    if (present(bot_subelem)) then
+      if (allocated(elem%bot_subelem)) then
+        allocate(bot_subelem)
+        bot_subelem = elem%bot_subelem
+      end if
     end if
 
 end subroutine extract_fCoh3d8_element
@@ -322,7 +426,6 @@ pure subroutine integrate_fCoh3d8_element (elem, K_matrix, F_vector)
     elstat=0; mainelstat=0
     
     nofailure=.false.
-
 
     ! extract current status value
     elstat=elem%pstat  
