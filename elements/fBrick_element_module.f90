@@ -93,7 +93,7 @@ integer, parameter :: NODES_ON_BOT_EDGES(4,NEDGE_SURF) =    &
 & reshape([1,2,9,10,   2,3,11,12,  3,4,13,14,  4,1,15,16], [4,NEDGE_SURF])
 
 
-type, public :: fBrick_element             ! breakable brick
+type, public :: fBrick_element
   private 
 
   integer :: curr_status        = 0
@@ -140,11 +140,11 @@ contains
 
 pure subroutine empty_fBrick_element(elem)
 
-    type(fBrick_element), intent(inout) :: elem
-    
-    type(fBrick_element) :: elem_lcl
-    
-    elem = elem_lcl
+  type(fBrick_element), intent(inout) :: elem
+  
+  type(fBrick_element) :: elem_lcl
+  
+  elem = elem_lcl
 
 end subroutine empty_fBrick_element
 
@@ -152,6 +152,10 @@ end subroutine empty_fBrick_element
 
 pure subroutine set_fBrick_element(elem, ply_angle, node_connec, edge_connec, &
 & istat, emsg)
+! Purpose:
+! to set the element ready for first use
+use parameter_module,      only : MSGLENGTH, STAT_FAILURE, STAT_SUCCESS
+use brick_element_module,  only : set
 
   type(fBrick_element),     intent(inout) :: elem
   real(dp),                 intent(in)    :: ply_angle
@@ -160,6 +164,10 @@ pure subroutine set_fBrick_element(elem, ply_angle, node_connec, edge_connec, &
   integer,                  intent(out)   :: istat
   character(len=MSGLENGTH), intent(out)   :: emsg
   
+  ! local copy of elem
+  type(fBrick_element) :: elem_lcl
+  ! global_connec of sub element
+  integer, allocatable :: global_connec(:)
   ! location for emsg
   character(len=MSGLENGTH) :: msgloc
 
@@ -182,10 +190,34 @@ pure subroutine set_fBrick_element(elem, ply_angle, node_connec, edge_connec, &
     emsg  = 'edge connec indices must be >=1,'//trim(msgloc)
     return
   end if
+  
+  ! update to elem_lcl first
+  elem_lcl%ply_angle   = ply_angle
+  elem_lcl%node_connec = node_connec
+  elem_lcl%edge_connec = edge_connec
+  
+  ! allocate intact elem
+  allocate(elem_lcl%intact_elem)
+  allocate(global_connec(NNDRL))
 
-  elem%ply_angle   = ply_angle
-  elem%node_connec = node_connec
-  elem%edge_connec = edge_connec
+  ! populate the global connec of intact element
+  global_connec(:) = node_connec(INTACT_ELEM_NODES(:))
+
+  ! set the intact element
+  call set (elem_lcl%intact_elem, connec=global_connec, ply_angle=ply_angle, &
+  & istat=istat, emsg=emsg)
+
+  ! if an error is encountered in set, clean up and exit program
+  if (istat == STAT_FAILURE) then
+    if (allocated(global_connec)) deallocate(global_connec)
+    emsg = emsg//trim(msgloc)
+    return
+  end if
+
+  ! update to dummy arg. elem before successful return
+  elem = elem_lcl
+
+  if (allocated(global_connec)) deallocate(global_connec)
 
 end subroutine set_fBrick_element
 
@@ -230,184 +262,174 @@ end subroutine extract_fBrick_element
 
 
 
-pure subroutine integrate_fBrick_element(elem, K_matrix, F_vector)
+pure subroutine integrate_fBrick_element(elem, nodes, edge_status, lam_mat &
+& coh_mat, K_matrix, F_vector, istat, emsg)
+use parameter_module, only :
+use xnode_module,             only : xnode
+use lamina_material_module,   only : lamina_material
+use cohesive_material_module, only : cohesive_material
+use global_clock_module, only : GLOBAL_CLOCK, clock_in_sync
 
-    type(fBrick_element),intent(inout)       :: elem 
-    real(kind=dp),allocatable,intent(out)   :: K_matrix(:,:), F_vector(:)
+  type(fBrick_element),     intent(inout) :: elem 
+  type(xnode),              intent(inout) :: nodes(NNODE)
+  integer,                  intent(inout) :: edge_status(NEDGE)
+  type(lamina_material),    intent(in)    :: lam_mat
+  type(cohesive_material),  intent(in)    :: coh_mat
+  real(DP),    allocatable, intent(out)   :: K_matrix(:,:), F_vector(:)
+  integer,                  intent(out)   :: istat
+  character(len=MSGLENGTH), intent(out)   :: emsg
+
+  !:::: local variables ::::
+  ! local copy of intent inout variables
+  type(fBrick_element) :: el
+  type(xnode)          :: nds(NNODE)
+  integer              :: egstat(NEDGE)
+  ! sub elem K and F
+  real(DP), allocatable :: Ki(:,:), Fi(:)
+  ! logical control variables
+  logical :: last_converged
+  logical :: nofailure
+  ! error msg location
+  character(len=MSGLENGTH) :: msgloc
+  
+  ! initialize intent out and local variables
+  allocate(K_matrix(NDOF,NDOF), F_vector(NDOF))
+  K_matrix = ZERO
+  F_vector = ZERO
+  istat    = STAT_SUCCESS
+  emsg     = ''
+  last_converged = .false.
+  nofailure      = .false.
+  msgloc   = ' integrate, fBrick_element module'
+  
+  ! copy intent inout arg. to its local alias
+  el     = elem
+  nds    = nodes
+  egstat = edge_status
+  
+  ! - check if last iteration has converged
+  if(.not. clock_in_sync(GLOBAL_CLOCK, el%local_clock) then
+    last_converged  = .true.
+    el%local_clock  = GLOBAL_CLOCK
+    el%newpartition = .false.
+  end if
 
 
-    ! local variables
-    type(int_alloc_array), allocatable  :: subglbcnc(:)     ! glb cnc of sub element, used when elem is intact
-    
-    integer :: i,j,l, elstat, subelstat
-    
-    character(len=eltypelength) ::  subeltype
-    
-    logical :: nofailure
-    
-    ! - glb clock step and increment no. extracted from glb clock module
-    integer :: curr_step, curr_inc
-    logical :: last_converged               ! true if last iteration has converged: a new increment/step has started
+  !---------------------------------------------------------------------!
+  !       update elem partition using edge status variable
+  !---------------------------------------------------------------------!
 
-
-    ! initialize K & F
-    allocate(K_matrix(NDOF,NDOF),F_vector(NDOF))
-    K_matrix=zero; F_vector=zero
-    
-    ! initialize local variables
-    i=0; j=0; l=0
-    elstat=0; subelstat=0; subeltype=''
-    
-    curr_step=0; curr_inc=0
-    last_converged=.false.
-    
-    nofailure=.false.
-    
-    if(.not.allocated(elem%subelem)) then 
-        allocate(elem%subelem(1))
-        allocate(elem%subcnc(1))
-        allocate(elem%subcnc(1)%array(NNDRL))   ! brick elem
-        allocate(subglbcnc(1))
-        allocate(subglbcnc(1)%array(NNDRL))
-        ! sub elm 1 connec
-        elem%subcnc(1)%array=[(i, i=1,NNDRL)]
-        subglbcnc(1)%array(:)=elem%node_connec(elem%subcnc(1)%array(:))
-        ! create sub elements
-        call set(elem%subelem(1),eltype='brick', matkey=elem%bulkmat, &
-        & ply_angle=elem%ply_angle, glbcnc=subglbcnc(1)%array)
-    end if
-
-
-    ! - extract curr step and inc values from glb clock module
-    call extract_glb_clock(kstep=curr_step,kinc=curr_inc)
-    
-    ! - check if last iteration has converged, and update the current step & increment no.
-    if(elem%nstep.ne.curr_step .or. elem%ninc.ne.curr_inc) then
-        last_converged=.true.
-        elem%nstep = curr_step
-        elem%ninc = curr_inc
-        elem%newpartition=.false.   ! last partition has converged (nolonger 'new')
-    end if
-
-    
-    
-
-    !---------------------------------------------------------------------!
-    !       update elem partition using edge status variable
-    !---------------------------------------------------------------------!
- 
-    ! if elem is not yet failed, check elem edge status variables and update elem status and sub elem cnc
-    if(elem%curr_status<elfailm) then 
-        ! store current status value
-        elstat=elem%curr_status  
-        
-        ! by default, nofailure is false, i.e., failure criterion will be assessed
-        nofailure=.false.
-        
-        ! partition elem according to edge status values
-        call edge_status_partition(elem)  
-     
-        if(elstat/=elem%curr_status) then
-            elem%newpartition=.true.    ! new partition is true for this increment
-            nofailure=.true.            ! no material degradation/failure criterion partition for 1st iteration of new partition
-        end if 
-        
-
-        ! if elem matrix is not yet failed after the edge status partition
-        ! integrate and check the failure criterion partition
-        if(elem%curr_status<elfailm) then
-        
-            call integrate_assemble(elem,K_matrix,F_vector,nofailure)
-
-            if(nofailure) then
-            ! 1st iteration of new partition, no failure criterion partition for stabilization purpose
-                continue
-            else
-            ! 2nd and later iteration of new partition
-                
-                !***** check failure criterion *****
-                ! failure criterion partitions elem into elfailm/elfailf partition if sub elem matrix fails/fibre fails
-                call failure_criterion_partition(elem)
-                
-                if(elem%curr_status>=elfailm) then
-                ! elem partition is updated by failure criterion partition, i.e., new partiton is true
-                    elem%newpartition=.true.
-                    nofailure=.true.            ! no material degradation/failure criterion partition for 1st iteration of new partition
-                end if
-                
-            end if
-            
-        end if
-           
-    end if
-    
-    
+  
+  if (el%curr_status < elfailm) then 
+  ! if elem is not yet failed, check elem edge status variables and update 
+  ! elem status and sub elem cnc
+  
+      ! store current status value
+      elstat = el%curr_status  
+      
+      ! by default, nofailure is false, i.e., failure criterion will be assessed
+      nofailure=.false.
+      
+      ! partition elem according to edge status values
+      call edge_status_partition(el)  
    
-    if(elem%curr_status==elfailm) then
-    ! element matrix is already failed
-    ! element is already partitioned into 2 bulks and 1 coh, integrate and assemble subelems
-    ! bulk sub elems may undergo fibre damage and failure (only after coh sub elem starts failing)
-        
-        
-        ! by default, no material degradation for fibre
-        ! until cohesive sub elem starts to fail
+      ! new partition for this elem
+      ! no material degradation/failure criterion partition for 1st iteration of
+      ! new partition
+      if(elstat /= el%curr_status) then
+        elem%newpartition=.true.
         nofailure=.true.
-        
-        ! during the increment of new partition, no fibre material degradation allowed
-        if(elem%newpartition) then
-            continue    ! nofailure remains true
+      end if 
+      
+      ! if elem matrix is not yet failed after the edge status partition
+      ! integrate and check the failure criterion partition
+      if(el%curr_status < elfailm) then
+        call integrate_assemble_subelem(el, K_matrix, F_vector, nofailure)
+        if(nofailure) then
+          ! 1st iteration of new partition, no failure criterion partition 
+          ! for stabilization purpose
+          continue
         else
-        ! after that increment, fibre failure is considered for matrix fail partition only after coh sub elem starts failing
-            do i=1, size(elem%subelem)
-                call extract(elem%subelem(i),eltype=subeltype,curr_status=subelstat)
-                if(subeltype=='coh3d6' .or. subeltype=='coh3d8') then
-                    if(subelstat > intact) nofailure=.false.
-                end if
-            end do
+          ! 2nd and later iteration of new partition
+          !***** check failure criterion *****
+          ! failure criterion partitions elem into elfailm/elfailf partition
+          ! if sub elem matrix fails/fibre fails
+          call failure_criterion_partition (el)
+          if(el%curr_status >= elfailm) then
+          ! elem partition is updated by failure criterion partition, i.e., 
+          ! new partiton is true
+            el%newpartition=.true.
+            nofailure=.true.
+          end if 
         end if
+      end if
          
-        
-        
-        ! integrate sub elems
-        call integrate_assemble(elem,K_matrix,F_vector,nofailure)
-        
-        ! check if sub elems have reached fibre failure onset (only after it's allowed);
-        ! if so, update curr status to fibre failure status elfailf (no need to update partition)
-        if(.not.nofailure) then
-            do i=1, size(elem%subelem)
-                call extract(elem%subelem(i),curr_status=subelstat)
-                if(subelstat>=fibre_onset) then
-                    elem%curr_status=elfailf
-                    goto 10
-                    exit
-                end if 
-            end do
-        end if
-    
-    end if
-    
+  end if 
+ 
+  if(el%curr_status == elfailm) then
+  ! element matrix is already failed
+  ! element is already partitioned into 2 bulks and 1 coh, 
+  ! integrate and assemble subelems
+  ! bulk sub elems may undergo fibre damage and failure 
+  ! (only after coh sub elem starts failing)
 
+      ! by default, no material degradation for fibre
+      ! until cohesive sub elem starts to fail
+      nofailure=.true.
+      
+      ! during the increment of new partition, 
+      ! no fibre material degradation allowed
+      if(el%newpartition) then
+        continue    ! nofailure remains true
+      else
+      ! after that increment, fibre failure is considered for 
+      ! matrix fail partition only after coh sub elem starts failing
+        do i=1, size(el%subelem)
+          call extract(el%subelem(i),eltype=subeltype,curr_status=subelstat)
+          if(subeltype=='coh3d6' .or. subeltype=='coh3d8') then
+            if(subelstat > intact) nofailure=.false.
+          end if
+        end do
+      end if
+       
+      ! integrate sub elems
+      call integrate_assemble_subelem(el, K_matrix, F_vector, nofailure)
+      
+      ! check if sub elems have reached fibre failure onset (only after it's allowed);
+      ! if so, update curr status to fibre failure status elfailf (no need to update partition)
+      if(.not.nofailure) then
+          do i=1, size(elem%subelem)
+              call extract(elem%subelem(i),curr_status=subelstat)
+              if(subelstat>=fibre_onset) then
+                  elem%curr_status=elfailf
+                  goto 10
+                  exit
+              end if 
+          end do
+      end if
+  
+  end if
+  
+  if(elem%curr_status==elfailf) then
+  ! element fibre is already failed, integrate and assemble subelem
+      
+      ! during the increment of new partition, no fibre failure allowed
+      if(elem%newpartition) then
+          nofailure=.true.  ! no fibre failure modelling
+      else
+      ! after that increment, fibre failure is considered for fibre fail partition
+          nofailure=.false.
+      end if    
+      
+      call integrate_assemble(elem,K_matrix,F_vector,nofailure)
 
-    if(elem%curr_status==elfailf) then
-    ! element fibre is already failed, integrate and assemble subelem
-        
-        ! during the increment of new partition, no fibre failure allowed
-        if(elem%newpartition) then
-            nofailure=.true.  ! no fibre failure modelling
-        else
-        ! after that increment, fibre failure is considered for fibre fail partition
-            nofailure=.false.
-        end if    
-        
-        call integrate_assemble(elem,K_matrix,F_vector,nofailure)
+  end if
+ 
 
-    end if
-   
-
-    
-    !---------------------------------------------------------------------!
-    !               deallocate local arrays 
-    !---------------------------------------------------------------------!
+  
+  !---------------------------------------------------------------------!
+  !               deallocate local arrays 
+  !---------------------------------------------------------------------!
 10        if(allocated(subglbcnc)) deallocate(subglbcnc)
 
 
