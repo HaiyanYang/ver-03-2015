@@ -1284,7 +1284,7 @@ contains
 
 
 
-  pure subroutine assembleKF (Kmat, Fvec, Ki, Fi, cnc, istat, emsg)
+  pure subroutine assembleKF (Kmat, Fvec, Ki, Fi, cnc, NDIM, istat, emsg)
   ! Purpose:
   ! to assemble elem/subelem K and F to system/xelem K and F
   ! variable sizes of dummy args have to be allowed here.
@@ -1295,51 +1295,55 @@ contains
   ! the inputs must safisty the following conditions:
   ! - Kmat is square matrix with size = size of Fvec
   ! - Ki   is square matrix with size = size of Fi
-  ! - size of cnc = size of Fi
+  ! - size of cnc * NDIM = size of Fi
   ! - min element of cnc must > 0
-  ! - max element of cnc must < size of Fvec
+  ! - max element of cnc * NDIM must < size of Fvec
 
   use parameter_module, only : DP, MSGLENGTH, STAT_SUCCESS, STAT_FAILURE
 
     real(DP), intent(inout) :: Kmat(:,:), Fvec(:)
     real(DP), intent(in)    :: Ki(:,:),   Fi(:)
     integer,  intent(in)    :: cnc(:)
+    integer,  intent(in)    :: NDIM
     integer,                  intent(out)   :: istat
     character(len=MSGLENGTH), intent(out)   :: emsg
 
     ! local variable
-    integer :: i, j, n, ni, mincnc, maxcnc
+    integer,  allocatable :: dofcnc(:)
+    integer :: i, j, l, nF, nFi, ncnc, mincnc, maxcnc
 
     ! initialize intent out and local variables
     istat  = STAT_SUCCESS
     emsg   = ''
     i      = 0
     j      = 0
-    n      = 0
-    ni     = 0
+    l      = 0
+    nF     = 0
+    nFi    = 0
+    ncnc   = 0
     mincnc = 0
     maxcnc = 0
 
-    n      = size(Fvec)
-    ni     = size(Fi)
+    nF     = size(Fvec)
+    nFi    = size(Fi)
+    ncnc   = size(cnc)
     mincnc = minval(cnc)
     maxcnc = maxval(cnc)
 
     ! check validity of inputs
-
-    if ( any (shape(Kmat) /= [n,n]) ) then
+    if ( any (shape(Kmat) /= [nF,nF]) ) then
       istat = STAT_FAILURE
       emsg  = 'Kmat shape is incorrect, assembleKF, global_toolkit_module'
-    else if ( any (shape(Ki) /= [ni,ni]) ) then
+    else if ( any (shape(Ki) /= [nFi,nFi]) ) then
       istat = STAT_FAILURE
       emsg  = 'Ki shape is incorrect, assembleKF, global_toolkit_module'
-    else if (size(cnc) /= ni) then
+    else if ( ncnc * NDIM /= nFi ) then
       istat = STAT_FAILURE
       emsg  = 'cnc size is incorrect, assembleKF, global_toolkit_module'
-    else if (mincnc < 1) then
+    else if ( mincnc < 1 ) then
       istat = STAT_FAILURE
       emsg  = 'cnc min element <1, assembleKF, global_toolkit_module'
-    else if (maxcnc > n) then
+    else if ( maxcnc * NDIM > nF ) then
       istat = STAT_FAILURE
       emsg  = 'cnc max element is too large for Kmat, assembleKF, &
       &global_toolkit_module'
@@ -1348,11 +1352,23 @@ contains
     if (istat == STAT_FAILURE) return
 
     ! proceed with the assembly only when all dummy arg sizes are consistent
-    do i = 1, ni
-      do j = 1, ni
-          Kmat(cnc(j),cnc(i)) = Kmat(cnc(j),cnc(i)) + Ki(j,i)
+    
+    ! prepare the d.o.f connectivity array, dofcnc
+    allocate(dofcnc(nFi)); dofcnc = 0
+    
+    ! loop over no. of nodes in this elem to form its dofcnc
+    do j = 1, ncnc
+      do l = 1, NDIM
+        ! dof indices of the jth node of this elem
+        dofcnc( (j-1) * NDIM + l ) = ( cnc(j) - 1 ) * NDIM + l
       end do
-      Fvec(cnc(i)) = Fvec(cnc(i)) + Fi(i)
+    end do
+    
+    do i = 1, nFi
+      do j = 1, nFi
+          Kmat(dofcnc(j),dofcnc(i)) = Kmat(dofcnc(j),dofcnc(i)) + Ki(j,i)
+      end do
+      Fvec(dofcnc(i)) = Fvec(dofcnc(i)) + Fi(i)
     end do
 
   end subroutine assembleKF

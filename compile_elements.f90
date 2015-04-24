@@ -13,6 +13,7 @@ include 'elements/base_elements/coh3d8_element_module.f90'
 include 'elements/basePly_element_module.f90'
 include 'elements/baseCoh_element_module.f90'
 include 'elements/fCoh3d8_subelem_module.f90'
+include 'elements/fCoh3d8_element_module.f90'
 
 program compile_base_elements
 ! Purpose:
@@ -32,6 +33,7 @@ use coh3d8_element_module
 use basePly_element_module
 use baseCoh_element_module
 use fCoh3d8_subelem_module
+use fCoh3d8_element_module
 
 implicit none
 

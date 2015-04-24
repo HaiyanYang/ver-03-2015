@@ -69,8 +69,8 @@ module fCoh3d8_element_module
 !  8____22__TE3___21___7
 !  |\                  |\
 !  | \23               | \20
-!  |  \TE4             |  \TE2      top subelem top edges in this elem top edges  
-!  |   \24             |   \19      (anti-clock wise from front): 
+!  |  \TE4             |  \TE2      top subelem top edges in this elem top edges
+!  |   \24             |   \19      (anti-clock wise from front):
 !  |    \              |    \       topE1, topE2, topE3, topE4
 !  |     \5___17___TE1_|_18__\6
 !  |______|____________|      |
@@ -85,12 +85,12 @@ module fCoh3d8_element_module
 !
 !
 !
-!  topological definition of bot sub element (reverse view), type fCoh3d8_subelem:
+!  topological definition of bot sub element (flip over), type fCoh3d8_subelem:
 !
 !  1_____9___BE1__10___2
 !  |\                  |\
 !  | \16               | \11
-!  |  \BE4             |  \BE2       bot subelem top edges in this elem bot edges  
+!  |  \BE4             |  \BE2      bot subelem top edges in this elem bot edges
 !  |   \15             |   \12      (anti-clock wise from front):
 !  |    \              |    \       botE3, botE2, botE1, botE4
 !  |     \4___14___BE3_|_13__\3
@@ -128,28 +128,28 @@ integer, parameter :: NNDRL       = 8,                      &
                    &  NNDIN       = 1 * NEDGE,              &
                    &  NNODE       = NNDRL + NNDFL + NNDIN,  &
                    &  NDOF        = NDIM * NNODE
-                   
+
 ! NODAL CONNEC OF INTACT  ELEM: REAL NODES ONLY
 integer, parameter :: INTACT_ELEM_NODES(8) = [1,2,3,4,5,6,7,8]
 
 ! NODAL CONNEC OF TOP SUB ELEM: REAL NODES, FLOATING NODES AND INTERNAL NODES
-integer, parameter :: TOP_SUBELEM_NODES(20) = [1,2,3,4,5,6,7,8,  &
-                   &  17,18,19,20,21,22,23,24,   25,26,27,28]
+integer, parameter :: TOP_SUBELEM_NODES(20) = &
+& [1,2,3,4,5,6,7,8,17,18,19,20,21,22,23,24,25,26,27,28]
 
-! NODAL CONNEC OF BOT SUB ELEM: REAL NODES, FLOATING NODES AND INTERNAL NODES                   
+! NODAL CONNEC OF BOT SUB ELEM: REAL NODES, FLOATING NODES AND INTERNAL NODES
 integer, parameter :: BOT_SUBELEM_NODES(20) = [8,7,6,5,4,3,2,1,  &
                    &  14,13,12,11,10, 9,16,15,   31,30,29,32]
 
 type, public :: fCoh3d8_element
     private
-    
+
     integer :: node_connec(NNODE) = 0
     logical :: top_subelem_set    = .false.
     logical :: bot_subelem_set    = .false.
     type(coh3d8_element),  allocatable   :: intact_elem
     type(fCoh3d8_subelem), allocatable   :: top_subelem
     type(fCoh3d8_subelem), allocatable   :: bot_subelem
-    
+
 end type fCoh3d8_element
 
 interface empty
@@ -184,11 +184,11 @@ contains
 pure subroutine empty_fCoh3d8_element (elem)
 
   type(fCoh3d8_element), intent(inout) :: elem
-  
+
   type(fCoh3d8_element) :: elem_lcl
-   
+
   elem = elem_lcl
-    
+
 end subroutine empty_fCoh3d8_element
 
 
@@ -203,7 +203,7 @@ use coh3d8_element_module,  only : set
   integer,                  intent(in)    :: node_connec(nnode)
   integer,                  intent(out)   :: istat
   character(len=MSGLENGTH), intent(out)   :: emsg
-    
+
   ! local copy of elem
   type(fCoh3d8_element) :: elem_lcl
   ! global_connec of sub element
@@ -218,24 +218,23 @@ use coh3d8_element_module,  only : set
   ! check validity of inputs
   if ( any(node_connec < 1) ) then
     istat = STAT_FAILURE
-    emsg  = 'node connec indices must be >=1, set, &
-    &fCoh3d8_subelem_module'
+    emsg  = 'node connec indices must be >=1'//trim(msgloc)
     return
   end if
 
   ! update to elem_lcl first
   elem_lcl%node_connec = node_connec
-  
+
   ! allocate intact elem
   allocate(elem_lcl%intact_elem)
   allocate(global_connec(NNDRL))
-  
+
   ! populate the global connec of intact element
   global_connec(:) = node_connec(INTACT_ELEM_NODES(:))
-  
+
   ! set the intact element
   call set (elem_lcl%intact_elem, connec=global_connec, istat=istat, emsg=emsg)
-  
+
   ! if an error is encountered in set, clean up and exit program
   if (istat == STAT_FAILURE) then
     if (allocated(global_connec)) deallocate(global_connec)
@@ -252,7 +251,7 @@ end subroutine set_fCoh3d8_element
 
 
 
-pure subroutine update_fCoh3d8_element (elem, surf_edge_status, top_or_bottom, &
+pure subroutine update_fCoh3d8_element (elem, ply_edge_status, top_or_bottom, &
 & istat, emsg)
 ! Purpose:
 ! this subroutine is used to update the edge_status array of the element
@@ -261,9 +260,10 @@ use parameter_module, only : MSGLENGTH, STAT_FAILURE, STAT_SUCCESS,&
                       & INTACT, TRANSITION_EDGE, REFINEMENT_EDGE,  &
                       & CRACK_TIP_EDGE, WEAK_CRACK_EDGE,           &
                       & COH_CRACK_EDGE, STRONG_CRACK_EDGE
-                      
+use fCoh3d8_subelem_module, only : set
+
   type(fCoh3d8_element),    intent(inout) :: elem
-  integer,                  intent(in)    :: surf_edge_status(NEDGE/2)
+  integer,                  intent(in)    :: ply_edge_status(NEDGE/2)
   character(len=*),         intent(in)    :: top_or_bottom
   integer,                  intent(out)   :: istat
   character(len=MSGLENGTH), intent(out)   :: emsg
@@ -272,7 +272,7 @@ use parameter_module, only : MSGLENGTH, STAT_FAILURE, STAT_SUCCESS,&
   type(fCoh3d8_element)    :: el
   character(len=MSGLENGTH) :: msgloc
   integer                  :: n_crackedges
-  
+
   ! if both top and bot sub elems have already been set, return directly
   if (elem%top_subelem_set .and. elem%bot_subelem_set) return
 
@@ -282,466 +282,315 @@ use parameter_module, only : MSGLENGTH, STAT_FAILURE, STAT_SUCCESS,&
   n_crackedges = 0
 
   ! check edge status, see if there's any unexpected edge status value
-  if ( any( .not. ( surf_edge_status == INTACT          .or.         &
-  &                 surf_edge_status == TRANSITION_EDGE .or.         &
-  &                 surf_edge_status == REFINEMENT_EDGE .or.         &
-  &                 surf_edge_status == CRACK_TIP_EDGE  .or.         &
-  &                 surf_edge_status == WEAK_CRACK_EDGE .or.         &
-  &                 surf_edge_status == COH_CRACK_EDGE  .or.         &
-  &                 surf_edge_status == STRONG_CRACK_EDGE )  )  ) then
+  if ( any( .not. ( ply_edge_status == INTACT          .or.         &
+  &                 ply_edge_status == TRANSITION_EDGE .or.         &
+  &                 ply_edge_status == REFINEMENT_EDGE .or.         &
+  &                 ply_edge_status == CRACK_TIP_EDGE  .or.         &
+  &                 ply_edge_status == WEAK_CRACK_EDGE .or.         &
+  &                 ply_edge_status == COH_CRACK_EDGE  .or.         &
+  &                 ply_edge_status == STRONG_CRACK_EDGE )  )  ) then
     istat = STAT_FAILURE
-    emsg  = 'surf edge status value is NOT recognized,'//trim(msgloc)
+    emsg  = 'ply edge status value is NOT recognized,'//trim(msgloc)
     return
   end if
 
-  ! check the no. of broken edges; only accepts TWO cracked edges, as this is 
+  ! check the no. of broken edges; only accepts TWO cracked edges, as this is
   ! the final partition from the ply element
-  n_crackedges = count (surf_edge_status >= COH_CRACK_EDGE)
+  n_crackedges = count (ply_edge_status >= COH_CRACK_EDGE)
   if (n_crackedges /= 2) then
     istat = STAT_FAILURE
     emsg  = 'no. of cracked edges must be TWO,'//trim(msgloc)
     return
   end if
-  
+
   ! copy elem to its local copy
   el = elem
 
   ! update to elem component if checkings are passed
-  select case (trim(adjustl(top_or_bottom))
-    
+  select case (trim(adjustl(top_or_bottom)))
+
     case ('top')
         ! return if top subelem is already set
         if (el%top_subelem_set) return
-        
-        ! check, flag error if top elem has already been set
-        if (allocated(el%top_subelem)) then 
-          istat = STAT_FAILURE
-          emsg  = 'top sub elem has already been defined,'//trim(msgloc)
-          return
-        end if
-        ! proceed if no error encountered
-        
+
         ! deallocate intact elem
         if (allocated(el%intact_elem)) deallocate(el%intact_elem)
-        
+
         ! allocate top sub elem
         allocate(el%top_subelem)
-        
+
         ! set top sub elem; note that the top sub elem's top edges are just
-        ! this elem's top edges, without any change of order 
+        ! this elem's top edges, without any change of order
         call set (el%top_subelem, node_connec=el%node_connec(TOP_SUBELEM_NODES),&
-        & top_edge_status=surf_edge_status, istat=istat, emsg=emsg)
+        & top_edge_status=ply_edge_status, istat=istat, emsg=emsg)
         if (istat == STAT_FAILURE) then
           emsg = emsg//trim(msgloc)
           return
         end if
-        
+
         el%top_subelem_set = .true.
-    
+
     case ('bottom')
         ! return if bot subelem is already set
         if (el%bot_subelem_set) return
-    
-        ! check, flag error if bot elem has already been set
-        if (allocated(el%bot_subelem)) then 
-          istat = STAT_FAILURE
-          emsg  = 'bot sub elem has already been defined,'//trim(msgloc)
-          return
-        end if
-        ! proceed if no error encountered
-        
+
         ! deallocate intact elem
         if (allocated(el%intact_elem)) deallocate(el%intact_elem)
-        
+
         ! allocate top sub elem
         allocate(el%bot_subelem)
-        
+
         ! set top sub elem; note that the bot sub elem's top edges are
         ! this elem's bot edges but with permutated order (see illustration at top
         ! of this module, in comment)
         call set (el%bot_subelem, node_connec=el%node_connec(BOT_SUBELEM_NODES),&
-        & top_edge_status=surf_edge_status([3, 2, 1, 4]), istat=istat, &
+        & top_edge_status=ply_edge_status([3, 2, 1, 4]), istat=istat, &
         & emsg=emsg)
         if (istat == STAT_FAILURE) then
           emsg = emsg//trim(msgloc)
           return
         end if
-        
+
         el%bot_subelem_set = .true.
-    
+
     case default
         istat = STAT_FAILURE
         emsg  = "unsupported top_or_bottom value, input either 'top' or &
         &'bottom',"//trim(msgloc)
         return
-  
+
   end select
-  
+
   ! copy definition to input arg. before successful return
   elem = el
-    
+
 end subroutine update_fCoh3d8_element
 
 
 
-pure subroutine extract_fCoh3d8_element (elem, top_subelem_set, bot_subelem_set, &
+pure subroutine extract_fCoh3d8_element(elem, top_subelem_set, bot_subelem_set,&
 & intact_elem, top_subelem, bot_subelem)
 use coh3d8_element_module,  only : coh3d8_element
 use fCoh3d8_subelem_module, only : fCoh3d8_subelem
 
-    type(fCoh3d8_element),                        intent(in)   :: elem
-    logical,                            optional, intent(out)  :: top_subelem_set
-    logical,                            optional, intent(out)  :: bot_subelem_set    
-    type(coh3d8_element),  allocatable, optional, intent(out)  :: intact_elem
-    type(fCoh3d8_subelem), allocatable, optional, intent(out)  :: top_subelem
-    type(fCoh3d8_subelem), allocatable, optional, intent(out)  :: bot_subelem
+  type(fCoh3d8_element),                        intent(in)   :: elem
+  logical,                            optional, intent(out)  :: top_subelem_set
+  logical,                            optional, intent(out)  :: bot_subelem_set
+  type(coh3d8_element),  allocatable, optional, intent(out)  :: intact_elem
+  type(fCoh3d8_subelem), allocatable, optional, intent(out)  :: top_subelem
+  type(fCoh3d8_subelem), allocatable, optional, intent(out)  :: bot_subelem
 
-    if (present(top_subelem_set)) top_subelem_set = elem%top_subelem_set 
-    if (present(bot_subelem_set)) bot_subelem_set = elem%bot_subelem_set
+  if (present(top_subelem_set)) top_subelem_set = elem%top_subelem_set
+  if (present(bot_subelem_set)) bot_subelem_set = elem%bot_subelem_set
 
-    if (present(intact_elem)) then
-      if (allocated(elem%intact_elem)) then
-        allocate(intact_elem)
-        intact_elem = elem%intact_elem
-      end if
+  if (present(intact_elem)) then
+    if (allocated(elem%intact_elem)) then
+      allocate(intact_elem)
+      intact_elem = elem%intact_elem
     end if
-    
-    if (present(top_subelem)) then
-      if (allocated(elem%top_subelem)) then
-        allocate(top_subelem)
-        top_subelem = elem%top_subelem
-      end if
-    end if
+  end if
 
-    if (present(bot_subelem)) then
-      if (allocated(elem%bot_subelem)) then
-        allocate(bot_subelem)
-        bot_subelem = elem%bot_subelem
-      end if
+  if (present(top_subelem)) then
+    if (allocated(elem%top_subelem)) then
+      allocate(top_subelem)
+      top_subelem = elem%top_subelem
     end if
+  end if
+
+  if (present(bot_subelem)) then
+    if (allocated(elem%bot_subelem)) then
+      allocate(bot_subelem)
+      bot_subelem = elem%bot_subelem
+    end if
+  end if
 
 end subroutine extract_fCoh3d8_element
 
 
 
-pure subroutine integrate_fCoh3d8_element (elem, K_matrix, F_vector)
+pure subroutine integrate_fCoh3d8_element (elem, nodes, material, K_matrix, &
+& F_vector, istat, emsg, nofailure)
 
-    type(fCoh3d8_element),intent(inout)       :: elem 
-    real(kind=dp),allocatable,intent(out)   :: K_matrix(:,:), F_vector(:)
+use parameter_module, only : DP, MSGLENGTH, STAT_FAILURE, STAT_SUCCESS, ZERO, &
+                      & NDIM, HALF
+use xnode_module,             only : xnode
+use cohesive_material_module, only : cohesive_material
+use coh3d8_element_module,    only : integrate
+use fCoh3d8_subelem_module,   only : integrate
+use global_toolkit_module,    only : assembleKF
+
+  type(fCoh3d8_element),    intent(inout) :: elem
+  type(xnode),              intent(inout) :: nodes(NNODE)
+  type(cohesive_material),  intent(in)    :: material
+  real(DP),    allocatable, intent(out)   :: K_matrix(:,:), F_vector(:)
+  integer,                  intent(out)   :: istat
+  character(len=MSGLENGTH), intent(out)   :: emsg
+  logical,        optional, intent(in)    :: nofailure
+
+  !:::: local variables ::::
+  ! local copy of intent inout variables
+  type(fCoh3d8_element) :: el
+  type(xnode)           :: nds(NNODE), subelem_nds(20)
+  ! sub elem K and F
+  real(DP), allocatable :: Ki(:,:), Fi(:)
+  ! local copy of optional input arg.
+  logical :: nofail
+  ! error msg location
+  character(len=MSGLENGTH) :: msgloc
+
+  ! initialize K & F and local variables
+  allocate(K_matrix(NDOF,NDOF), F_vector(NDOF))
+  K_matrix = ZERO
+  F_vector = ZERO
+  istat    = STAT_SUCCESS
+  emsg     = ''
+  nofail   = .false.
+  msgloc   = ' integrate, fCoh3d8_element module'
+
+  ! copy intent inout variables to their local copies
+  el  = elem
+  nds = nodes
+  ! copy optional input to its local copy
+  if(present(nofailure)) nofail = nofailure
 
 
-    ! local variables
-    type(int_alloc_array), allocatable  :: mainglbcnc(:)
-    
-    integer :: i,j,l, elstat, mainelstat
+  ! :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::!
+  ! if intact_elem is present, then the top/bot edges are intact,
+  ! just integrate the intact elem would do
+  ! :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::!
+  if (allocated(el%intact_elem)) then
 
-    logical :: nofailure
-    
+      ! integrate the intact elem
+      call integrate (el%intact_elem, nodes=nds(INTACT_ELEM_NODES),          &
+      & material=material, K_matrix=Ki, F_vector=Fi, istat=istat, emsg=emsg, &
+      & nofailure=nofail)
+      if (istat==STAT_FAILURE) then
+        emsg = emsg//trim(msgloc)
+        call clean_up(Ki, Fi)
+        return
+      end if
+      ! NOTE : vector subscript for nodes arg is allowed, as it is intent in
+
+      ! assemble the sub elem K and F
+      call assembleKF(K_matrix, F_vector, Ki, Fi, INTACT_ELEM_NODES, NDIM, &
+      & istat, emsg)
+      ! an error is encountered in assembly, zero K and F and exit
+      if (istat==STAT_FAILURE) then
+        emsg = emsg//trim(msgloc)
+        K_matrix = ZERO
+        F_vector = ZERO
+        call clean_up(Ki, Fi)
+        return
+      end if
+
+      ! update the intent inout dummy args before successful return
+      ! note that the nodes are not changed by intact elem, so no need to update
+      elem = el
+
+      ! clean up local alloc. array before successful return
+      call clean_up(Ki, Fi)
+
+      return
+
+  end if
+
+  ! :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::!
+  ! if any subelem is set, integrate and assemble to elem K and F
+  ! if both subelems are set, then the elem is integrated twice over its area
+  ! half its K and F: K_el = half * (K_top+K_bot), F_el = half * (F_top+F_bot)
+  ! :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::!
+
+  if (el%top_subelem_set) then
       
+      ! MUST copy nds to subelem_nds first, before passing to integrate
+      ! fortran does not allow vector subscript for intent out/inout argument
+      subelem_nds = nds(TOP_SUBELEM_NODES)
+      ! integrate the top subelem
+      call integrate (el%top_subelem, nodes=subelem_nds, material=material, &
+      & K_matrix=Ki, F_vector=Fi, istat=istat, emsg=emsg, nofailure=nofail)
+      if (istat==STAT_FAILURE) then
+        emsg = emsg//trim(msgloc)
+        call clean_up(Ki, Fi)
+        return
+      end if
+      ! copy back to nds
+      nds(TOP_SUBELEM_NODES) = subelem_nds
 
-    ! initialize K & F
-    allocate(K_matrix(ndof,ndof),F_vector(ndof))
-    K_matrix=zero; F_vector=zero
-    
-    ! initialize local variables
-    i=0; j=0; l=0
-    elstat=0; mainelstat=0
-    
-    nofailure=.false.
+      ! assemble the top sub elem K and F
+      call assembleKF(K_matrix, F_vector, Ki, Fi, TOP_SUBELEM_NODES, NDIM, &
+      & istat, emsg)
+      ! an error is encountered in assembly, zero K and F and exit
+      if (istat==STAT_FAILURE) then
+        emsg = emsg//trim(msgloc)
+        K_matrix = ZERO
+        F_vector = ZERO
+        call clean_up(Ki, Fi)
+        return
+      end if
 
-    ! extract current status value
-    elstat=elem%pstat  
-    
-    ! if elem is intact
-    if(elstat==intact) then
-    
-        ! assign 1 coh3d8 elem as the main elem before failure, if not yet done
-        if(.not.allocated(elem%intelem)) then 
-            allocate(elem%intelem(1))
-            allocate(elem%intelem_lcl_connec(1))
-            allocate(elem%intelem_lcl_connec(1)%array(nndrl))   ! coh3d8 elem
-            allocate(mainglbcnc(1))
-            allocate(mainglbcnc(1)%array(nndrl))
-            ! main elm 1 connec
-            elem%intelem_lcl_connec(1)%array=[(i, i=1,nndrl)]
-            mainglbcnc(1)%array(:)=elem%node_connec(elem%intelem_lcl_connec(1)%array(:))
-            ! create sub elements
-            call set(elem%intelem(1),key=0,connec=mainglbcnc(1)%array,matkey=elem%matkey)   
-        end if   
-        
-        
-        ! check if elem has started to fail; if so, no more edge status partitioning later
-        call extract(elem%intelem(1),pstat=mainelstat)   
-        
-        if(mainelstat>intact) then
-        ! if elem has reached failure onset, then update curr status
-            elstat=elfail1
-            elem%pstat=elstat
-        end if
+  end if
 
-        call partition(elem)
-        
-        ! no damage/failure modelling at the iteration of new partition
-        if(elem%pstat/=elstat) nofailure=.true.
-        
-        call integrate_assemble(elem,K_matrix,F_vector,nofailure)
 
-    else if(elstat==elfail1) then
-    ! if main elem coh3d8 has started to fail
-    
-        call partition(elem)
-        
-        ! no damage/failure modelling at the iteration of new partition
-        if(elem%pstat/=elstat) nofailure=.true.
-        
-        call integrate_assemble(elem,K_matrix,F_vector,nofailure)   
-    
-    else if(elstat==elfail2) then
-    ! if elem has already been partitioned into 2 subxcoh elems,
-    ! update their lcl_ID_crack_edges arrays and elem curr status 
-        
-        call update_edgestatus(elem)
-        
-        ! no damage/failure modelling at the iteration of new partition
-        if(elem%pstat/=elstat) nofailure=.true.
-        
-        call integrate_assemble(elem,K_matrix,F_vector,nofailure) 
-    
-    else if(elstat==elfail3) then
-    
-        call integrate_assemble(elem,K_matrix,F_vector,nofailure) 
-    
-    else
-  write(msg_file,*)'unsupported elstat value in xcoh elem module'
-  call exit_function
-    end if      
-        
+  if (el%bot_subelem_set) then
 
-    !---------------------------------------------------------------------!
-    !               deallocate local arrays 
-    !---------------------------------------------------------------------!
+      ! MUST copy nds to subelem_nds first, before passing to integrate
+      ! fortran does not allow vector subscript for intent out/inout argument
+      subelem_nds = nds(BOT_SUBELEM_NODES)
+      ! integrate the bot subelem
+      call integrate (el%bot_subelem, nodes=subelem_nds, material=material, &
+      & K_matrix=Ki, F_vector=Fi, istat=istat, emsg=emsg, nofailure=nofail)
+      if (istat==STAT_FAILURE) then
+        emsg = emsg//trim(msgloc)
+        call clean_up(Ki, Fi)
+        return
+      end if
+      ! copy back to nds
+      nds(BOT_SUBELEM_NODES) = subelem_nds
 
-    if(allocated(mainglbcnc)) deallocate(mainglbcnc)
+      ! assemble the bot sub elem K and F
+      call assembleKF(K_matrix, F_vector, Ki, Fi, BOT_SUBELEM_NODES, NDIM, &
+      & istat, emsg)
+      ! an error is encountered in assembly, zero K and F and exit
+      if (istat==STAT_FAILURE) then
+        emsg = emsg//trim(msgloc)
+        K_matrix = ZERO
+        F_vector = ZERO
+        call clean_up(Ki, Fi)
+        return
+      end if
+
+  end if
+
+
+  if (el%top_subelem_set .and. el%bot_subelem_set) then
+      ! half the elem's K and F
+      K_matrix = HALF * K_matrix
+      F_vector = HALF * F_vector
+  end if
+
+
+  ! update the intent inout dummy args before successful return
+  ! note that only the internal nodes are changed, and they are stored last
+  elem = el
+  nodes(NNODE-NNDIN+1 : NNODE) = nds(NNODE-NNDIN+1 : NNODE)
+
+  ! clean up before successful return
+  call clean_up(Ki, Fi)
+
+  return
+
+
+  contains
+
+
+    pure subroutine clean_up (Ki, Fi)
+      real(DP), allocatable, intent(inout) :: Ki(:,:), Fi(:)
+      if(allocated(Ki))     deallocate(Ki)
+      if(allocated(Fi))     deallocate(Fi)
+    end subroutine clean_up
 
 
 end subroutine integrate_fCoh3d8_element
-
- 
- 
-pure subroutine partition (elem)
-! check edge status, and partition into 2 subxcoh elems if any edge status is not intact
-    
-    type(fCoh3d8_element), intent(inout) :: elem
-    
-    type(int_alloc_array), allocatable  :: subglbcnc(:),subedge_connec(:)
-    
-    integer :: i
-    
-    i=0
-    
-    
-    if(elem%pstat==intact .or. elem%pstat==elfail1) then
-    
-        if(maxval(elem%lcl_ID_crack_edges)>0) then
-
-            elem%pstat=elfail2
-            
-            ! deallocate original elem
-            deallocate(elem%intelem)
-            deallocate(elem%intelem_lcl_connec)
-            
-            ! allocate two subxcoh elems
-            allocate(elem%subelem(2))
-            allocate(elem%subelem_lcl_connec(2))
-            allocate(subglbcnc(2))
-            allocate(subedge_connec(2))
-            
-            do i=1, 2
-                allocate(elem%subelem_lcl_connec(i)%array(16))
-                allocate(subglbcnc(i)%array(16))
-                allocate(subedge_connec(i)%array(4))
-                elem%subelem_lcl_connec(i)%array=0
-                subglbcnc(i)%array=0
-                subedge_connec(i)%array=0
-            end do
-            
-            ! local connec of two subxcoh elems
-            elem%subelem_lcl_connec(1)%array=[1,2,3,4,5,6,7,8,17,18,19,20,21,22,23,24]
-            elem%subelem_lcl_connec(2)%array=[6,5,8,7,2,1,4,3,10,9,16,15,14,13,12,11]
-            
-            ! glb connec of two subxcoh elems
-            subglbcnc(1)%array(:)=elem%node_connec(elem%subelem_lcl_connec(1)%array(:))
-            subglbcnc(2)%array(:)=elem%node_connec(elem%subelem_lcl_connec(2)%array(:))
-            
-            ! glb edge cnc of two subxcoh elems
-            subedge_connec(1)%array=elem%edge_connec([5,6,7,8])
-            subedge_connec(2)%array=elem%edge_connec([1,4,3,2])
-            
-            ! set two subxcoh elems
-            call set(elem%subelem(1),key=0,matkey=elem%matkey,&
-            & node_connec=subglbcnc(1)%array,edge_connec=subedge_connec(1)%array)
-            call set(elem%subelem(2),key=0,matkey=elem%matkey,&
-            & node_connec=subglbcnc(2)%array,edge_connec=subedge_connec(2)%array)
-            
-            ! update edge status array of two sub elems
-            call update_edgestatus(elem)
-            
-        end if
-        
-    else
-        write(msg_file,*) 'unsupported elstat in xcoh partition!'
-        call exit_function
-    end if
-    
-    if(allocated(subglbcnc)) deallocate(subglbcnc)
-    if(allocated(subedge_connec)) deallocate(subedge_connec)
-
-end subroutine partition
- 
-
-
-pure subroutine update_edgestatus (elem)
-
-    type(fCoh3d8_element), intent(inout) :: elem
-    
-    
-    integer :: subelstat1, subelstat2, nfe1, nfe2
-    integer, allocatable :: lcl_ID_crack_edges1(:), lcl_ID_crack_edges2(:)
-    integer :: i
-    
-    subelstat1=0; subelstat2=0; nfe1=0; nfe2=0
-    i=0
-    
-    
-    if(elem%pstat==elfail2) then
-
-        call extract(elem%subelem(1),pstat=subelstat1)
-        call extract(elem%subelem(2),pstat=subelstat2)
-        
-        
-        if(subelstat1==elfail2 .and. subelstat2==elfail2) then
-        ! if both subxcoh elems have reached final partition state, 
-        ! then update elstat to elfail3 and no lcl_ID_crack_edges update is needed;
-            elem%pstat=elfail3
-            
-        else
-        ! update lcl_ID_crack_edges arrays of two subxcoh elems
-            
-            allocate(lcl_ID_crack_edges1(4)); lcl_ID_crack_edges1=0
-            allocate(lcl_ID_crack_edges2(4)); lcl_ID_crack_edges2=0
-            
-            nfe1=0
-            nfe2=0
-            do i=1, nedge
-                select case (elem%lcl_ID_crack_edges(i))
-                    case(1) ! edge 1 here is edge 1 of subxcoh2
-                        nfe2=nfe2+1
-                        lcl_ID_crack_edges2(nfe2)=1
-                    case(2) ! edge 2 here is edge 4 of subxcoh2
-                        nfe2=nfe2+1
-                        lcl_ID_crack_edges2(nfe2)=4
-                    case(3) ! edge 3 here is edge 3 of subxcoh2
-                        nfe2=nfe2+1
-                        lcl_ID_crack_edges2(nfe2)=3
-                    case(4) ! edge 4 here is edge 2 of subxcoh2
-                        nfe2=nfe2+1
-                        lcl_ID_crack_edges2(nfe2)=2
-                    case(5:8) ! top 4 edges are the 4 edges of subxcoh1
-                        nfe1=nfe1+1
-                        lcl_ID_crack_edges1(nfe1)=elem%lcl_ID_crack_edges(i)-4
-                    case(0)
-                    ! do nothing
-                        continue
-                    case default
-                        write(msg_file,*)'sth wrong in xcoh integration subxcoh lcl_ID_crack_edges update!'
-                        call exit_function            
-                end select   
-            end do
-            
-            
-            if(subelstat1<elfail2) call update(elem%subelem(1),lcl_ID_crack_edges=lcl_ID_crack_edges1)
-            if(subelstat2<elfail2) call update(elem%subelem(2),lcl_ID_crack_edges=lcl_ID_crack_edges2)  
-
-        end if
-
-    else
-        write(msg_file,*)'unsupported elstat value in xcoh update edge status!'
-        call exit_function
-    end if
-    
-    if(allocated(lcl_ID_crack_edges1)) deallocate(lcl_ID_crack_edges1)
-    if(allocated(lcl_ID_crack_edges2)) deallocate(lcl_ID_crack_edges2)
-
-end subroutine update_edgestatus
-
-
-
-pure subroutine integrate_assemble (elem, K_matrix, F_vector, nofailure) 
-!---------------------------------------------------------------------!
-!       integrate and assemble sub element system arrays
-!---------------------------------------------------------------------!        
-  ! - passed in variables   
-  type(fCoh3d8_element), intent(inout)	:: elem
-  real(kind=dp), 	intent(inout)			:: K_matrix(:,:), F_vector(:)
-    logical, intent(in)                 :: nofailure
-  ! - local variables
-  real(kind=dp),	allocatable           	:: Ki(:,:), Fi(:)   ! sub_elem K matrix and F vector
-  integer, 		allocatable 			:: dofcnc(:)
-    integer :: i,j,l
-    
-    i=0;j=0;l=0
-    
-    ! empty K and F for reuse
-    K_matrix=zero; F_vector=zero  
- 
-    ! integrate sub elements and assemble into global matrix
-    ! if elem partition just changed in this iteration, no failure modelling at this iteration
-    if(allocated(elem%intelem)) then
-    
-        call integrate(elem%intelem(1),Ki,Fi)
-        if(allocated(dofcnc)) deallocate(dofcnc)
-        allocate(dofcnc(size(Fi))); dofcnc=0
-        do j=1, size(elem%intelem_lcl_connec(1)%array) ! no. of nodes in sub elem i
-            do l=1, ndim
-                ! dof indices of the jth node of sub elem i 
-                dofcnc((j-1)*ndim+l)=(elem%intelem_lcl_connec(1)%array(j)-1)*ndim+l
-            end do
-        end do
-        call assembleKF(K_matrix,F_vector,Ki,Fi,dofcnc)
-        deallocate(Ki)
-        deallocate(Fi)
-        deallocate(dofcnc)
-    
-    else if(allocated(elem%subelem)) then
-        
-        do i=1, size(elem%subelem)
-            call integrate(elem%subelem(i),Ki,Fi,nofailure)
-            if(allocated(dofcnc)) deallocate(dofcnc)
-            allocate(dofcnc(size(Fi))); dofcnc=0
-            do j=1, size(elem%subelem_lcl_connec(i)%array) ! no. of nodes in sub elem i
-                do l=1, ndim
-                    ! dof indices of the jth node of sub elem i 
-                    dofcnc((j-1)*ndim+l)=(elem%subelem_lcl_connec(i)%array(j)-1)*ndim+l
-                end do
-            end do
-            ! each subxcoh elem contributes to half(in weight) of the system matrices
-            call assembleKF(K_matrix,F_vector,half*Ki,half*Fi,dofcnc)
-            deallocate(Ki)
-            deallocate(Fi)
-            deallocate(dofcnc)
-        end do
-
-    else
-        write(msg_file,*)'elem not allocated in xcoh element module!'
-        call exit_function
-    end if
-    
-    if(allocated(Ki)) deallocate(Ki)
-    if(allocated(Fi)) deallocate(Fi)
-    if(allocated(dofcnc)) deallocate(dofcnc)
-            
-end subroutine integrate_assemble 
-
 
 
 

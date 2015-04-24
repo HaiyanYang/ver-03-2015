@@ -226,7 +226,7 @@ pure subroutine integrate_fCoh3d8_subelem (elem, nodes, material, K_matrix, &
 & F_vector, istat, emsg, nofailure)
 ! Purpose:
 ! to integrate this fCoh3d8 subelem and update its internal nodes in nodes array
-use parameter_module,         only : DP, MSGLENGTH, STAT_FAILURE, STAT_SUCCESS, ZERO
+use parameter_module, only : DP, MSGLENGTH, STAT_FAILURE, STAT_SUCCESS, ZERO
 use xnode_module,             only : xnode
 use cohesive_material_module, only : cohesive_material
 
@@ -294,7 +294,7 @@ use cohesive_material_module, only : cohesive_material
   ! for nodes, only need to update the internal nodes stored in the end
   elem  = el
   nodes(NNODE-NNDIN+1 : NNODE) = nodes_lcl(NNODE-NNDIN+1 : NNODE)
-
+  return
 
   contains
 
@@ -318,8 +318,9 @@ pure subroutine partition_element (el, nodes, istat, emsg)
 ! - subelem
 ! according to the edge status of top edges of this element
 !** NOTE: ONLY PARTITION WITH TWO CRACKED EDGES IS ALLOWED **
-use parameter_module, only : MSGLENGTH, STAT_SUCCESS, STAT_FAILURE, INT_ALLOC_ARRAY, &
-                      & DP, ELTYPELENGTH, ZERO, ONE, SMALLNUM, COH_CRACK_EDGE
+use parameter_module, only : MSGLENGTH, STAT_SUCCESS, STAT_FAILURE, &
+                      & INT_ALLOC_ARRAY, DP, ELTYPELENGTH, ZERO,    &
+                      & ONE, SMALLNUM, COH_CRACK_EDGE
 use xnode_module,           only : xnode, extract
 use baseCoh_element_module, only : set
 use global_toolkit_module,  only : distance, partition_quad_elem
@@ -423,7 +424,7 @@ use global_toolkit_module,  only : distance, partition_quad_elem
     ! distance cannot be ZERO
     if (distn1n2 < SMALLNUM .or. distn1nc < SMALLNUM) then
       istat = STAT_FAILURE
-      emsg  = 'coords of edge end nodes or fl. nodes are incorrect'//trim(msgloc)
+      emsg = 'coords of edge end nodes or fl. nodes are incorrect'//trim(msgloc)
       call clean_up (subelem_glb_connec, subelem_lcl_connec_top, &
       & subelem_lcl_connec_bot, x1, x2, xc)
       return
@@ -543,31 +544,31 @@ use global_toolkit_module,  only : distance, partition_quad_elem
 
   end do
 
-  ! deallocate local array
 
+  ! deallocate local alloc arrays before successful return
   call clean_up (subelem_glb_connec, subelem_lcl_connec_top, &
   & subelem_lcl_connec_bot, x1, x2, xc)
+  return
 
 
 
   contains
 
 
+  pure subroutine clean_up (subelem_glb_connec, subelem_lcl_connec_top, &
+  & subelem_lcl_connec_bot, x1, x2, xc)
+  type(INT_ALLOC_ARRAY), allocatable, intent(inout) :: subelem_glb_connec(:)
+  type(INT_ALLOC_ARRAY), allocatable, intent(inout) :: subelem_lcl_connec_top(:)
+  type(INT_ALLOC_ARRAY), allocatable, intent(inout) :: subelem_lcl_connec_bot(:)
+  real(DP),              allocatable, intent(inout) :: x1(:), x2(:), xc(:)
 
-    pure subroutine clean_up (subelem_glb_connec, subelem_lcl_connec_top, &
-    & subelem_lcl_connec_bot, x1, x2, xc)
-      type(INT_ALLOC_ARRAY), allocatable, intent(inout) :: subelem_glb_connec(:)
-      type(INT_ALLOC_ARRAY), allocatable, intent(inout) :: subelem_lcl_connec_top(:)
-      type(INT_ALLOC_ARRAY), allocatable, intent(inout) :: subelem_lcl_connec_bot(:)
-      real(DP),              allocatable, intent(inout) :: x1(:), x2(:), xc(:)
-
-      if(allocated(subelem_glb_connec)) deallocate(subelem_glb_connec)
-      if(allocated(subelem_lcl_connec_top)) deallocate(subelem_lcl_connec_top)
-      if(allocated(subelem_lcl_connec_bot)) deallocate(subelem_lcl_connec_bot)
-      if(allocated(x1)) deallocate(x1)
-      if(allocated(x2)) deallocate(x2)
-      if(allocated(xc)) deallocate(xc)
-    end subroutine clean_up
+  if(allocated(subelem_glb_connec)) deallocate(subelem_glb_connec)
+  if(allocated(subelem_lcl_connec_top)) deallocate(subelem_lcl_connec_top)
+  if(allocated(subelem_lcl_connec_bot)) deallocate(subelem_lcl_connec_bot)
+  if(allocated(x1)) deallocate(x1)
+  if(allocated(x2)) deallocate(x2)
+  if(allocated(xc)) deallocate(xc)
+  end subroutine clean_up
 
 
 end subroutine partition_element
@@ -643,7 +644,7 @@ use global_toolkit_module,    only : assembleKF
   ! - local variables
   character(len=MSGLENGTH) :: msgloc
   real(DP), allocatable :: Ki(:,:), Fi(:)
-  integer,  allocatable :: dofcnc(:)
+  integer,  allocatable :: subcnc(:)
   real(DP), allocatable :: Kmat_r(:,:), Fvec_r(:)
   real(DP), allocatable :: Tmatrixfull(:,:)
   logical :: nofail
@@ -666,28 +667,19 @@ use global_toolkit_module,    only : assembleKF
   !:::::::::::::::::::::::::::::::::::::!
   do isub = 1, size(elem%subelem)
 
+    ! extract the local node connec of this sub elem
+    if(allocated(subcnc)) deallocate(subcnc)
+    allocate(subcnc(size(elem%subelem_lcl_connec(isub)%array)))
+    subcnc = elem%subelem_lcl_connec(isub)%array
+
     ! call the integrate procedure asoc. with the subelem type
     ! exit the do loop (and if-else subsequently) if an error is encountered
-    call integrate(elem%subelem(isub), &
-    & nodes(elem%subelem_lcl_connec(isub)%array(:)), material, Ki, Fi, &
+    call integrate(elem%subelem(isub), nodes(subcnc), material, Ki, Fi, &
     & istat, emsg, nofail)
     if (istat == STAT_FAILURE) exit
 
-    ! prepare to assemble sub K and sub F to elem's K and F
-    if(allocated(dofcnc)) deallocate(dofcnc)
-    allocate(dofcnc(size(Fi))); dofcnc = 0
-
-    ! loop over no. of nodes in sub elem i
-    do j = 1, size(elem%subelem_lcl_connec(isub)%array)
-      do l = 1, NDIM
-        ! dof indices of the jth node of sub elem i
-        dofcnc( (j-1) * NDIM + l ) = &
-        & ( elem%subelem_lcl_connec(isub)%array(j) - 1 ) * NDIM + l
-      end do
-    end do
-
     ! assemble the sub elem K and F
-    call assembleKF(K_matrix, F_vector, Ki, Fi, dofcnc, istat, emsg)
+    call assembleKF(K_matrix, F_vector, Ki, Fi, subcnc, NDIM, istat, emsg)
     if (istat == STAT_FAILURE) exit
 
   end do
@@ -730,7 +722,7 @@ use global_toolkit_module,    only : assembleKF
 
   if(allocated(Ki))             deallocate(Ki)
   if(allocated(Fi))             deallocate(Fi)
-  if(allocated(dofcnc))         deallocate(dofcnc)
+  if(allocated(subcnc))         deallocate(subcnc)
   if(allocated(Tmatrixfull))    deallocate(Tmatrixfull)
   if(allocated(Kmat_r))         deallocate(Kmat_r)
   if(allocated(Fvec_r))         deallocate(Fvec_r)
