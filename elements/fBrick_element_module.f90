@@ -107,7 +107,7 @@ type, public :: fBrick_element
   type(program_clock) :: local_clock
   type(brick_element),   allocatable :: intact_elem
   type(basePly_element), allocatable :: subBulks(:)
-  type(baseCoh_element), allocatable :: cohCrack
+  type(coh3d8_element),  allocatable :: cohCrack
   type(INT_ALLOC_ARRAY), allocatable :: subBulks_nodes(:)
   type(INT_ALLOC_ARRAY), allocatable :: cohCrack_nodes
   
@@ -233,7 +233,7 @@ pure subroutine extract_fBrick_element(elem, curr_status, edge_status_lcl, &
   integer,    optional, intent(out) :: edge_status_lcl(NEDGE_SURF)
   type(brick_element),   allocatable, optional, intent(out) :: intact_elem
   type(basePly_element), allocatable, optional, intent(out) :: subBulks(:)
-  type(baseCoh_element), allocatable, optional, intent(out) :: cohCrack
+  type(coh3d8_element),  allocatable, optional, intent(out) :: cohCrack
     
   if(present(curr_status)) curr_status=elem%curr_status
   
@@ -394,7 +394,7 @@ use global_clock_module,      only : GLOBAL_CLOCK, clock_in_sync
           ! failure criterion partitions elem of any status directly into 
           ! MATRIX_CRACK_ELEM partition if the failure criterion judges
           ! any subelem reaches MATRIX/FIBRE failure onset
-          call failure_criterion_partition (el, istat, emsg)
+          call failure_criterion_partition (el, nds, egstatus, istat, emsg)
           if (istat == STAT_FAILURE) then
             emsg = emsg//trim(msgloc)
             call clean_up (K_matrix, F_vector)
@@ -790,13 +790,16 @@ pure subroutine failure_criterion_partition(elem, nodes, edge_status, &
 ! Purpose:
 ! this subroutine updates elem status & partition to MATRIX_CRACK_ELEM 
 ! if any sub elem is nolonger INTACT
-use parameter_module,      only : DP, MSGLENGTH, STAT_SUCCESS, STAT_FAILURE,  &
+use parameter_module,       only : DP, MSGLENGTH, STAT_SUCCESS, STAT_FAILURE, &
                           & REAL_ALLOC_ARRAY, ZERO, INTACT,                   &
                           & TRANSITION_EDGE, COH_CRACK_EDGE,                  &
                           & TRANSITION_ELEM, REFINEMENT_ELEM,                 &
                           & CRACK_TIP_ELEM,  CRACK_WAKE_ELEM, MATRIX_CRACK_ELEM
-use xnode_module,          only : xnode, extract, update
-use global_toolkit_module, only : crack_elem_centroid2d, crack_elem_cracktip2d
+use xnode_module,           only : xnode, extract, update
+use brick_element_module,   only : extract
+use basePly_element_module, only : extract
+use coh3d8_element_module,  only : extract
+use global_toolkit_module,  only : crack_elem_centroid2d, crack_elem_cracktip2d
 
   ! passed-in variables
   type(fBrick_element),     intent(inout) :: elem
@@ -931,7 +934,7 @@ use global_toolkit_module, only : crack_elem_centroid2d, crack_elem_cracktip2d
   ! elem is TRANSITION ELEM, check subBulks fstat
   case (TRANSITION_ELEM)
       ! check expected no. of cracked edges
-      if ( count(elem%edge_status_lcl > INTACT) /= 1 ) then
+      if ( count(elem%edge_status_lcl /= INTACT) /= 1 ) then
         istat = STAT_FAILURE
         emsg  = 'unexpected no. of cracked edges for case &
         &TRANSITION ELEM in'//trim(msgloc)
