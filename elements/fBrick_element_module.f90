@@ -266,11 +266,14 @@ end subroutine extract_fBrick_element
 
 pure subroutine integrate_fBrick_element(elem, nodes, edge_status, lam_mat &
 & coh_mat, K_matrix, F_vector, istat, emsg)
-use parameter_module, only :
+use parameter_module,         only : DP, MSGLENGTH, STAT_SUCCESS, STAT_FAILURE,&
+                              & ZERO,    INTACT, TRANSITION_ELEM,              &
+                              & REFINEMENT_ELEM,  CRACK_TIP_ELEM,              &
+                              & CRACK_WAKE_ELEM, MATRIX_CRACK_ELEM
 use xnode_module,             only : xnode
 use lamina_material_module,   only : lamina_material
 use cohesive_material_module, only : cohesive_material
-use global_clock_module, only : GLOBAL_CLOCK, clock_in_sync
+use global_clock_module,      only : GLOBAL_CLOCK, clock_in_sync
 
   type(fBrick_element),     intent(inout) :: elem 
   type(xnode),              intent(inout) :: nodes(NNODE)
@@ -283,179 +286,198 @@ use global_clock_module, only : GLOBAL_CLOCK, clock_in_sync
 
   !:::: local variables ::::
   ! local copy of intent inout variables
-  type(fBrick_element) :: el
-  type(xnode)          :: nds(NNODE)
-  integer              :: egstat(NEDGE)
-  ! sub elem K and F
-  real(DP), allocatable :: Ki(:,:), Fi(:)
+  type(fBrick_element)      :: el
+  type(xnode)               :: nds(NNODE)
+  integer                   :: egstatus(NEDGE)
+  integer                   :: elstatus
   ! logical control variables
-  logical :: last_converged
-  logical :: nofailure
+  logical                   :: nofailure
   ! error msg location
-  character(len=MSGLENGTH) :: msgloc
+  character(len=MSGLENGTH)  :: msgloc
   
   ! initialize intent out and local variables
   allocate(K_matrix(NDOF,NDOF), F_vector(NDOF))
-  K_matrix = ZERO
-  F_vector = ZERO
-  istat    = STAT_SUCCESS
-  emsg     = ''
-  last_converged = .false.
-  nofailure      = .false.
-  msgloc   = ' integrate, fBrick_element module'
+  K_matrix        = ZERO
+  F_vector        = ZERO
+  istat           = STAT_SUCCESS
+  emsg            = ''
+  egstatus        = 0
+  elstatus        = 0
+  nofailure       = .false.
+  msgloc          = ' integrate, fBrick_element module'
   
   ! copy intent inout arg. to its local alias
-  el     = elem
-  nds    = nodes
-  egstat = edge_status
+  el       = elem
+  nds      = nodes
+  egstatus = edge_status
   
-  ! - check if last iteration has converged
-  if(.not. clock_in_sync(GLOBAL_CLOCK, el%local_clock) then
-    last_converged  = .true.
+  ! check if last iteration has converged; if so, the elem's current partition
+  ! has lead to the convergence of the last increment, and hence it is NOT a 
+  ! new partition but a converged partition, el%newpartition = .false.
+  if (.not. clock_in_sync(GLOBAL_CLOCK, el%local_clock) then
     el%local_clock  = GLOBAL_CLOCK
     el%newpartition = .false.
   end if
-
+  
 
   !---------------------------------------------------------------------!
-  !       update elem partition using edge status variable
+  !********** MAIN CALCULATIONS **********
   !---------------------------------------------------------------------!
 
-  
-  if (el%curr_status < MATRIX_CRACK_ELEM) then 
-  ! if elem has not yet reached final partition, 
-  ! check elem edge status variables and update 
-  ! elem status and sub elem cnc
-  
-      ! store current status value
-      elstat = el%curr_status  
-      
-      ! by default, nofailure is false, 
-      ! i.e., failure criterion will be assessed
-      nofailure = .false.
-      
-      ! partition elem according to edge status values
-      call edge_status_partition (el, edge_status, istat, emsg)
+  elstatuscase: select case (el%curr_status)
+  !
+  ! if elem has not yet reached final partition, then in each ITERATION,
+  ! check for EDGE_STATUS_PARTITION of the elem first, and update newpartition: 
+  ! -> if el partition is UPDATED by edge status, el newpartition is set TRUE 
+  ! -> if el partition is UNCHANGED by edge status, el newpartition is UNCHANGED
+  !
+  ! after the edge status partition, calculate based on el partition status:
+  ! -> if newpartition is true (current partition is not converged), then:
+  !     - integrate subelems with NOfailure
+  !     - do NOT check for FAILURE_CRITERION_PARTITION
+  ! -> if newpartition is false (current partition has converged), then:
+  !     - integrate subelems with failure
+  !     - check for FAILURE_CRITERION_PARTITION, and:
+  !       * if its partition is UPDATED by the failure criterion, 
+  !         newpartition becomes TRUE and re-integrate subelems with NOfailure
+  !
+  case (INTACT, TRANSITION_ELEM, REFINEMENT_ELEM &
+  &              CRACK_TIP_ELEM, CRACK_WAKE_ELEM) elstatuscase
+    
+      !***** check edge status variables *****
+      ! save existing el status for comparison purpose later
+      elstatus = el%curr_status
+      ! update elem status according to edge status values
+      ! and update the edge status values
+      ! and partition the elem
+      call edge_status_partition (el, nds, egstatus, istat, emsg)
       if (istat == STAT_FAILURE) then
         emsg = emsg//trim(msgloc)
-        call clean_up()
+        call clean_up (K_matrix, F_vector)
         return
       end if
-   
-      ! new partition for this elem
-      ! no material degradation/failure criterion partition 
-      ! for 1st iteration of new partition
-      if (elstat /= el%curr_status) then
-        elem%newpartition = .true.
-        nofailure         = .true.
-      end if 
+      ! if elstat is changed, then this elem has a new partition
+      ! from edge status update; el%newpartition variable = TRUE
+      if (elstatus /= el%curr_status) el%newpartition = .true.
       
-      ! if elem matrix is not yet failed after the edge status partition
-      ! integrate and check the failure criterion partition
-      if (el%curr_status < MATRIX_CRACK_ELEM) then
-        
-        call integrate_assemble_subelem (el, nodes, lam_mat, coh_mat, &
-        & K_matrix, F_vector, istat, emsg, nofailure)
-        if (istat == STAT_FAILURE) then
-          emsg = emsg//trim(msgloc)
-          call clean_up()
-          return
-        end if
-        
-        if(nofailure) then
-          ! 1st iteration of new partition, no failure criterion partition 
-          ! for stabilization purpose
-          continue
-        else
-          ! 2nd and later iteration of new partition
+      !***** select what to do based on el partition status *****
+      newPartition: select case (el%newpartition)
+      ! if the current elem partition is a new partition (not converged),
+      ! no failure in subelems and no failure_criterion_partition is done  
+      ! just integrate and assemble subelems
+      case (.true.) newPartition
+          ! suppress subelem failure for increment of new elem partition
+          nofailure = .true.
+          ! integrate the subelems and assemle their K and F
+          call integrate_assemble_subelem (el, nds, lam_mat, coh_mat, &
+          & K_matrix, F_vector, istat, emsg, nofailure)
+          if (istat == STAT_FAILURE) then
+            emsg = emsg//trim(msgloc)
+            call clean_up (K_matrix, F_vector)
+            return
+          end if
+      ! if the current elem partition is a converged partition,
+      ! then failure in subelems is allowed, and failure_criterion_partition
+      ! needs to be checked
+      case (.false.) newPartition
+          ! allow failure in subelems
+          nofailure = .false.
+          ! integrate the subelems before failure criterion partition
+          call integrate_assemble_subelem (el, nds, lam_mat, coh_mat, &
+          & K_matrix, F_vector, istat, emsg, nofailure)
+          if (istat == STAT_FAILURE) then
+            emsg = emsg//trim(msgloc)
+            call clean_up (K_matrix, F_vector)
+            return
+          end if
           !***** check failure criterion *****
-          ! failure criterion partitions elem into MATRIX_CRACK_ELEM/FIBRE_FAIL_ELEM partition
-          ! if sub elem matrix fails/fibre fails
-          call failure_criterion_partition (el)
-          if(el%curr_status >= MATRIX_CRACK_ELEM) then
-          ! elem partition is updated by failure criterion partition, i.e., 
-          ! new partiton is true
+          ! failure criterion partitions elem of any status directly into 
+          ! MATRIX_CRACK_ELEM partition if the failure criterion judges
+          ! any subelem reaches MATRIX/FIBRE failure onset
+          call failure_criterion_partition (el, istat, emsg)
+          if (istat == STAT_FAILURE) then
+            emsg = emsg//trim(msgloc)
+            call clean_up (K_matrix, F_vector)
+            return
+          end if
+          ! check to see if the elem partition is updated by failure criterion
+          ! NOTE: any update goes straight to MATRIX_CRACK_ELEM status
+          ! if updated, newpartition becomes TRUE and 
+          ! subelems need to be re-integrated with failure suppressed
+          if (el%curr_status == MATRIX_CRACK_ELEM) then
+            ! this is a new element partition not yet converged
             el%newpartition = .true.
-            nofailure       = .true.
-          end if 
-        end if
-      end if
-         
-  end if 
- 
-  if(el%curr_status == MATRIX_CRACK_ELEM) then
+            ! suppress failure for subelem during new partition increment
+            nofailure = .true.
+            ! re-integrate the subelems and re-assemle their K and F
+            call integrate_assemble_subelem (el, nds, lam_mat, coh_mat, &
+            & K_matrix, F_vector, istat, emsg, nofailure)
+            if (istat == STAT_FAILURE) then
+              emsg = emsg//trim(msgloc)
+              call clean_up (K_matrix, F_vector)
+              return
+            end if
+          end if
+      end select newPartition
+
   ! element matrix is already failed
-  ! element is already partitioned into 2 bulks and 1 coh, 
-  ! integrate and assemble subelems
-  ! bulk sub elems may undergo fibre damage and failure 
-  ! (only after coh sub elem starts failing)
+  ! element is already partitioned into subBulks and one cohCrack subelems, 
+  ! just integrate and assemble the subelems    
+  case (MATRIX_CRACK_ELEM) elstatuscase
 
-      ! by default, no material degradation for fibre
-      ! until cohesive sub elem starts to fail
-      nofailure = .true.
-      
-      ! during the increment of new partition, 
-      ! no fibre material degradation allowed
-      if(el%newpartition) then
-        continue    ! nofailure remains true
-      else
-      ! after that increment, fibre failure is considered for 
-      ! matrix fail partition only after coh sub elem starts failing
-        call extract (el%cohCrack, fstat=subelstat)
-        if (subelstat > INTACT) nofailure = .false.
-      end if
+      ! if the current partition is a new partition (not yet converged), 
+      ! suppress failure in subelems
+      nofailure = el%newpartition
        
-      ! integrate sub elems
-      call integrate_assemble_subelem (el, nodes, lam_mat, coh_mat, &
+      ! integrate and assemble sub elems
+      call integrate_assemble_subelem (el, nds, lam_mat, coh_mat, &
       & K_matrix, F_vector, istat, emsg, nofailure)
-      
-      ! check if sub bulks have reached fibre failure onset;
-      ! if so, update curr status to fibre failure status FIBRE_FAIL_ELEM 
-      ! (no need to update partition)
-      if (.not. nofailure) then
-        do i = 1, size(el%subelem)
-          call extract (el%subBulks(i), fstat=subelstat)
-          if (subelstat >= FIBRE_ONSET) then
-            elem%curr_status = FIBRE_FAIL_ELEM
-            goto 10
-            exit
-          end if 
-        end do
-      end if
-  
-  end if
-  
-  if(elem%curr_status==FIBRE_FAIL_ELEM) then
-  ! element fibre is already failed, integrate and assemble subelem
-      
-      ! during the increment of new partition, no fibre failure allowed
-      if (elem%newpartition) then
-          nofailure=.true.  ! no fibre failure modelling
-      else
-      ! after that increment, fibre failure is considered for fibre fail partition
-          nofailure=.false.
-      end if    
-      
-      call integrate_assemble_subelem (el, nodes, lam_mat, coh_mat, &
-      & K_matrix, F_vector, istat, emsg, nofailure)
-      
-  end if
  
-
+ 
+  case default elstatuscase
   
-  !---------------------------------------------------------------------!
-  !               deallocate local arrays 
-  !---------------------------------------------------------------------!
-10if(allocated(subglbcnc)) deallocate(subglbcnc)
+      istat = STAT_FAILURE
+      emsg  = 'unexpected elstatus value in'//trim(msgloc)
+      call clean_up (K_matrix, F_vector)
+      return
+  
+  end select elstatuscase
 
 
+  !---------------------------------------------------------------------!
+  !********** END MAIN CALCULATIONS **********
+  !---------------------------------------------------------------------!
+
+  ! update to intent inout args before successful return
+  elem        = el
+  nodes       = nds
+  edge_status = egstatus
+  
+  return
+
+
+  contains
+  
+  
+  pure subroutine clean_up (K_matrix, F_vector)
+    real(DP), intent(inout) :: K_matrix(:,:), F_vector(:)
+    K_matrix = ZERO
+    F_vector = ZERO
+  end subroutine clean_up
 
 end subroutine integrate_fBrick_element
 
 
 
-pure subroutine edge_status_partition(elem, nodes, edge_status, istat, emsg)
-use xnode_module, only : xnode, extract
+pure subroutine edge_status_partition (elem, nodes, edge_status, istat, emsg)
+use parameter_module,      only : DP, MSGLENGTH, STAT_SUCCESS, STAT_FAILURE,  &
+                          & REAL_ALLOC_ARRAY, ZERO, INTACT,                   &
+                          & TRANSITION_EDGE, REFINEMENT_EDGE,                 &
+                          & CRACK_TIP_EDGE,  COH_CRACK_EDGE,                  &
+                          & TRANSITION_ELEM, REFINEMENT_ELEM,                 &
+                          & CRACK_TIP_ELEM,  CRACK_WAKE_ELEM, MATRIX_CRACK_ELEM
+use xnode_module,          only : xnode, extract, update
+use global_toolkit_module, only : crack_elem_cracktip2d
 
   ! passed-in variables
   type(fBrick_element),     intent(inout) :: elem
@@ -466,14 +488,14 @@ use xnode_module, only : xnode, extract
 
   ! local variable
   character(len=MSGLENGTH)  :: msgloc
-  integer                   :: elstatus, eledgestatus(NEDGE_SURF)
+  integer                   :: elstatus, eledgestatus_lcl(NEDGE_SURF)
   type(REAL_ALLOC_ARRAY)    :: coords(NNODE)
   integer                   :: nfailedge
   integer                   :: ifailedge(NEDGE_SURF)
-  
-  integer :: jbe1, jbe2, jnode
-  integer :: cross_stat
-  crosspoint1, crosspoint2, quad_coords, ...
+  real(DP)                  :: crackpoint1(2), crackpoint2(2)
+  real(DP)                  :: botsurf_coords(2,NEDGE_SURF)
+  integer                   :: jbe1, jbe2, jnode
+  integer                   :: i
 
   ! --------------------------------------------------------------------!
   ! *** workings of edgstat, nfailedge, ifedg ***
@@ -487,18 +509,20 @@ use xnode_module, only : xnode, extract
   ! --------------------------------------------------------------------!
 
   ! initialize intent out and local variables
-  istat  = STAT_SUCCESS
-  emsg   = ''
-  msgloc = ' edge status partition'
-  elstatus     = 0
-  eledgestatus = 0
-  nfailedge = 0
-  ifailedge = 0
-  jbe1  = 0
-  jbe2  = 0
-  jnode = 0
-  cross_stat = 0
-  i=0; j=0; l=0; k=0
+  istat             = STAT_SUCCESS
+  emsg              = ''
+  msgloc            = ' edge status partition'
+  elstatus          = 0
+  eledgestatus_lcl  = 0
+  nfailedge         = 0
+  ifailedge         = 0
+  crackpoint1       = ZERO
+  crackpoint2       = ZERO
+  botsurf_coords    = ZERO
+  jbe1              = 0
+  jbe2              = 0
+  jnode             = 0
+  i = 0
   
   ! check input validity
   ! it is assumed that the top surf. edge status
@@ -506,16 +530,15 @@ use xnode_module, only : xnode, extract
   if ( any(edge_status(1:NEDGE_SURF) /= edge_status(NEDGE_SURF+1:NEDGE)) ) then
     istat = STAT_FAILURE
     emsg  = 'incompatible top and bot surf edge status values'//trim(msgloc)
-    call clean_up ()
     return
   end if
     
   ! extract elem status variable
-  elstatus     = elem%curr_status
+  elstatus          = elem%curr_status
   ! extract elem edge status variables stored in the elem component
-  eledgestatus = elem%edge_status
+  eledgestatus_lcl  = elem%edge_status_lcl
   ! extract nodal coords from passed in nodes array
-  do i=1, NNODE
+  do i = 1, NNODE
     call extract (nodes(i), x=coords(i)%array)
   end do
   
@@ -530,22 +553,22 @@ use xnode_module, only : xnode, extract
   ! partition elem to trans. elem or ref. elem based on status of jbe1 & jbe2
   !
   ! - if elem is TRANSITION ELEM,
-  ! 1st broken edge, jbe1, is already found and stored in eledgestatus, 
+  ! 1st broken edge, jbe1, is already found and stored in eledgestatus_lcl, 
   ! find the other edge crossed by the crack line starting from jbe1 crack point
   ! store its edge index jbe2
   ! partition elem to trans. elem or ref. elem based on status of jbe1 & jbe2
   ! 
   ! - if elem is of OTHER STATUS,
-  ! then the two broken edges (jbe1 & jbe2) are already stored in eledgestatus;
+  ! then the two broken edges (jbe1 & jbe2) are already stored in eledgestatus_lcl;
   ! just update their edge status with the passed in edge status array
   ! then partition elem to other status based on status of jbe1 & jbe2
   !
   jbe1jbe2: select case (elstatus)
-  !
+  
   case (INTACT, TRANSITION_ELEM) jbe1jbe2
       ! if elem is INTACT, return of no edge fails; otherwise, find jbe1
       ! as the most critical edge
-      if (elstatus == INTACT)
+      if (elstatus == INTACT) then
         if ( count(edge_status(1:NEDGE_SURF) > INTACT) == 0 ) then
           ! no broken edge, elem remains intact, do nothing
           return
@@ -553,24 +576,22 @@ use xnode_module, only : xnode, extract
           ! find the most damaged edge index jbe1 and ignore the rest
           jbe1 = maxloc(edge_status(1:NEDGE_SURF))
         end if
-      ! if elem is TRANSITION, find jbe1 as the stored edge in eledgestatus
+      ! if elem is TRANSITION, find jbe1 as the stored edge in eledgestatus_lcl
       else
         ! check if there's only 1 broken edge stored
-        if ( count(eledgestatus > INTACT) /= 1 ) then
+        if ( count(eledgestatus_lcl > INTACT) /= 1 ) then
           istat = STAT_FAILURE
           emsg  = 'unexpected no. of failed edges for case &
           & elstatus = TRANSITION ELEM'//trim(msgloc)
-          call clean_up()
           return
         end if
         ! find the broken edge index
-        jbe1 = maxloc(eledgestatus)
+        jbe1 = maxloc(eledgestatus_lcl)
         ! check if the edge status is transition edge
-        if (eledgestatus(jbe1) /= TRANSITION_EDGE) then
+        if (eledgestatus_lcl(jbe1) /= TRANSITION_EDGE) then
           istat = STAT_FAILURE
           emsg  = 'unexpected edge status of failed edge for case &
           & elstatus = TRANSITION ELEM'//trim(msgloc)
-          call clean_up()
           return
         end if
       end if
@@ -584,28 +605,31 @@ use xnode_module, only : xnode, extract
       crackpoint1(:) = coords(jnode)%array(1:2)
       ! 2D nodal coords of the bottom quad surface (first 4 nodes of the elem)
       do i = 1, NEDGE_SURF  
-        quad_coords(:,i) = coords(i)%array(1:2)
+        botsurf_coords(:,i) = coords(i)%array(1:2)
       end do
       ! find the other edge crossed by the crack line and the other crack point
-      call crack_elem_cracktip2d (cracktip_point = crackpoint1, &
-      & cracktip_edge_index = jbe1, nedge = NEDGE_SURF,         &
-      & crack_angle = elem%ply_angle, coords = quad_coords,     &
-      & nodes_on_edges = ENDNODES_ON_BOT_EDGES,                 &
-      & istat = istat, emsg = emsg,                             &
-      & edge_crack_point = crackpoint2, crack_edge_index = jbe2)
+      call crack_elem_cracktip2d (cracktip_point = crackpoint1,               &
+      &                      cracktip_edge_index = jbe1,                      &
+      &                                    nedge = NEDGE_SURF,                &
+      &                              crack_angle = elem%ply_angle,            &
+      &                                   coords = botsurf_coords,            &
+      &                           nodes_on_edges = ENDNODES_ON_BOT_EDGES,     &
+      &                                    istat = istat,                     &
+      &                                     emsg = emsg,                      &
+      &                         edge_crack_point = crackpoint2,               &
+      &                         crack_edge_index = jbe2)
       if (istat == STAT_FAILURE) then
         emsg = emsg//trim(msgloc)
-        call clean_up()
         return
       end if
-  !
+  
   case (REFINEMENT_ELEM, CRACK_TIP_ELEM, &
   &     CRACK_WAKE_ELEM, MATRIX_CRACK_ELEM) jbe1jbe2  
       ! once partitioned, only check the status of stored failed edges; 
       ! other failed edges are ignored
       do i = 1, NEDGE_SURF
         ! find the failed edges in stored edge status array
-        if (eledgestatus(i) /= INTACT) then
+        if (eledgestatus_lcl(i) /= INTACT) then
           ! update total no. of failed edges
           nfailedge = nfailedge + 1 
           ! update the indices of failed edges in local array
@@ -617,27 +641,26 @@ use xnode_module, only : xnode, extract
         istat = STAT_FAILURE
         emsg  = 'unexpected no. of failed edges for case elstatus = &
         & REFINEMENT/CRACK TIP/CRACK WAKE/MATRIX CRACK ELEM'//trim(msgloc)
-        call clean_up()
         return
       end if
       ! assign jbe1 and jbe2
       jbe1 = ifailedge(1)
       jbe2 = ifailedge(2)
-  !
+  
   case default jbe1jbe2
       istat = STAT_FAILURE
       emsg  = 'unexpected elstatus value'//trim(msgloc)
-      call clean_up
       return
+  
   end select jbe1jbe2
   
   ! extract the edge status of jbe1 and jbe2 
-  ! from passed in edge_status array to local eledgestatus
-  eledgestatus(jbe1) = edge_status(jbe1)
-  eledgestatus(jbe2) = edge_status(jbe2)
+  ! from passed in edge_status array and update to eledgestatus_lcl
+  eledgestatus_lcl(jbe1) = edge_status(jbe1)
+  eledgestatus_lcl(jbe2) = edge_status(jbe2)
   
   ! update edge status and elem status, based on jbe1 and jbe2 status
-  call update_edge_elem_status (eledgestatus, elstatus, jbe1, jbe2)
+  call update_edge_elem_status (eledgestatus_lcl, elstatus, jbe1, jbe2)
   
   !**** END MAIN CALCULATIONS ****
  
@@ -652,7 +675,8 @@ use xnode_module, only : xnode, extract
     ! or transition elem (on both surfs)
     if (elem%curr_status == INTACT .or. &
     &   elem%curr_status == TRANSITION_ELEM) then
-      ! update two fl. nodes on edge jbe2 of both top and bot surfaces
+      ! update the coords of two fl. nodes on edge jbe2 
+      ! of both top and bot surfaces
       jnode = NODES_ON_BOT_EDGES(3,jbe2)
       call update(nodes(jnode), x(1:2)=crackpoint2(:))
       jnode = NODES_ON_BOT_EDGES(4,jbe2)
@@ -664,28 +688,31 @@ use xnode_module, only : xnode, extract
     end if
     
     ! update to passed in edge_status array (both surfs)
-    edge_status(jbe1) = eledgestatus(jbe1)
-    edge_status(jbe2) = eledgestatus(jbe2)
-    edge_status(jbe1+NEDGE_SURF) = eledgestatus(jbe1)
-    edge_status(jbe2+NEDGE_SURF) = eledgestatus(jbe2)
+    edge_status(jbe1) = eledgestatus_lcl(jbe1)
+    edge_status(jbe2) = eledgestatus_lcl(jbe2)
+    edge_status(jbe1+NEDGE_SURF) = eledgestatus_lcl(jbe1)
+    edge_status(jbe2+NEDGE_SURF) = eledgestatus_lcl(jbe2)
     
     ! update to elem components
-    elem%curr_status = elstatus
-    elem%edge_status = eledgestatus
+    elem%curr_status     = elstatus
+    elem%edge_status_lcl = eledgestatus_lcl
+    
+    ! update elem partition
+    call partition_elem (elem)
   
   end if
   
   ! exit program
-  call clean_up()
   return
 
 
   contains
 
 
-  pure subroutine update_edge_elem_status (eledgestatus, elstatus, ibe1, ibe2)
+  pure subroutine update_edge_elem_status (eledgestatus_lcl, elstatus, &
+  & ibe1, ibe2)
   ! update the edge status of the two broken edges and elem status
-    integer, intent(inout) :: elstatus, eledgestatus(NEDGE_SURF)
+    integer, intent(inout) :: eledgestatus_lcl(NEDGE_SURF), elstatus
     integer, intent(in)    :: ibe1, ibe2
     
     integer :: jbe1, jbe2
@@ -693,7 +720,7 @@ use xnode_module, only : xnode, extract
     jbe2 = 0
     
     ! store the more critical edge of the two in jbe1
-    if (eledgestatus(ibe2) > eledgestatus(ibe1) then
+    if (eledgestatus_lcl(ibe2) > eledgestatus_lcl(ibe1) then
       jbe1 = ibe2
       jbe2 = ibe1
     else
@@ -701,52 +728,52 @@ use xnode_module, only : xnode, extract
       jbe2 = ibe2
     end if
   
-    select case (eledgestatus(jbe1))
+    select case (eledgestatus_lcl(jbe1))
     ! if 1st broken edge is transition edge, the 2nd can only be transition
     ! edge or intact edge
     case (TRANSITION_EDGE)
-        if (eledgestatus(jbe2) == TRANSITION_EDGE) then
-          eledgestatus(jbe1) = REFINEMENT_EDGE
-          eledgestatus(jbe2) = REFINEMENT_EDGE
+        if (eledgestatus_lcl(jbe2) == TRANSITION_EDGE) then
+          eledgestatus_lcl(jbe1) = REFINEMENT_EDGE
+          eledgestatus_lcl(jbe2) = REFINEMENT_EDGE
           elstatus = REFINEMENT_ELEM
-        else if (eledgestatus(jbe2) == INTACT) then
+        else if (eledgestatus_lcl(jbe2) == INTACT) then
           elstatus = TRANSITION_ELEM
         end if
     ! if 1st broken edge is refinement edge, the 2nd can only be refinement,
     ! transition or intact edge
     case (REFINEMENT_EDGE)
-        if (eledgestatus(jbe2) == REFINEMENT_EDGE .or. &
-        &   eledgestatus(jbe2) == TRANSITION_EDGE) then
+        if (eledgestatus_lcl(jbe2) == REFINEMENT_EDGE .or. &
+        &   eledgestatus_lcl(jbe2) == TRANSITION_EDGE) then
           elstatus = REFINEMENT_ELEM
-        else if (eledgestatus(jbe2) == INTACT) then
-          eledgestatus(jbe2) = TRANSITION_EDGE
+        else if (eledgestatus_lcl(jbe2) == INTACT) then
+          eledgestatus_lcl(jbe2) = TRANSITION_EDGE
           elstatus = REFINEMENT_ELEM
         end if
     ! if 1st broken edge is crack tip edge, the 2nd can only be crack tip, 
     ! refinement, transition or intact edge
     case (CRACK_TIP_EDGE)
-        if (eledgestatus(jbe2) == CRACK_TIP_EDGE) then
-          eledgestatus(jbe1) = COH_CRACK_EDGE
-          eledgestatus(jbe2) = COH_CRACK_EDGE
+        if (eledgestatus_lcl(jbe2) == CRACK_TIP_EDGE) then
+          eledgestatus_lcl(jbe1) = COH_CRACK_EDGE
+          eledgestatus_lcl(jbe2) = COH_CRACK_EDGE
           elstatus = MATRIX_CRACK_ELEM
-        else if (eledgestatus(jbe2) == REFINEMENT_EDGE) then
+        else if (eledgestatus_lcl(jbe2) == REFINEMENT_EDGE) then
           elstatus = CRACK_TIP_ELEM
-        else if (eledgestatus(jbe2) == TRANSITION_EDGE .or. &
-        &        eledgestatus(jbe2) == INTACT) then
-          eledgestatus(jbe2) = REFINEMENT_EDGE
+        else if (eledgestatus_lcl(jbe2) == TRANSITION_EDGE .or. &
+        &        eledgestatus_lcl(jbe2) == INTACT) then
+          eledgestatus_lcl(jbe2) = REFINEMENT_EDGE
           elstatus = CRACK_TIP_ELEM
         end if
     ! if 1st broken edge is coh crack edge, the 2nd can only be coh crack,
     ! crack tip, refinement, transition or intact edge
     case (COH_CRACK_EDGE)
-        if (eledgestatus(jbe2) == COH_CRACK_EDGE) then
+        if (eledgestatus_lcl(jbe2) == COH_CRACK_EDGE) then
           elstatus = MATRIX_CRACK_ELEM
-        else if (eledgestatus(jbe2) == CRACK_TIP_EDGE) then
+        else if (eledgestatus_lcl(jbe2) == CRACK_TIP_EDGE) then
           elstatus = CRACK_WAKE_ELEM
-        else if (eledgestatus(jbe2) == REFINEMENT_EDGE .or. &
-        &        eledgestatus(jbe2) == TRANSITION_EDGE .or. &
-        &        eledgestatus(jbe2) == INTACT) then
-          eledgestatus(jbe2) = CRACK_TIP_EDGE
+        else if (eledgestatus_lcl(jbe2) == REFINEMENT_EDGE .or. &
+        &        eledgestatus_lcl(jbe2) == TRANSITION_EDGE .or. &
+        &        eledgestatus_lcl(jbe2) == INTACT) then
+          eledgestatus_lcl(jbe2) = CRACK_TIP_EDGE
           elstatus = CRACK_WAKE_ELEM
         end if
     end select
@@ -754,477 +781,333 @@ use xnode_module, only : xnode, extract
   end subroutine update_edge_elem_status
 
 
-  pure subroutine clean_up ()
-  
-  end subroutine clean_up
-
 end subroutine edge_status_partition
 
 
 
-pure subroutine failure_criterion_partition(elem)
-! this subroutine update elem status & partition to MATRIX_CRACK_ELEM if any sub elem is nolonger INTACT
+pure subroutine failure_criterion_partition(elem, nodes, edge_status, &
+& istat, emsg)
+! Purpose:
+! this subroutine updates elem status & partition to MATRIX_CRACK_ELEM 
+! if any sub elem is nolonger INTACT
+use parameter_module,      only : DP, MSGLENGTH, STAT_SUCCESS, STAT_FAILURE,  &
+                          & REAL_ALLOC_ARRAY, ZERO, INTACT,                   &
+                          & TRANSITION_EDGE, COH_CRACK_EDGE,                  &
+                          & TRANSITION_ELEM, REFINEMENT_ELEM,                 &
+                          & CRACK_TIP_ELEM,  CRACK_WAKE_ELEM, MATRIX_CRACK_ELEM
+use xnode_module,          only : xnode, extract, update
+use global_toolkit_module, only : crack_elem_centroid2d, crack_elem_cracktip2d
 
-! passed in variables
-type(fBrick_element) :: elem
+  ! passed-in variables
+  type(fBrick_element),     intent(inout) :: elem
+  type(xnode),              intent(inout) :: nodes
+  integer,                  intent(inout) :: edge_status
+  integer,                  intent(out)   :: istat
+  character(len=MSGLENGTH), intent(out)   :: emsg
 
-! extracted variables, from glb libraries
-integer :: edgstat(NEDGE)               ! status variable array of element edges
-type(real_alloc_array) :: coord(NNODE)  ! nodal coord arrays to store the coords of elem nodes extracted from glb node lib
+  ! local variable
+  character(len=MSGLENGTH)  :: msgloc
+  integer                   :: subelstatus
+  type(REAL_ALLOC_ARRAY)    :: coords(NNODE)
+  integer                   :: nfailedge
+  integer                   :: ifailedge(NEDGE_SURF)
+  real(DP)                  :: crackpoints(2,2), crackpoint1(2), crackpoint2(2)
+  real(DP)                  :: botsurf_coords(2,NEDGE_SURF)
+  integer                   :: jbe1, jbe2, jnode
+  logical                   :: failed
+  integer                   :: i
 
-real(DP)    :: xelm(NDIM,NNODE)         ! local copy of element nodal coords
+  ! --------------------------------------------------------------------!
+  ! *** workings of edgstat, nfailedge, ifedg ***
+  !
+  ! e.g.: element edge 1 and 3 are broken, then:
+  !
+  ! - nfailedge=2
+  ! - edge_status(1)>0; edge_status(2)=0; edge_status(3)>0; edge_status(4)=0
+  ! - ifailedge(1)=1; ifailedge(2)=3; ifailedge(3:)=0
+  !
+  ! --------------------------------------------------------------------!
 
-real(DP)    :: theta
-
-
-
-! local variable
-
-integer :: nfailedge        ! no. of failed edges in the element
-integer :: ifedg(NEDGE)     ! index of failed edges in the element
-integer :: elstat           ! local copy of elem curr status
-integer :: jbe1,jbe2, jnode ! indices of 2 broken edges, and a variable to hold a glb node index
-integer :: iscross          ! indicator of line intersection; >0 if two lines intersect
-integer :: i, j, l, k       ! counters
-integer :: subelstat        ! sub elem status
-logical :: failed           ! true if elem is failed (one of the sub elems reached failure onset)
-logical :: fbfail           ! true if elem has fibre failure (INTACT elem reached fibre failure onset)
-
+  ! initialize intent out and local variables
+  istat             = STAT_SUCCESS
+  emsg              = ''
+  msgloc            = ' failure criterion partition'
+  subelstatus       = 0
+  nfailedge         = 0
+  ifailedge         = 0
+  crackpoints       = ZERO
+  crackpoint1       = ZERO
+  crackpoint2       = ZERO
+  botsurf_coords    = ZERO
+  jbe1              = 0
+  jbe2              = 0
+  jnode             = 0
+  failed            = .false.
+  i = 0
   
-real(DP) :: xp1, yp1, xp2, yp2      ! (x,y) of point 1 and point 2 on the crack line
-real(DP) :: x1, y1, z1, x2, y2, z2  ! (x,y) of node 1 and node 2 of an element edge
-real(DP) :: xct, yct, zct           ! (x,y) of a crack tip on an edge, i.e., intersection of crack line & edge
-real(DP) :: xo, yo                  ! (x,y) of element centroid
-real(DP) :: detlc,a1,b1,a2,b2,xmid,ymid
-real(DP) :: xmid1,ymid1,zmid1,xmid2,ymid2,zmid2
-real(DP) :: xct1,yct1,zct1,xct2,yct2,zct2
+  ! check input validity
+  ! it is assumed that the top surf. edge status
+  ! are the same as the bottom surf. edge status
+  if ( any(edge_status(1:NEDGE_SURF) /= edge_status(NEDGE_SURF+1:NEDGE)) ) then
+    istat = STAT_FAILURE
+    emsg  = 'incompatible top and bot surf edge status values'//trim(msgloc)
+    return
+  end if
 
+  ! extract nodal coords from passed in nodes array
+  do i = 1, NNODE
+    call extract (nodes(i), x=coords(i)%array)
+  end do
+  
+  
+  !**** MAIN CALCULATIONS ****
+  !
+  ! - if elem is INTACT, check intact_elem fstat:
+  ! if NO matrix/fibre failure onset, elem remain intact;
+  ! if matrix/fibre failure onset, crack elem from centroid:
+  !   * find the edge indices of the two cracked edges (jbe1 and jbe2)
+  !
+  ! - if elem is TRANSITION ELEM, check subBulks fstat:
+  ! if NO matrix/fibre failure onset, elem partition remain unchanged;
+  ! if matrix/fibre failure onset in any subBulk, then partition elem from
+  ! existing crack point:
+  !   * 1st crack edge, jbe1, is already found and stored in eledgestatus_lcl, 
+  !   * find the 2nd crack edge crossed by the crack line starting from crack 
+  !     point on edge jbe1, and store its edge index jbe2
+  ! 
+  ! - if elem is REFINEMENT/CRACK TIP ELEM, check subBulks fstat: 
+  ! if NO matrix/fibre failure onset, elem partition remain unchanged;
+  ! if matrix/fibre failure onset in any subBulk, then partition elem from
+  ! the two crack edges (jbe1 & jbe2) stored in eledgestatus_lcl;
+  !
+  ! - if elem is CRACK WAKE ELEM, check subBulks and cohCrack fstat: 
+  ! if NO matrix/fibre/coh failure onset, elem partition remain unchanged;
+  ! if matrix/fibre/coh failure onset in any subBulk/cohCrack, then partition 
+  ! elem from the two crack edges (jbe1 & jbe2) stored in eledgestatus_lcl;
 
-! --------------------------------------------------------------------!
-!       *** workings of edgstat, nfailedge, ifedg ***
-!
-!       e.g.: element edge 1 and 3 are broken, then:
-!
-!           - nfailedge=2
-!           - edgstat(1)>0; edgstat(2)=0; edgstat(3)>0; edgstat(4)=0
-!           - ifedg(1)=1; ifedg(2)=3; ifedg(3:)=0
-!
-! --------------------------------------------------------------------!
-
-    ! subroutine only partitions elstat < MATRIX_CRACK_ELEM elems
-    if(elem%curr_status>=MATRIX_CRACK_ELEM) return ! elem already failed, no need to proceed
-
-    ! initialize local variables
-    
-    edgstat=0; xelm=zero; theta=zero
-      
-    nfailedge=0; ifedg=0; elstat=0
-    jbe1=0; jbe2=0; jnode=0
-    iscross=0
-    i=0; j=0; l=0; k=0
-    subelstat=0
-    
-    failed=.false.
-       
-    xp1=zero; yp1=zero
-    xp2=zero; yp2=zero
-
-    x1=zero; y1=zero; z1=zero
-    x2=zero; y2=zero; z2=zero
-    
-    xct=zero; yct=zero; zct=zero
-    
-    xo=zero; yo=zero; detlc=zero
-
-    a1=zero; b1=zero; a2=zero; b2=zero; xmid=zero; ymid=zero
-    xmid1=zero; ymid1=zero; zmid1=zero; xmid2=zero; ymid2=zero; zmid2=zero
-    xct1=zero; yct1=zero; zct1=zero; xct2=zero; yct2=zero; zct2=zero
-    
-    
-
-
-!-----------------------------------------------------------------------!
-!               EXTRACTION INTERFACE
-!           extract variables from global libraries
-!-----------------------------------------------------------------------!
-    ! extract edge status variables from glb edge library
-    edgstat(:)=lib_edge(elem%edge_connec(:))
-    
-    ! extract nodal coords from glb node library
-    do i=1, NNODE
-        call extract(lib_node(elem%node_connec(i)),x=coord(i)%array)
-        if(allocated(coord(i)%array)) xelm(:,i)=coord(i)%array(:)
-    end do
-    
-
-    ! extract material orientation (fibre angle)
-    theta=elem%ply_angle
-    
-    elstat=elem%curr_status
-
-    ifedg=elem%ifailedge
-
-
-!-----------------------------------------------------------------------!
-!           check failure criterion on all sub elements
-!   elem is judged failed a.l.a. 1 sub elem has reached failure onset
-!   elem is judged fibre failed if elstat=INTACT and subelstat=fibre_onset
-!-----------------------------------------------------------------------!
-
-    do i=1, size(elem%subelem)
-        call extract(elem%subelem(i),curr_status=subelstat)
-        if(subelstat>INTACT) failed=.true.
-        if(failed) exit
-    end do
-
-    if (elstat==INTACT .and. subelstat>=fibre_onset) then
-        fbfail=.true.
-    end if
-!-----------------------------------------------------------------------!
-
-   
-        
-    if(failed) then
-    ! element failed, find newly broken edge and update edge status vars
-        
-    
-      ! find xp1, yp1
-        if(elstat .eq. INTACT) then ! element originally INTACT
-            ! find centroid
-            xo=quarter*(xelm(1,1)+xelm(1,2)+xelm(1,3)+xelm(1,4))
-            yo=quarter*(xelm(2,1)+xelm(2,2)+xelm(2,3)+xelm(2,4))
-            xp1=xo
-            yp1=yo
-            ! find xp2, yp2
-            xp2=xp1+cos(theta/halfcirc*pi)
-            yp2=yp1+sin(theta/halfcirc*pi)
-            do i=1,NEDGE/2 
-                ! tip corods of edge i
-                x1=xelm(1,topo(1,i))
-                y1=xelm(2,topo(1,i))
-                z1=xelm(3,topo(1,i))
-                x2=xelm(1,topo(2,i))
-                y2=xelm(2,topo(2,i))
-                z2=xelm(3,topo(2,i))
-                iscross=0
-                xct=zero
-                yct=zero
-                call klinecross(x1,y1,x2,y2,xp1,yp1,xp2,yp2,iscross,xct,yct)
-                if (iscross.gt.0) then
-                    edgstat(i)=cohcrack  ! edge i cracked
-                    nfailedge=nfailedge+1
-                    ifedg(nfailedge)=i   ! store failed edge indices
-                    zct=half*(z1+z2)     ! z1 should be == to z2 (shell bottom plane)
-                    xelm(:,topo(3,i))=[xct,yct,zct] ! store c tip coords on edge i fl. nd 1
-                    xelm(:,topo(4,i))=[xct,yct,zct] ! store c tip coords on edge i fl. nd 2
-                 endif
-                 if(nfailedge==2) exit ! found 2 broken edges already
-            end do
-
-
-            ! badly shaped element may have large angles; e.g.: 3 or all edges almost parallel to crack, then numerical error may
-            ! prevent the algorithm from finding any broken edge or only one broken edge
-
-            if(nfailedge==0) then
-            ! use trial lines: connecting midpoints of two edges and find the most parrallel-to-crack one
-
-                ! the following algorithm will find two broken edges
-                nfailedge=2
-                ! line equation constants of the crack
-                a2=sin(theta/halfcirc*pi)
-                b2=-cos(theta/halfcirc*pi)
-                ! connecting midpoints of two edges and find the most parrallel one
-                do i=1,NEDGE/2-1
-                    ! tip coords of edge i
-                    x1=xelm(1,topo(1,i))
-                    y1=xelm(2,topo(1,i))
-                    z1=xelm(3,topo(1,i))
-                    x2=xelm(1,topo(2,i))
-                    y2=xelm(2,topo(2,i))
-                    z2=xelm(3,topo(2,i))
-                    ! mid point of edge i
-                    xmid1=half*(x1+x2)
-                    ymid1=half*(y1+y2)
-                    zmid1=half*(z1+z2)
-                    ! loop over midpoints of other edges
-                    do j=i+1,NEDGE/2
-                        ! tip coords of edge j
-                        x1=xelm(1,topo(1,j))
-                        y1=xelm(2,topo(1,j))
-                        z1=xelm(3,topo(1,j))
-                        x2=xelm(1,topo(2,j))
-                        y2=xelm(2,topo(2,j))
-                        z2=xelm(3,topo(2,j))
-                        ! mid point of edge j
-                        xmid2=half*(x1+x2)
-                        ymid2=half*(y1+y2)
-                        zmid2=half*(z1+z2)
-                        ! line equation constants of midpoint1-midpoint2
-                        a1=ymid1-ymid2
-                        b1=xmid2-xmid1
-                        ! initialize detlc and intersection info
-                        if(i==1 .and. j==2) then
-                            detlc=a1*b2-a2*b1                               
-                            ifedg(1)=i   ! store failed edge indices
-                            ifedg(2)=j
-                            xct1=xmid1
-                            yct1=ymid1
-                            zct1=zmid1
-                            xct2=xmid2
-                            yct2=ymid2
-                            zct2=zmid2
-                        end if
-                        ! find the most parallel trial line and update stored info
-                        if(abs(a1*b2-a2*b1)<abs(detlc)) then
-                            ifedg(1)=i   ! store failed edge indices
-                            ifedg(2)=j
-                            xct1=xmid1
-                            yct1=ymid1
-                            zct1=zmid1
-                            xct2=xmid2
-                            yct2=ymid2
-                            zct2=zmid2
-                        endif
-                    end do
-                end do
-                edgstat(ifedg(1:2))=cohcrack
-                xelm(:,topo(3,ifedg(1)))=[xct1,yct1,zct1] ! store c tip coords on edge i fl. nd 1
-                xelm(:,topo(4,ifedg(1)))=[xct1,yct1,zct1] ! store c tip coords on edge i fl. nd 2 
-                xelm(:,topo(3,ifedg(2)))=[xct2,yct2,zct2] ! store c tip coords on edge i fl. nd 1
-                xelm(:,topo(4,ifedg(2)))=[xct2,yct2,zct2] ! store c tip coords on edge i fl. nd 2 
-
-            else if(nfailedge==1) then                
-            ! use trial lines: connecting the existing crack tip (xp1,yp1) to the midpoints of the other 3 edges
-
-                ! the following algorithm will find the second broken edge
-                nfailedge=2
-                ! existing crack tip coords
-                xp1=xct
-                yp1=yct
-                ! crack line equation constants
-                a2=sin(theta/halfcirc*pi)
-                b2=-cos(theta/halfcirc*pi)
-                ! find the midpoint which forms the most parrallel-to-crack line with (xp1,yp1)
-                do i=1,NEDGE/2 
-                    if (i==ifedg(1)) cycle
-                    ! tip coords of edge i
-                    x1=xelm(1,topo(1,i))
-                    y1=xelm(2,topo(1,i))
-                    z1=xelm(3,topo(1,i))
-                    x2=xelm(1,topo(2,i))
-                    y2=xelm(2,topo(2,i))
-                    z2=xelm(3,topo(2,i))
-                    ! mid point of edge i
-                    xmid=half*(x1+x2)
-                    ymid=half*(y1+y2)
-                    ! line equation constants of midpoint-(xp1,yp1)
-                    a1=ymid-yp1
-                    b1=xp1-xmid
-                    ! initialize detlc and intersection info
-                    if(i==1 .or. (ifedg(1)==1 .and. i==2)) then
-                        detlc=a1*b2-a2*b1
-                        ifedg(2)=i   ! store failed edge indices
-                        xct=xmid
-                        yct=ymid
-                        zct=half*(z1+z2)     ! z1 should be == to z2 (shell bottom plane)
-                    end if
-                    ! find the most parallel trial line and update stored info
-                    if(abs(a1*b2-a2*b1)<abs(detlc)) then
-                        ifedg(2)=i   ! store failed edge indices
-                        xct=xmid
-                        yct=ymid
-                        zct=half*(z1+z2)     ! z1 should be == to z2 (shell bottom plane)
-                    endif
-                end do
-                edgstat(ifedg(2))=cohcrack
-                xelm(:,topo(3,ifedg(2)))=[xct,yct,zct] ! store c tip coords on edge i fl. nd 1
-                xelm(:,topo(4,ifedg(2)))=[xct,yct,zct] ! store c tip coords on edge i fl. nd 2 
-            end if                
-
-            !***** project edge status variables to top edges *****
-            
-            nfailedge=4
-            ifedg(3)=ifedg(1)+NEDGE/2
-            ifedg(4)=ifedg(2)+NEDGE/2
-            edgstat(ifedg(3))=edgstat(ifedg(1))
-            edgstat(ifedg(4))=edgstat(ifedg(2))
-            xelm(1:2,topo(3,ifedg(3)))=xelm(1:2,topo(3,ifedg(1)))
-            xelm(1:2,topo(4,ifedg(3)))=xelm(1:2,topo(4,ifedg(1)))
-            xelm(1:2,topo(3,ifedg(4)))=xelm(1:2,topo(3,ifedg(2)))
-            xelm(1:2,topo(4,ifedg(4)))=xelm(1:2,topo(4,ifedg(2)))
-            
-            xelm(3,topo(3,ifedg(3)))=half*(xelm(3,topo(1,ifedg(3)))+xelm(3,topo(2,ifedg(3))))
-            xelm(3,topo(4,ifedg(3)))=half*(xelm(3,topo(1,ifedg(3)))+xelm(3,topo(2,ifedg(3))))
-            xelm(3,topo(3,ifedg(4)))=half*(xelm(3,topo(1,ifedg(4)))+xelm(3,topo(2,ifedg(4))))
-            xelm(3,topo(4,ifedg(4)))=half*(xelm(3,topo(1,ifedg(4)))+xelm(3,topo(2,ifedg(4))))
-          
-        else ! element already partitioned
-
-            ! find (xp1,yp1), (xp2,yp2)
-            if (elstat .eq. eltrans) then ! transition elm, already has an edge partitioned
-
-                nfailedge=2
-                edgstat(ifedg(1:2))=cohcrack ! cohesive crack
-                
-                j=ifedg(1)
-
-                ! find xp1, yp1
-                xp1=xelm(1,topo(3,j))           
-                yp1=xelm(2,topo(3,j))
-             
-                ! find xp2, yp2
-                xp2=xp1+cos(theta/halfcirc*pi)
-                yp2=yp1+sin(theta/halfcirc*pi)
-                 
-                 ! next, find the edge crossed by the crack line
-                do i=1,NEDGE/2
-                    if (i.eq.j) cycle ! the already cracked edge,go to next edge
-                    ! tip corods of edge i
-                    x1=xelm(1,topo(1,i))
-                    y1=xelm(2,topo(1,i))
-                    z1=xelm(3,topo(1,i))
-                    x2=xelm(1,topo(2,i))
-                    y2=xelm(2,topo(2,i))
-                    z2=xelm(3,topo(2,i))
-                    iscross=0
-                    xct=zero
-                    yct=zero
-                    call klinecross(x1,y1,x2,y2,xp1,yp1,xp2,yp2,iscross,xct,yct)
-                    if (iscross .gt. 0) then
-                        edgstat(i)=cohcrack  ! edge i cracked
-                        nfailedge=nfailedge+1
-                        ifedg(nfailedge)=i   ! 2nd broken edge index is i
-                        zct=half*(z1+z2)     ! z1 should be == to z2 (shell bottom plane)
-                        xelm(:,topo(3,i))=[xct,yct,zct] ! store c tip coords on edge i fl. nd 1
-                        xelm(:,topo(4,i))=[xct,yct,zct] ! store c tip coords on edge i fl. nd 2
-                    end if
-                    if(nfailedge .eq. 3) exit ! found 2 broken edges already
-                end do
-
-                ! badly shaped element may have large angles; e.g.: 3 or all edges almost parallel to crack, then numerical error may
-                ! prevent the algorithm from finding any broken edge or only one broken edge
-
-                if(nfailedge == 2) then
-                ! use trial lines: connecting the existing crack tip (xp1,yp1) to the midpoints of the other 3 edges
-                    ! crack line equation constants
-                    a2=sin(theta/halfcirc*pi)
-                    b2=-cos(theta/halfcirc*pi)
-                    ! find the midpoint which forms the most parrallel-to-crack line with (xp1,yp1)
-                    do i=1,NEDGE/2 
-                        if (i==ifedg(1)) cycle
-                        ! tip coords of edge i
-                        x1=xelm(1,topo(1,i))
-                        y1=xelm(2,topo(1,i))
-                        z1=xelm(3,topo(1,i))
-                        x2=xelm(1,topo(2,i))
-                        y2=xelm(2,topo(2,i))
-                        z2=xelm(3,topo(2,i))
-                        ! mid point of edge i
-                        xmid=half*(x1+x2)
-                        ymid=half*(y1+y2)
-                        ! line equation constants of midpoint-(xp1,yp1)
-                        a1=ymid-yp1
-                        b1=xp1-xmid
-                        ! initialize detlc and intersection info
-                        if(i==1 .or. (ifedg(1)==1 .and. i==2)) then
-                            detlc=a1*b2-a2*b1
-                            ifedg(3)=i   ! store failed edge indices
-                            xct=xmid
-                            yct=ymid
-                            zct=half*(z1+z2)     ! z1 should be == to z2 (shell bottom plane)
-                        end if
-                        ! find the most parallel trial line and update stored info
-                        if(abs(a1*b2-a2*b1)<abs(detlc)) then
-                            ifedg(3)=i   ! store failed edge indices
-                            xct=xmid
-                            yct=ymid
-                            zct=half*(z1+z2)     ! z1 should be == to z2 (shell bottom plane)
-                        end if
-                    end do
-                    edgstat(ifedg(3))=cohcrack
-                    xelm(:,topo(3,ifedg(3)))=[xct,yct,zct] ! store c tip coords on edge i fl. nd 1
-                    xelm(:,topo(4,ifedg(3)))=[xct,yct,zct] ! store c tip coords on edge i fl. nd 2 
-                end if
-
-                
-                !***** project edge status variables to top edges *****
-                
-                nfailedge=4
-                ifedg(4)=ifedg(3)+NEDGE/2
-                edgstat(ifedg(4))=cohcrack
-                xelm(1:2,topo(3,ifedg(4)))=xelm(1:2,topo(3,ifedg(3)))
-                xelm(1:2,topo(4,ifedg(4)))=xelm(1:2,topo(4,ifedg(3)))
-                xelm(3,topo(3,ifedg(4)))=half*(xelm(3,topo(1,ifedg(4)))+xelm(3,topo(2,ifedg(4))))
-                xelm(3,topo(4,ifedg(4)))=half*(xelm(3,topo(1,ifedg(4)))+xelm(3,topo(2,ifedg(4))))
-                
-            else if (elstat.gt.eltrans .and. elstat.lt.MATRIX_CRACK_ELEM) then 
-            ! element already has two edges partitioned; just update edge status var to coh crack status
-
-                nfailedge=4
-                ! update edge status var
-                edgstat(ifedg(1:4))=cohcrack ! cohesive crack 
-       
-            else
-                write(msg_file,*) 'unsupported elstat value for failure!'
-                call exit_function          
-            end if
-          
-        end if
-      
-       
-      
-        ! update the elstat to failed status value
-        if(fbfail) then
-        ! if INTACT elem reaches fibre failure onset, new elem partition is named FIBRE_FAIL_ELEM
-            elstat=FIBRE_FAIL_ELEM
-        else
-            elstat=MATRIX_CRACK_ELEM
-        end if
-       
-!       update element curr_status and sub-element cnc matrices
-        
-        elem%curr_status=elstat 
-        elem%ifailedge=ifedg 
-
-        call update_subcnc(elem,edgstat,ifedg,nfailedge)
-
-
-!-----------------------------------------------------------------------!
-!                   UPDATE INTERFACE
-!               update global libraries
-!-----------------------------------------------------------------------!
-
-        ! update glb edge array, only the broken edges' status variables
-        lib_edge(elem%edge_connec(ifedg(1:nfailedge)))=edgstat(ifedg(1:nfailedge))
-        
-        ! update glb node array, only the broken edges' fl. node coord
-        do i=1, nfailedge
-            j=ifedg(i)          ! local index of broken edge
-            
-            l=topo(3,j)          ! elem lcl index of broken edge fl. node 1
-            coord(l)%array(:)=xelm(:,l)
-            k=elem%node_connec(l)   ! global index of broken edge fl. node 1
-            call update(lib_node(k),x=coord(l)%array)
-            
-            l=topo(4,j)          ! elem lcl index of broken edge fl. node 2
-            coord(l)%array(:)=xelm(:,l)
-            k=elem%node_connec(l)   ! global index of broken edge fl. node 2
-            call update(lib_node(k),x=coord(l)%array)
+  ! set failed to false before the update in main loop
+  failed = .false.
+  
+  select case (elem%curr_status)
+  
+  ! elem is INTACT, check intact_elem fstat:
+  case (INTACT)
+      ! check expected no. of cracked edges
+      if ( count(elem%edge_status_lcl > INTACT) /= 0 ) then
+        istat = STAT_FAILURE
+        emsg  = 'unexpected no. of cracked edges for case &
+        &INTACT in'//trim(msgloc)
+        return
+      end if
+      ! proceed if no error
+      call extract(elem%intact_elem, fstat=subelstatus)
+      ! if matrix/fibre failure onset, crack elem from centroid and
+      ! find the edge indices of the two cracked edges (jbe1 and jbe2)
+      ! the crack_elem_centroid2d subroutine is used for this purpose
+      ! some inputs need to be prepared
+      if (subelstatus /= INTACT) then
+        ! update failed to true
+        failed = .true.
+        ! 2D nodal coords of the bottom quad surface (first 4 nodes of the elem)
+        do i = 1, NEDGE_SURF  
+          botsurf_coords(:,i) = coords(i)%array(1:2)
         end do
+        ! use the crack_elem_centroid2d subroutine to find 2 cross points and 2
+        ! crack edges of the elem, with crack passing elem centroid
+        call crack_elem_centroid2d (nedge = NEDGE_SURF,             &
+        &                     crack_angle = elem%ply_angle,         &
+        &                          coords = botsurf_coords,         &
+        &                  nodes_on_edges = ENDNODES_ON_BOT_EDGES,  &
+        &                           istat = istat,                  &
+        &                            emsg = emsg,                   &
+        &               edge_crack_points = crackpoints,            &
+        &              crack_edge_indices = [jbe1,jbe2])
+        if (istat == STAT_FAILURE) then
+          emsg = emsg//trim(msgloc)
+          return
+        end if
+      end if
+      
+  ! elem is TRANSITION ELEM, check subBulks fstat
+  case (TRANSITION_ELEM)
+      ! check expected no. of cracked edges
+      if ( count(elem%edge_status_lcl > INTACT) /= 1 ) then
+        istat = STAT_FAILURE
+        emsg  = 'unexpected no. of cracked edges for case &
+        &TRANSITION ELEM in'//trim(msgloc)
+        return
+      end if
+      ! index of the 1st failed edge
+      jbe1  = maxloc(elem%edge_status_lcl)
+      ! check expected status of cracked edge
+      if (elem%edge_status_lcl(jbe1) /= TRANSITION_EDGE) then
+        istat = STAT_FAILURE
+        emsg  = 'unexpected cracked edge status for case &
+        &TRANSITION ELEM in'//trim(msgloc)
+        return
+      end if
+      ! proceed if no error encounterd
+      do i = 1, size(elem%subBulks)
+        call extract(elem%subBulks(i), fstat=subelstatus)
+        if (subelstatus /= INTACT) then
+          ! update failed to true
+          failed = .true.
+          exit
+        end if
+      end do
+      ! if matrix/fibre failure onset in any subBulk, then partition elem from
+      ! existing crack point; find the other edge, jbe2, crossed by the crack 
+      ! line which passes the crack point on edge jbe1. 
+      ! use the subroutine crack_elem_cracktip2d for this purpose
+      if (failed) then
+        ! some inputs of the subroutine need to be prepared
+        ! index of a fl. node on this edge
+        jnode = NODES_ON_BOT_EDGES(3,jbe1)
+        ! coords of this fl. node is the existing crack point coords
+        crackpoint1(:) = coords(jnode)%array(1:2)
+        ! 2D nodal coords of the bottom quad surface (first 4 nodes of the elem)
+        do i = 1, NEDGE_SURF  
+          botsurf_coords(:,i) = coords(i)%array(1:2)
+        end do
+        ! find the 2nd edge crossed by the crack line and the 2nd crack point
+        call crack_elem_cracktip2d (cracktip_point = crackpoint1,              &
+        &                      cracktip_edge_index = jbe1,                     &
+        &                                    nedge = NEDGE_SURF,               &
+        &                              crack_angle = elem%ply_angle,           &
+        &                                   coords = botsurf_coords,           &
+        &                           nodes_on_edges = ENDNODES_ON_BOT_EDGES,    &
+        &                                    istat = istat,                    &
+        &                                     emsg = emsg,                     &
+        &                         edge_crack_point = crackpoint2,              &
+        &                         crack_edge_index = jbe2)
+        if (istat == STAT_FAILURE) then
+          emsg = emsg//trim(msgloc)
+          return
+        end if
+      end if
+      
+  ! elem is REFINEMENT/CRACK TIP/CRACK WAKE ELEM, 
+  ! check subBulks fstat and cohCrack fstat (CRACK WAKE ELEM ONLY)
+  case (REFINEMENT_ELEM, CRACK_TIP_ELEM, CRACK_WAKE_ELEM)
+      ! extract failed edges stored in elem
+      do i = 1, NEDGE_SURF
+        ! find the failed edges in stored edge status array
+        if (elem%edge_status_lcl(i) /= INTACT) then
+          ! update total no. of failed edges
+          nfailedge = nfailedge + 1 
+          ! update the indices of failed edges in local array
+          ifailedge(nfailedge) = i
+        end if
+      end do
+      ! check if nfailedge == 2
+      if (nfailedge /= 2) then
+        istat = STAT_FAILURE
+        emsg  = 'unexpected no. of failed edges for case &
+        & REFINEMENT/CRACK TIP/CRACK WAKE ELEM'//trim(msgloc)
+        return
+      end if
+      ! assign jbe1 and jbe2
+      jbe1 = ifailedge(1)
+      jbe2 = ifailedge(2)
+      
+      ! check if subelems are failed
+      ! if elem is CRACK WAKE ELEM, check if coh crack reaches failure onset
+      if (elem%curr_status == CRACK_WAKE_ELEM) then
+        call extract(elem%cohCrack, fstat=subelstatus)
+        if (subelstatus /= INTACT) then
+          ! update failed to true
+          failed = .true.
+        end if
+      end if
+      ! if no coh crack or no failure onset in coh crack, continue to check
+      ! if subBulks have reached failure onset
+      if (.not. failed) then
+        do i = 1, size(elem%subBulks)
+          call extract(elem%subBulks(i), fstat=subelstatus)
+          if (subelstatus /= INTACT) then
+            ! update failed to true
+            failed = .true.
+            exit
+          end if
+        end do
+      end if
 
+  case default
+      istat = STAT_FAILURE
+      emsg  = 'unexpected elem curr status in'//trim(msgloc)
+      return
+        
+  end select
 
-
+  ! if matrix/fibre/coh failure onset in any intact_elem/subBulk/cohCrack, then:
+  ! - update the passed-in nodes array, coords of fl. nodes on jbe1 & jbe2
+  ! - update the passed-in edge status array, status of jbe1 & jbe2
+  ! - update the edge status of the elem
+  ! - update the curr status of the elem
+  ! - update the partition   of the elem
+  if (failed) then
+  
+    !:::: update passed-in nodes array ::::!
+  
+    ! update edges jbe1 and jbe2 fl. nodes when elem was previously intact
+    ! (on both surfs), coords update to crackpoints
+    if (elem%curr_status == INTACT) then
+      ! update the coords of two fl. nodes on edge jbe1 
+      ! of both top and bot surfaces
+      jnode = NODES_ON_BOT_EDGES(3,jbe1)
+      call update(nodes(jnode), x(1:2)=crackpoints(:,1))
+      jnode = NODES_ON_BOT_EDGES(4,jbe1)
+      call update(nodes(jnode), x(1:2)=crackpoints(:,1))
+      jnode = NODES_ON_TOP_EDGES(3,jbe1)
+      call update(nodes(jnode), x(1:2)=crackpoints(:,1))
+      jnode = NODES_ON_TOP_EDGES(4,jbe1)
+      call update(nodes(jnode), x(1:2)=crackpoints(:,1))
+      ! update the coords of two fl. nodes on edge jbe2 
+      ! of both top and bot surfaces
+      jnode = NODES_ON_BOT_EDGES(3,jbe2)
+      call update(nodes(jnode), x(1:2)=crackpoints(:,2))
+      jnode = NODES_ON_BOT_EDGES(4,jbe2)
+      call update(nodes(jnode), x(1:2)=crackpoints(:,2))
+      jnode = NODES_ON_TOP_EDGES(3,jbe2)
+      call update(nodes(jnode), x(1:2)=crackpoints(:,2))
+      jnode = NODES_ON_TOP_EDGES(4,jbe2)
+      call update(nodes(jnode), x(1:2)=crackpoints(:,2))
+    ! update edge jbe2 fl. nodes when elem was previously transition elem
+    ! (on both surfs), coords update to crackpoint2
+    else if (elem%curr_status == TRANSITION_ELEM) then
+      ! update the coords of two fl. nodes on edge jbe2 
+      ! of both top and bot surfaces
+      jnode = NODES_ON_BOT_EDGES(3,jbe2)
+      call update(nodes(jnode), x(1:2)=crackpoint2(:))
+      jnode = NODES_ON_BOT_EDGES(4,jbe2)
+      call update(nodes(jnode), x(1:2)=crackpoint2(:))
+      jnode = NODES_ON_TOP_EDGES(3,jbe2)
+      call update(nodes(jnode), x(1:2)=crackpoint2(:))
+      jnode = NODES_ON_TOP_EDGES(4,jbe2)
+      call update(nodes(jnode), x(1:2)=crackpoint2(:))
     end if
+    
+    !:::: update passed-in edge_status array (both surfs) ::::!
+    edge_status(jbe1)             = COH_CRACK_EDGE
+    edge_status(jbe2)             = COH_CRACK_EDGE
+    edge_status(jbe1+NEDGE_SURF)  = COH_CRACK_EDGE
+    edge_status(jbe2+NEDGE_SURF)  = COH_CRACK_EDGE
+    
+    !:::: update elem components ::::!
+    elem%edge_status_lcl(jbe1)    = COH_CRACK_EDGE
+    elem%edge_status_lcl(jbe2)    = COH_CRACK_EDGE
+    elem%curr_status              = MATRIX_CRACK_ELEM
+    
+    !:::: update elem partition ::::!
+    call partition_elem (elem)
 
-    ! deallocate local arrays
-    
-    
-  return  
-  end subroutine failure_criterion_partition
+  end if
+ 
+end subroutine failure_criterion_partition
 
 
    
-pure subroutine update_subcnc(elem,edgstat,ifedg,nfailedge)
+pure subroutine partition_elem (elem,edgstat,ifedg,nfailedge)
 
 ! passed-in variables
 type(fBrick_element),    intent(inout)   :: elem
@@ -1638,7 +1521,7 @@ logical :: iscoh
     if(allocated(subglbcnc)) deallocate(subglbcnc)
 
 
-end subroutine update_subcnc
+end subroutine partition_elem
 
 
 
