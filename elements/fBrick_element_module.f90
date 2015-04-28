@@ -700,7 +700,11 @@ use global_toolkit_module, only : crack_elem_cracktip2d
     elem%edge_status_lcl = eledgestatus_lcl
     
     ! update elem partition
-    call partition_elem (elem)
+    call partition_elem (elem, istat, emsg)
+    if (istat == STAT_FAILURE) then
+      emsg = emsg//trim(msgloc)
+      return
+    end if
   
   end if
   
@@ -1108,7 +1112,11 @@ use global_toolkit_module,  only : crack_elem_centroid2d, crack_elem_cracktip2d
     elem%curr_status              = MATRIX_CRACK_ELEM
     
     !:::: update elem partition ::::!
-    call partition_elem (elem)
+    call partition_elem (elem, istat, emsg)
+    if (istat == STAT_FAILURE) then
+      emsg = emsg//trim(msgloc)
+      return
+    end if
 
   end if
  
@@ -1146,7 +1154,7 @@ use coh3d8_element_module,  only : set
   integer :: i, j
   
   ! initialize intent out and local variables
-  istat               = 0
+  istat               = STAT_SUCCESS
   emsg                = ''
   msgloc              = ' partition_elem'
   nfailedge           = 0
@@ -1195,6 +1203,10 @@ use coh3d8_element_module,  only : set
         emsg  = 'unexpected status of cracked edge, trans elem,'//trim(msgloc)
         return
       end if
+      ! make the 2nd fl. node same as the 1st on the crack edge, so that when 
+      ! partitioned, a refinement node, rather than a crack point, is formed
+      nds_botsurf(4,ifailedge(1)) = nds_botsurf(3,ifailedge(1))
+      nds_topsurf(4,ifailedge(1)) = nds_topsurf(3,ifailedge(1))
   
   case (REFINEMENT_ELEM, CRACK_TIP_ELEM)
   ! partition into subBulks only, for the purpose of mesh refinement
@@ -1233,7 +1245,7 @@ use coh3d8_element_module,  only : set
         return
       end if
       ! make the 2nd fl. node same as the 1st on crack tip edge, so that
-      ! when partitioned, it is a refinement node, not an edge crack
+      ! when partitioned, it is a refinement node, not an edge crack point
       do j = 1, 2
         if (el%edge_status_lcl(ifailedge(j)) == CRACK_TIP_EDGE) then
           nds_botsurf(4,ifailedge(j)) = nds_botsurf(3,ifailedge(j))
@@ -1268,8 +1280,8 @@ use coh3d8_element_module,  only : set
   ! call the partition quad elem subroutine from global toolkit module
   ! pass the TOP surface topology nds_topsurf into the subroutine,
   ! this will partition the element top surface into 2D subBulk elems,
-  ! whose nodes (in lcl indices) will be stored in subBulks_nds_top
-  ! nodes of the 2D coh crack will be stored in cohcrack_nds_top
+  ! whose nodes (in lcl indices) will be stored in subBulks_nds_top;
+  ! nodes of the 2D coh crack will be stored in cohcrack_nds_top.
   call partition_quad_elem (nds_topsurf, ifailedge, subBulks_nds_top, &
   & istat, emsg, cohcrack_nds_top)
   if (istat == STAT_FAILURE) then
@@ -1279,8 +1291,8 @@ use coh3d8_element_module,  only : set
   end if
   ! pass the BOTTOM surface topology nds_botsurf into the subroutine,
   ! this will partition the element bottom surface into 2D subBulk elems,
-  ! whose nodes (in lcl indices) will be stored in subBulks_nds_bot
-  ! nodes of the 2D coh crack will be stored in cohcrack_nds_bot
+  ! whose nodes (in lcl indices) will be stored in subBulks_nds_bot;
+  ! nodes of the 2D coh crack will be stored in cohcrack_nds_bot.
   call partition_quad_elem (nds_botsurf, ifailedge, subBulks_nds_bot, &
   & istat, emsg, cohcrack_nds_bot)
   if (istat == STAT_FAILURE) then
@@ -1415,54 +1427,229 @@ pure subroutine integrate_assemble_subelems (elem, nodes, lam_mat, coh_mat, &
 !       integrate and assemble sub element system arrays
 !---------------------------------------------------------------------!     
   ! - passed in variables   
-  type(fBrick_element), intent(inout)	    :: elem
-  real(DP), 	intent(inout)			:: K_matrix(:,:), F_vector(:)
-    logical, intent(in)                     :: nofailure
+  type(fBrick_element),     intent(inout)	:: elem
+  type(xnode),              intent(in)    :: nodes(NNODE)
+  type(lamina_material),    intent(in)    :: lam_mat
+  type(cohesive_material),  intent(in)    :: coh_mat
+  real(DP),                 intent(out)   :: K_matrix(NDOF,NDOF), F_vector(NDOF)
+  integer,                  intent(out)   :: istat
+  character(len=MSGLENGTH), intent(out)   :: emsg
+  logical,        optional, intent(in)    :: nofailure
+  
   ! - local variables
-  real(DP),	allocatable           	:: Ki(:,:), Fi(:)   ! sub_elem K matrix and F vector
-  integer, 		allocatable 			:: dofcnc(:)
-    integer :: i,j,l
-    character(len=eltypelength) ::  subeltype
-    
-    i=0;j=0;l=0
-    
-    
-    
-    ! empty K and F for reuse
-    K_matrix=zero; F_vector=zero
-    
-    ! integrate sub elements and assemble into global matrix
-    do i=1, size(elem%subelem)
-    
-        call extract(elem%subelem(i),eltype=subeltype)
-        
-        if(subeltype=='coh3d6' .or. subeltype=='coh3d8') then
-            call integrate(elem%subelem(i),Ki,Fi)
-        else
-            call integrate(elem%subelem(i),Ki,Fi,nofailure)  
+  character(len=MSGLENGTH)    :: msgloc
+  logical                     :: nofail
+  real(DP),	allocatable       :: Ki(:,:), Fi(:)
+  integer,  allocatable       :: subcnc(:)
+  character(len=ELTYPELENGTH) :: subeltype
+  integer                     :: i, j, l
+
+
+  ! initialize intent out and local variables
+  K_matrix = ZERO
+  F_vector = ZERO
+  istat    = STAT_SUCCESS
+  emsg     = ''
+  msgloc   = ' integrate_assemble_subelems'
+  nofail   = .false.
+  i = 0
+  j = 0
+  l = 0
+  
+  if (present(nofailure)) nofail = nofailure
+  
+  ! find the failed edges in stored edge status array
+  do i = 1, NEDGE_SURF
+    if (el%edge_status_lcl(i) /= INTACT) then
+      ! update total no. of failed edges
+      nfailedge = nfailedge + 1 
+      ! update the indices of failed edges in local array
+      ifailedge(nfailedge) = i
+    end if
+  end do
+  
+  
+  !********** select integration procedures based on elem status **********
+  select case (elem%curr_status)
+  
+  case (INTACT)
+      ! only integrate the intact elem
+      call integrate(elem%intact_elem, nodes(INTACT_ELEM_NODES), lam_mat, &
+      & Ki, Fi, istat, emsg, nofail)
+      if (istat == STAT_FAILURE) then
+        emsg = emsg//trim(msgloc)
+        call clean_up (Ki, Fi, subcnc)
+        return
+      end if
+      ! assemble the sub elem K and F
+      call assembleKF(K_matrix, F_vector, Ki, Fi, INTACT_ELEM_NODES, NDIM, &
+      & istat, emsg)
+      if (istat == STAT_FAILURE) then
+        emsg = emsg//trim(msgloc)
+        call clean_up (Ki, Fi, subcnc)
+        return
+      end if
+  
+  case (TRANSITION_ELEM)
+  ! integrate the subBulks and constrain fl. nodes of crack edge
+  
+      call integrate_assemble_subBulks (elem, nodes, lam_mat, &
+      & K_matrix, F_vector, istat, emsg, nofail)
+      if (istat == STAT_FAILURE) then
+        emsg = emsg//trim(msgloc)
+        call clean_up (Ki, Fi, subcnc)
+        return
+      end if
+      
+      ! impose constrain btw 2 fl. nodes on the crack edge of both surfs
+      node1 = NODES_ON_BOT_EDGES(3, ifailedge(1))
+      node2 = NODES_ON_BOT_EDGES(4, ifailedge(1))
+      call tie_two_nodes (K_matrix, node1, node2, NDIM, istat, emsg)
+      node1 = NODES_ON_TOP_EDGES(3, ifailedge(1))
+      node2 = NODES_ON_TOP_EDGES(4, ifailedge(1))
+      call tie_two_nodes (K_matrix, node1, node2, NDIM, istat, emsg)
+  
+  case (REFINEMENT_ELEM, CRACK_TIP_ELEM)
+  ! integrate the subBulks and constrain fl. nodes of crack edges
+
+      call integrate_assemble_subBulks (elem, nodes, lam_mat, &
+      & K_matrix, F_vector, istat, emsg, nofail)
+      if (istat == STAT_FAILURE) then
+        emsg = emsg//trim(msgloc)
+        call clean_up (Ki, Fi, subcnc)
+        return
+      end if
+
+      ! impose constrain btw 2 fl. nodes on the 2 crack edges of both surfs
+      node1 = NODES_ON_BOT_EDGES(3, ifailedge(1))
+      node2 = NODES_ON_BOT_EDGES(4, ifailedge(1))
+      call tie_two_nodes (K_matrix, node1, node2, NDIM, istat, emsg)
+      node1 = NODES_ON_BOT_EDGES(3, ifailedge(2))
+      node2 = NODES_ON_BOT_EDGES(4, ifailedge(2))
+      call tie_two_nodes (K_matrix, node1, node2, NDIM, istat, emsg)
+      node1 = NODES_ON_TOP_EDGES(3, ifailedge(1))
+      node2 = NODES_ON_TOP_EDGES(4, ifailedge(1))
+      call tie_two_nodes (K_matrix, node1, node2, NDIM, istat, emsg)
+      node1 = NODES_ON_TOP_EDGES(3, ifailedge(2))
+      node2 = NODES_ON_TOP_EDGES(4, ifailedge(2))
+      call tie_two_nodes (K_matrix, node1, node2, NDIM, istat, emsg)
+  
+  case (CRACK_WAKE_ELEM)
+  ! integrate the subBulks and cohCrack and 
+  ! constrain fl. nodes of crack_tip_edge
+  
+      ! integrate and assmeble subBulks
+      call integrate_assemble_subBulks (elem, nodes, lam_mat, &
+      & K_matrix, F_vector, istat, emsg, nofail)
+      if (istat == STAT_FAILURE) then
+        emsg = emsg//trim(msgloc)
+        call clean_up (Ki, Fi, subcnc)
+        return
+      end if
+      
+      ! integrate coh crack
+      call integrate (elem%cohCrack, nodes(elem%cohCrack_nodes), &
+      & coh_mat, Ki, Fi, istat, emsg, nofail)
+      if (istat == STAT_FAILURE) then
+        emsg = emsg//trim(msgloc)
+        call clean_up (Ki, Fi, subcnc)
+        return
+      end if
+      
+      ! assemble the coh crack K and F
+      call assembleKF(K_matrix, F_vector, Ki, Fi, elem%cohCrack_nodes, NDIM, &
+      & istat, emsg)
+      if (istat == STAT_FAILURE) then
+        emsg = emsg//trim(msgloc)
+        call clean_up (Ki, Fi, subcnc)
+        return
+      end if
+      
+      ! constrain fl. nodes on crack tip edge
+      do j=1, 2
+        if ( el%edge_status_lcl(ifailedge(j)) == CRACK_TIP_EDGE ) then
+          ! impose constrain btw 2 fl. nodes on the crack edge of both surfs
+          node1 = NODES_ON_BOT_EDGES(3, ifailedge(j))
+          node2 = NODES_ON_BOT_EDGES(4, ifailedge(j))
+          call tie_two_nodes (K_matrix, node1, node2, NDIM, istat, emsg)
+          node1 = NODES_ON_TOP_EDGES(3, ifailedge(j))
+          node2 = NODES_ON_TOP_EDGES(4, ifailedge(j))
+          call tie_two_nodes (K_matrix, node1, node2, NDIM, istat, emsg)
+          exit
         end if
-        
-        if(allocated(dofcnc)) deallocate(dofcnc)
-        allocate(dofcnc(size(Fi))); dofcnc=0
-        
-        do j=1, size(elem%subcnc(i)%array) ! no. of nodes in sub elem i
-            do l=1, NDIM
-                ! dof indices of the jth node of sub elem i 
-                dofcnc((j-1)*NDIM+l)=(elem%subcnc(i)%array(j)-1)*NDIM+l
-            end do
-        end do
-        
-        call assembleKF(K_matrix,F_vector,Ki,Fi,dofcnc)
-        
-        deallocate(Ki)
-        deallocate(Fi)
-        deallocate(dofcnc)
-        
-    end do 
+      end do
+      
+  case (MATRIX_CRACK_ELEM)
+  ! integrate the subBulks and cohCrack
+  
+      ! integrate and assmeble subBulks
+      call integrate_assemble_subBulks (elem, nodes, lam_mat, &
+      & K_matrix, F_vector, istat, emsg, nofail)
+      if (istat == STAT_FAILURE) then
+        emsg = emsg//trim(msgloc)
+        call clean_up (Ki, Fi, subcnc)
+        return
+      end if
+      
+      ! integrate coh crack
+      call integrate (elem%cohCrack, nodes(elem%cohCrack_nodes), &
+      & coh_mat, Ki, Fi, istat, emsg, nofail)
+      if (istat == STAT_FAILURE) then
+        emsg = emsg//trim(msgloc)
+        call clean_up (Ki, Fi, subcnc)
+        return
+      end if
+      
+      ! assemble the coh crack K and F
+      call assembleKF(K_matrix, F_vector, Ki, Fi, elem%cohCrack_nodes, NDIM, &
+      & istat, emsg)
+      if (istat == STAT_FAILURE) then
+        emsg = emsg//trim(msgloc)
+        call clean_up (Ki, Fi, subcnc)
+        return
+      end if
+  
+  case default
+  
+  end select
     
+  
+  contains
+  
+  
+  pure subroutine clean_up (Ki, Fi subcnc)
     if(allocated(Ki)) deallocate(Ki)
     if(allocated(Fi)) deallocate(Fi)
     if(allocated(dofcnc)) deallocate(dofcnc)
+  end subroutine clean_up
+    
+  pure subroutine integrate_assemble_subBulks (elem, nodes, lam_mat, &
+  & K_matrix, F_vector, istat, emsg, msgloc, nofail)
+        
+      do isub = 1, size(elem%subBulks)
+        ! extract the local node connec of this sub elem
+        if(allocated(subcnc)) deallocate(subcnc)
+        allocate(subcnc(size(elem%subBulks_nodes(isub)%array)))
+        subcnc = elem%subBulks_nodes(isub)%array
+        ! call the integrate procedure asoc. with the subelem type
+        ! exit the do loop (and if-else subsequently) if an error is encountered
+        call integrate(elem%subBulks(isub), nodes(subcnc), lam_mat, Ki, Fi, &
+        & istat, emsg, nofail)
+        if (istat == STAT_FAILURE) then
+          emsg = emsg//trim(msgloc)
+          call clean_up (Ki, Fi, subcnc)
+          return
+        end if
+        ! assemble the sub elem K and F
+        call assembleKF(K_matrix, F_vector, Ki, Fi, subcnc, NDIM, istat, emsg)
+        if (istat == STAT_FAILURE) then
+          emsg = emsg//trim(msgloc)
+          call clean_up (Ki, Fi, subcnc)
+          return
+        end if
+      end do
+  
+  end subroutine integrate_assemble_subBulks
     
 end subroutine integrate_assemble
 
