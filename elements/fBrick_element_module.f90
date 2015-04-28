@@ -622,6 +622,8 @@ use global_toolkit_module, only : crack_elem_cracktip2d
         emsg = emsg//trim(msgloc)
         return
       end if
+      ! in the future, consider adding here the algorithm to find the top surf
+      ! jbe2 crackpoint according to the fracture plane
   
   case (REFINEMENT_ELEM, CRACK_TIP_ELEM, &
   &     CRACK_WAKE_ELEM, MATRIX_CRACK_ELEM) jbe1jbe2  
@@ -676,7 +678,7 @@ use global_toolkit_module, only : crack_elem_cracktip2d
     if (elem%curr_status == INTACT .or. &
     &   elem%curr_status == TRANSITION_ELEM) then
       ! update the coords of two fl. nodes on edge jbe2 
-      ! of both top and bot surfaces
+      ! of both top and bot surfaces, assuming a perpendicular matrix crack
       jnode = NODES_ON_BOT_EDGES(3,jbe2)
       call update(nodes(jnode), x(1:2)=crackpoint2(:))
       jnode = NODES_ON_BOT_EDGES(4,jbe2)
@@ -929,6 +931,8 @@ use global_toolkit_module,  only : crack_elem_centroid2d, crack_elem_cracktip2d
           emsg = emsg//trim(msgloc)
           return
         end if
+        ! in the future, considering extracting also the matrix crack angle
+        ! w.r.t the shell plane, and partition both the top and the bot surfs
       end if
       
   ! elem is TRANSITION ELEM, check subBulks fstat
@@ -987,6 +991,8 @@ use global_toolkit_module,  only : crack_elem_centroid2d, crack_elem_cracktip2d
           emsg = emsg//trim(msgloc)
           return
         end if
+        ! in the future, consider adding here the algorithm to find the top surf
+        ! jbe2 crackpoint according to the fracture plane
       end if
       
   ! elem is REFINEMENT/CRACK TIP/CRACK WAKE ELEM, 
@@ -1056,7 +1062,7 @@ use global_toolkit_module,  only : crack_elem_centroid2d, crack_elem_cracktip2d
     ! (on both surfs), coords update to crackpoints
     if (elem%curr_status == INTACT) then
       ! update the coords of two fl. nodes on edge jbe1 
-      ! of both top and bot surfaces
+      ! of both top and bot surfaces, now assuming a perpendicular matrix crack
       jnode = NODES_ON_BOT_EDGES(3,jbe1)
       call update(nodes(jnode), x(1:2)=crackpoints(:,1))
       jnode = NODES_ON_BOT_EDGES(4,jbe1)
@@ -1066,7 +1072,7 @@ use global_toolkit_module,  only : crack_elem_centroid2d, crack_elem_cracktip2d
       jnode = NODES_ON_TOP_EDGES(4,jbe1)
       call update(nodes(jnode), x(1:2)=crackpoints(:,1))
       ! update the coords of two fl. nodes on edge jbe2 
-      ! of both top and bot surfaces
+      ! of both top and bot surfaces, now assuming a perpendicular matrix crack
       jnode = NODES_ON_BOT_EDGES(3,jbe2)
       call update(nodes(jnode), x(1:2)=crackpoints(:,2))
       jnode = NODES_ON_BOT_EDGES(4,jbe2)
@@ -1079,7 +1085,7 @@ use global_toolkit_module,  only : crack_elem_centroid2d, crack_elem_cracktip2d
     ! (on both surfs), coords update to crackpoint2
     else if (elem%curr_status == TRANSITION_ELEM) then
       ! update the coords of two fl. nodes on edge jbe2 
-      ! of both top and bot surfaces
+      ! of both top and bot surfaces, now assuming a perpendicular matrix crack
       jnode = NODES_ON_BOT_EDGES(3,jbe2)
       call update(nodes(jnode), x(1:2)=crackpoint2(:))
       jnode = NODES_ON_BOT_EDGES(4,jbe2)
@@ -1110,419 +1116,294 @@ end subroutine failure_criterion_partition
 
 
    
-pure subroutine partition_elem (elem,edgstat,ifedg,nfailedge)
+pure subroutine partition_elem (el, istat, emsg)
+use parameter_module, only : MSGLENGTH, STAT_SUCCESS, STAT_FAILURE,         &
+                      & INT_ALLOC_ARRAY, ELTYPELENGTH, INTACT,              &
+                      & TRANSITION_ELEM, REFINEMENT_ELEM,   CRACK_TIP_ELEM, &
+                      & CRACK_WAKE_ELEM, MATRIX_CRACK_ELEM, CRACK_TIP_EDGE
+use global_toolkit_module,  only : partition_quad_elem
+use basePly_element_module, only : set
+use coh3d8_element_module,  only : set
 
-! passed-in variables
-type(fBrick_element),    intent(inout)   :: elem
-integer,                intent(in)      :: edgstat(:), ifedg(:), nfailedge
+  ! passed-in variables
+  type(fBrick_element),     intent(inout) :: el
+  integer,                  intent(out)   :: istat
+  character(len=MSGLENGTH), intent(out)   :: emsg
+  
+  ! local variables
+  character(len=MSGLENGTH)           :: msgloc
+  integer                            :: nfailedge, ifailedge(NEDGE_SURF)
+  integer                            :: nds_botsurf(4,NEDGE_SURF)
+  integer                            :: nds_topsurf(4,NEDGE_SURF)
+  type(INT_ALLOC_ARRAY), allocatable :: subBulks_nds_top(:)
+  type(INT_ALLOC_ARRAY), allocatable :: subBulks_nds_bot(:)
+  type(INT_ALLOC_ARRAY), allocatable :: subBulks_glb_connec(:)
+  integer                            :: nsub, subnnode
+  character(len=ELTYPELENGTH)        :: subeltype
+  integer                            :: cohcrack_nds_top(4)
+  integer                            :: cohcrack_nds_bot(4)
+  integer                            :: cohcrack_glb_connec(8)
+  integer :: i, j
+  
+  ! initialize intent out and local variables
+  istat               = 0
+  emsg                = ''
+  msgloc              = ' partition_elem'
+  nfailedge           = 0
+  ifailedge           = 0
+  nds_botsurf         = 0
+  nds_topsurf         = 0
+  nsub                = 0
+  subnnode            = 0
+  subeltype           = ''
+  cohcrack_nds_top    = 0
+  cohcrack_nds_bot    = 0
+  cohcrack_glb_connec = 0
+  i = 0; j = 0
 
-
-
-! local variables
-type(int_alloc_array), allocatable :: subglbcnc(:)  ! glb cnc of sub elements
-integer :: i, j, l                                  ! counters
-integer :: ibe, ibe1, ibe2                          ! indices of broken edges
-integer :: e1,e2,e3,e4                              ! edge indices, used for partitioning element
-integer :: nsub, nbulk                              ! no. of sub elements, and no. of bulk partitions
-integer :: jnode, jnode1, jnode2, jnode3, jnode4    ! node index variables
-logical :: iscoh
-
-
-
-!       initialize local variables
-
-    i=0; j=0; l=0
-    e1=0; e2=0; e3=0; e4=0
-    ibe=0; ibe1=0; ibe2=0
-    nsub=0; nbulk=0
-    jnode=0; jnode1=0; jnode2=0; jnode3=0; jnode4=0
-    iscoh=.false.
-    
-
-
-10      select case (nfailedge)
-    case (0) !- no cracked edge, do nothing
-        continue
-        
-        
-    case (2) !- one edge cracked, trans partition
-        ! find the index of the broken edge
-        ibe=ifedg(1)
-
-        ! verify its status variable value
-        if(edgstat(ibe)/=TRANSITION_EDGE) then
-            write(msg_file,*)'transition partition only accepts edgstat=TRANSITION_EDGE!'
-            call exit_function
+  ! deallocate intact elem first
+  if(allocated(el%intact_elem)) deallocate(el%intact_elem)
+  
+  ! find the failed edges in stored edge status array
+  do i = 1, NEDGE_SURF
+    if (el%edge_status_lcl(i) /= INTACT) then
+      ! update total no. of failed edges
+      nfailedge = nfailedge + 1 
+      ! update the indices of failed edges in local array
+      ifailedge(nfailedge) = i
+    end if
+  end do
+  
+  ! copy the top & bot edges topology to local arrays for changes later
+  nds_botsurf = NODES_ON_BOT_EDGES
+  nds_topsurf = NODES_ON_TOP_EDGES
+  
+  !********** define nds_bot/topsurf based on elem's curr status **********
+  select case (el%curr_status)
+  
+  case (TRANSITION_ELEM)
+  ! partition into subBulks only, for the purpose of mesh refinement
+  ! only 1 fl. node is used on the crack edge to form the partition
+      ! check edge status
+      if (nfailedge /= 1) then
+        istat = STAT_FAILURE
+        emsg  = 'unexpected no. of cracked edges, trans elem,'//trim(msgloc)
+        return
+      end if
+      if (el%edge_status_lcl(ifailedge(1)) /= TRANSITION_EDGE) then
+        istat = STAT_FAILURE
+        emsg  = 'unexpected status of cracked edge, trans elem,'//trim(msgloc)
+        return
+      end if
+  
+  case (REFINEMENT_ELEM, CRACK_TIP_ELEM)
+  ! partition into subBulks only, for the purpose of mesh refinement
+  ! only 1 fl. node is used on each crack edge to form the partition
+      ! check edge status
+      if (nfailedge /= 2) then
+        istat = STAT_FAILURE
+        emsg  = 'unexpected no. of cracked edges, ref/tip elem,'//trim(msgloc)
+        return
+      end if
+      if (maxval(el%edge_status_lcl(ifailedge(1:2))) > CRACK_TIP_EDGE .or. &
+      &   minval(el%edge_status_lcl(ifailedge(1:2))) < TRANSITION_EDGE) then
+        istat = STAT_FAILURE
+        emsg  = 'unexpected status of cracked edges, ref/tip elem,'//trim(msgloc)
+        return
+      end if
+      ! make the 2nd fl. node same as the 1st on crack edges, so that when 
+      ! partitioned, a refinement line, rather than an actual crack, is formed
+      nds_botsurf(4,ifailedge(1:2)) = nds_botsurf(3,ifailedge(1:2))
+      nds_topsurf(4,ifailedge(1:2)) = nds_topsurf(3,ifailedge(1:2))
+  
+  case (CRACK_WAKE_ELEM)
+  ! partition into TWO subBulks and ONE cohCrack, with one crack edge being
+  ! the CRACK_TIP_EDGE and the other the COH_CRACK_EDGE
+  ! only 1 fl. node is used on the CRACK_TIP_EDGE to form the partition
+      ! check edge status
+      if (nfailedge /= 2) then
+        istat = STAT_FAILURE
+        emsg  = 'unexpected no. of cracked edges, wake elem,'//trim(msgloc)
+        return
+      end if
+      if (maxval(el%edge_status_lcl(ifailedge(1:2))) /= COH_CRACK_EDGE .or. &
+      &   minval(el%edge_status_lcl(ifailedge(1:2))) /= CRACK_TIP_EDGE) then
+        istat = STAT_FAILURE
+        emsg  = 'unexpected status of cracked edges, wake elem,'//trim(msgloc)
+        return
+      end if
+      ! make the 2nd fl. node same as the 1st on crack tip edge, so that
+      ! when partitioned, it is a refinement node, not an edge crack
+      do j = 1, 2
+        if (el%edge_status_lcl(ifailedge(j)) == CRACK_TIP_EDGE) then
+          nds_botsurf(4,ifailedge(j)) = nds_botsurf(3,ifailedge(j))
+          nds_topsurf(4,ifailedge(j)) = nds_topsurf(3,ifailedge(j))
+          exit
         end if
-        
-        ! allocate sub element arrays; in this case, 3 wedge elements
-        nsub=3
-        if(allocated(elem%subelem)) deallocate(elem%subelem)
-        if(allocated(elem%subcnc)) deallocate(elem%subcnc)
-        if(allocated(subglbcnc)) deallocate(subglbcnc)
-        allocate(elem%subelem(nsub))
-        allocate(elem%subcnc(nsub))
-        allocate(subglbcnc(nsub))
-        do j=1, nsub
-            allocate(elem%subcnc(j)%array(6))
-            allocate(subglbcnc(j)%array(6))
-            elem%subcnc(j)%array=0
-            subglbcnc(j)%array=0
-        end do             
-        
-        ! find the neighbouring edges of this broken edge, in counter-clockwise direction
-        select case(ibe)
-            case (1)
-                e1=2;e2=3;e3=4
-            case (2)
-                e1=3;e2=4;e3=1
-            case (3)
-                e1=4;e2=1;e3=2
-            case (4)
-                e1=1;e2=2;e3=3
-            case default
-                write(msg_file,*)'wrong broken edge in tip partition, subcnc'
-                call exit_function
-        end select
-        
-        ! find the smaller glb node on the broken edge
-        if(elem%node_connec(topo(3,ibe))<elem%node_connec(topo(4,ibe))) then
-            jnode=topo(3,ibe)
-        else
-            jnode=topo(4,ibe)
-        end if
-        
-        ! sub elm 1 connec
-        elem%subcnc(1)%array(1)=topo(1,e1)
-        elem%subcnc(1)%array(2)=topo(2,e1)
-        elem%subcnc(1)%array(3)=jnode
-        
-        elem%subcnc(1)%array(4:5)=elem%subcnc(1)%array(1:2)+NNDRL/2 ! upper surf nodes
-        elem%subcnc(1)%array(6)=elem%subcnc(1)%array(3)+NNDFL/2
-        
-        subglbcnc(1)%array(:)=elem%node_connec(elem%subcnc(1)%array(:))
-        
-        ! sub elm 2 connec
-        elem%subcnc(2)%array(1)=topo(1,e2)
-        elem%subcnc(2)%array(2)=topo(2,e2)
-        elem%subcnc(2)%array(3)=jnode 
+      end do
+  
+  case (MATRIX_CRACK_ELEM)
+  ! partition into TWO subBulks and ONE cohCrack, no modification of 
+  ! nds_topsurf and nds_botsurf arrays
+      ! check edge status
+      if (nfailedge /= 2) then
+        istat = STAT_FAILURE
+        emsg  = 'unexpected no. of cracked edges, crack elem,'//trim(msgloc)
+        return
+      end if
+      if (any( el%edge_status_lcl(ifailedge(1:2)) /= COH_CRACK_EDGE )) then
+        istat = STAT_FAILURE
+        emsg  = 'unexpected status of cracked edges, crack elem,'//trim(msgloc)
+        return
+      end if
+  
+  case default
+      istat = STAT_FAILURE
+      emsg  = 'unexpected elem curr status in'//trim(msgloc)
+      return
+  
+  end select
+  
+  !********** partition the top and bottom surfaces first **********
+  ! call the partition quad elem subroutine from global toolkit module
+  ! pass the TOP surface topology nds_topsurf into the subroutine,
+  ! this will partition the element top surface into 2D subBulk elems,
+  ! whose nodes (in lcl indices) will be stored in subBulks_nds_top
+  ! nodes of the 2D coh crack will be stored in cohcrack_nds_top
+  call partition_quad_elem (nds_topsurf, ifailedge, subBulks_nds_top, &
+  & istat, emsg, cohcrack_nds_top)
+  if (istat == STAT_FAILURE) then
+    emsg = emsg//trim(msgloc)
+    call clean_up (subBulks_glb_connec, subBulks_nds_top, subBulks_nds_bot)
+    return
+  end if
+  ! pass the BOTTOM surface topology nds_botsurf into the subroutine,
+  ! this will partition the element bottom surface into 2D subBulk elems,
+  ! whose nodes (in lcl indices) will be stored in subBulks_nds_bot
+  ! nodes of the 2D coh crack will be stored in cohcrack_nds_bot
+  call partition_quad_elem (nds_botsurf, ifailedge, subBulks_nds_bot, &
+  & istat, emsg, cohcrack_nds_bot)
+  if (istat == STAT_FAILURE) then
+    emsg = emsg//trim(msgloc)
+    call clean_up (subBulks_glb_connec, subBulks_nds_top, subBulks_nds_bot)
+    return
+  end if
+  ! ** NOTE **
+  ! the ifailedge array is applicable to both top and bottom edges; so
+  ! the top and bottom surfaces are partitioned in exactly the same way, i.e.,
+  ! same number of sub elems, same sub elem types.
+  
 
-        elem%subcnc(2)%array(4:5)=elem%subcnc(2)%array(1:2)+NNDRL/2 ! upper surf nodes
-        elem%subcnc(2)%array(6)=elem%subcnc(2)%array(3)+NNDFL/2 
+  ! :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::!
+  ! based on the top/bot surface partitions in subBulks_nds_top/bot,
+  ! allocate and populate the el%subBulks_nodes array and set el%subBulks
+  ! :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::!
 
-        subglbcnc(2)%array(:)=elem%node_connec(elem%subcnc(2)%array(:))
-        
-        ! sub elm 3 connec
-        elem%subcnc(3)%array(1)=topo(1,e3)
-        elem%subcnc(3)%array(2)=topo(2,e3)
-        elem%subcnc(3)%array(3)=jnode  
-        
-        elem%subcnc(3)%array(4:5)=elem%subcnc(3)%array(1:2)+NNDRL/2 ! upper surf nodes
-        elem%subcnc(3)%array(6)=elem%subcnc(3)%array(3)+NNDFL/2
+  ! extract no. of sub elems
+  nsub = size(subBulks_nds_top)
 
-        subglbcnc(3)%array(:)=elem%node_connec(elem%subcnc(3)%array(:))
+  ! allocate nsub no. of subBulks, subBulks_nodes and
+  ! subBulks_glb_connec
+  if(allocated(el%subBulks))         deallocate(el%subBulks)
+  if(allocated(el%subBulks_nodes))   deallocate(el%subBulks_nodes)
+  if(allocated(subBulks_glb_connec)) deallocate(subBulks_glb_connec)
+  allocate(el%subBulks(nsub))
+  allocate(el%subBulks_nodes(nsub))
+  allocate(subBulks_glb_connec(nsub))
 
-        ! create sub elements
-        call set(elem%subelem(1),eltype='wedge', matkey=elem%bulkmat, ply_angle=elem%ply_angle, glbcnc=subglbcnc(1)%array)
-        call set(elem%subelem(2),eltype='wedge', matkey=elem%bulkmat, ply_angle=elem%ply_angle, glbcnc=subglbcnc(2)%array)
-        call set(elem%subelem(3),eltype='wedge', matkey=elem%bulkmat, ply_angle=elem%ply_angle, glbcnc=subglbcnc(3)%array)
-     
-
-
-    case (4) !- two edges cracked
-     
-        ibe1=min(ifedg(1),ifedg(2),ifedg(3),ifedg(4))   ! local edge index of 1st broken edge
-        do i=1, 4
-            if(ifedg(i)<=NEDGE/2) ibe2=max(ibe2,ifedg(i))! local edge index of 2nd broken edge
-        end do  
-        
-        
-
-        ! ibe1 must be between 1 to 3, and ibe2 between 2 to 4, with ibe2 > ibe1
-        if(ibe1>=NEDGE/2 .or. ibe1==0 .or. ibe2<=1 .or. ibe2<=ibe1) then
-            write(msg_file,*) 'something wrong in fBrick update subcnc case nfailedge=4'
-            call exit_function
-        end if
-
-        if(edgstat(ibe1)==cohcrack .or. edgstat(ibe2)==cohcrack) iscoh=.true.
-
-        
-        ! determine partition based on the indices of the two broken edges
-        !   partition: no. of bulk sub domains
-        !   e1 - e4: re-index edges to facilitate partitioning domain
-        select case(ibe1)
-            case(1)
-                select case(ibe2)
-                    case(2)
-                        nbulk=4
-                        e1=1; e2=2; e3=3; e4=4
-                    case(3)
-                        nbulk=2
-                        e1=1; e2=2; e3=3; e4=4
-                    case(4)
-                        nbulk=4
-                        e1=4; e2=1; e3=2; e4=3
-                    case default
-                        write(msg_file,*)'wrong 2nd broken edge in update subcnc fBrick'
-                        call exit_function
-                end select
-            case(2)
-                select case(ibe2)
-                    case(3)
-                        nbulk=4
-                        e1=2; e2=3; e3=4; e4=1
-                    case(4)
-                        nbulk=2
-                        e1=2; e2=3; e3=4; e4=1
-                    case default
-                        write(msg_file,*)'wrong 2nd broken edge in update subcnc fBrick'
-                        call exit_function
-                end select
-            case(3)
-                if(ibe2==4) then
-                    nbulk=4
-                    e1=3; e2=4; e3=1; e4=2
-                else
-                    write(msg_file,*)'wrong 2nd broken edge in update subcnc fBrick'
-                    call exit_function                    
-                end if    
-            case default
-                write(msg_file,*)'wrong broken edge in update subcnc fBrick'
-                call exit_function
-        end select
-        
-        
-        select case(nbulk)
-            case(2)
-            ! two brick bulk subdomains
-                if(iscoh) then
-                    nsub=3  ! two brick and one coh2d
-                else
-                    nsub=2  ! only two brick
-                end if
-                if(allocated(elem%subelem)) deallocate(elem%subelem)
-                if(allocated(elem%subcnc)) deallocate(elem%subcnc)
-                if(allocated(subglbcnc)) deallocate(subglbcnc)
-                allocate(elem%subelem(nsub))
-                allocate(elem%subcnc(nsub))
-                allocate(subglbcnc(nsub))
-                do j=1, nsub
-                    allocate(elem%subcnc(j)%array(8))
-                    allocate(subglbcnc(j)%array(8))
-                    elem%subcnc(j)%array=0
-                    subglbcnc(j)%array=0
-                end do
-                
-                ! find the smaller glb fl. node on the broken edge
-                if(elem%node_connec(topo(3,e1))<elem%node_connec(topo(4,e1))) then
-                    jnode1=topo(3,e1)
-                else
-                    jnode1=topo(4,e1)
-                end if
-                
-                ! find the smaller glb fl. node on the broken edge
-                if(elem%node_connec(topo(3,e3))<elem%node_connec(topo(4,e3))) then
-                    jnode3=topo(3,e3)
-                else
-                    jnode3=topo(4,e3)
-                end if
-                
-                ! sub elm 1 connec
-                elem%subcnc(1)%array(1)=topo(1,e1)
-                elem%subcnc(1)%array(2)=topo(3,e1); if(edgstat(e1)<cohcrack) elem%subcnc(1)%array(2)=jnode1
-                elem%subcnc(1)%array(3)=topo(4,e3); if(edgstat(e3)<cohcrack) elem%subcnc(1)%array(3)=jnode3
-                elem%subcnc(1)%array(4)=topo(2,e3)
-                
-                elem%subcnc(1)%array(5)=elem%subcnc(1)%array(1)+NNDRL/2
-                elem%subcnc(1)%array(6)=elem%subcnc(1)%array(2)+NNDFL/2
-                elem%subcnc(1)%array(7)=elem%subcnc(1)%array(3)+NNDFL/2
-                elem%subcnc(1)%array(8)=elem%subcnc(1)%array(4)+NNDRL/2
-                
-                subglbcnc(1)%array(:)=elem%node_connec(elem%subcnc(1)%array(:))
-                
-                ! sub elm 2 connec
-                elem%subcnc(2)%array(1)=topo(4,e1); if(edgstat(e1)<cohcrack) elem%subcnc(2)%array(1)=jnode1
-                elem%subcnc(2)%array(2)=topo(2,e1)
-                elem%subcnc(2)%array(3)=topo(1,e3)
-                elem%subcnc(2)%array(4)=topo(3,e3); if(edgstat(e3)<cohcrack) elem%subcnc(2)%array(4)=jnode3
-                
-                elem%subcnc(2)%array(5)=elem%subcnc(2)%array(1)+NNDFL/2
-                elem%subcnc(2)%array(6)=elem%subcnc(2)%array(2)+NNDRL/2
-                elem%subcnc(2)%array(7)=elem%subcnc(2)%array(3)+NNDRL/2
-                elem%subcnc(2)%array(8)=elem%subcnc(2)%array(4)+NNDFL/2
-
-                subglbcnc(2)%array(:)=elem%node_connec(elem%subcnc(2)%array(:))
-                
-                ! create sub bulk elements
-                
-                call set(elem%subelem(1),eltype='brick',matkey=elem%bulkmat,ply_angle=elem%ply_angle,&
-                &glbcnc=subglbcnc(1)%array)
-                call set(elem%subelem(2),eltype='brick',matkey=elem%bulkmat,ply_angle=elem%ply_angle,&
-                &glbcnc=subglbcnc(2)%array)
-                
-                
-                if(iscoh) then
-                
-                ! sub elm 3 connec
-                elem%subcnc(3)%array(2)=topo(4,e3); if(edgstat(e3)<cohcrack) elem%subcnc(3)%array(2)=jnode3
-                elem%subcnc(3)%array(1)=topo(3,e1); if(edgstat(e1)<cohcrack) elem%subcnc(3)%array(1)=jnode1
-                
-                elem%subcnc(3)%array(3)=elem%subcnc(3)%array(2)+NNDFL/2
-                elem%subcnc(3)%array(4)=elem%subcnc(3)%array(1)+NNDFL/2
-                
-                elem%subcnc(3)%array(6)=topo(3,e3); if(edgstat(e3)<cohcrack) elem%subcnc(3)%array(6)=jnode3
-                elem%subcnc(3)%array(5)=topo(4,e1); if(edgstat(e1)<cohcrack) elem%subcnc(3)%array(5)=jnode1
-                
-                elem%subcnc(3)%array(7)=elem%subcnc(3)%array(6)+NNDFL/2
-                elem%subcnc(3)%array(8)=elem%subcnc(3)%array(5)+NNDFL/2
-                
-                subglbcnc(3)%array(:)=elem%node_connec(elem%subcnc(3)%array(:))
-                
-                
-                call set(elem%subelem(3),eltype='coh3d8',matkey=elem%cohmat,glbcnc=subglbcnc(3)%array)
-                
-                
-                end if
-                
-            case(4)
-            ! four triangular bulk subdomains
-                if(iscoh) then
-                    nsub=5
-                else
-                    nsub=4
-                end if
-                if(allocated(elem%subelem)) deallocate(elem%subelem)
-                if(allocated(elem%subcnc)) deallocate(elem%subcnc)
-                if(allocated(subglbcnc)) deallocate(subglbcnc)
-                allocate(elem%subelem(nsub))
-                allocate(elem%subcnc(nsub))
-                allocate(subglbcnc(nsub))
-                do j=1, 4   ! bulk elem cnc
-                    allocate(elem%subcnc(j)%array(6))
-                    allocate(subglbcnc(j)%array(6))
-                    elem%subcnc(j)%array=0
-                    subglbcnc(j)%array=0
-                end do
-                if(iscoh) then
-                    allocate(elem%subcnc(5)%array(8))
-                    allocate(subglbcnc(5)%array(8))
-                    elem%subcnc(5)%array=0
-                    subglbcnc(5)%array=0
-                end if
-                
-                ! find the smaller glb fl. node on the broken edge
-                if(elem%node_connec(topo(3,e1))<elem%node_connec(topo(4,e1))) then
-                    jnode1=topo(3,e1)
-                else
-                    jnode1=topo(4,e1)
-                end if
-                
-                ! find the smaller glb fl. node on the broken edge
-                if(elem%node_connec(topo(3,e2))<elem%node_connec(topo(4,e2))) then
-                    jnode2=topo(3,e2)
-                else
-                    jnode2=topo(4,e2)
-                end if
-                
-                ! sub elm 1 connec
-                elem%subcnc(1)%array(1)=topo(4,e1); if(edgstat(e1)<cohcrack) elem%subcnc(1)%array(1)=jnode1
-                elem%subcnc(1)%array(2)=topo(1,e2)
-                elem%subcnc(1)%array(3)=topo(3,e2); if(edgstat(e2)<cohcrack) elem%subcnc(1)%array(3)=jnode2
-
-                elem%subcnc(1)%array(4)=elem%subcnc(1)%array(1)+NNDFL/2 ! upper surf nodes
-                elem%subcnc(1)%array(5)=elem%subcnc(1)%array(2)+NNDRL/2
-                elem%subcnc(1)%array(6)=elem%subcnc(1)%array(3)+NNDFL/2
-                
-                subglbcnc(1)%array(:)=elem%node_connec(elem%subcnc(1)%array(:))
-                
-                ! sub elm 2 connec
-                elem%subcnc(2)%array(1)=topo(4,e2); if(edgstat(e2)<cohcrack) elem%subcnc(2)%array(1)=jnode2
-                elem%subcnc(2)%array(2)=topo(1,e3)
-                elem%subcnc(2)%array(3)=topo(2,e3)
-                
-                elem%subcnc(2)%array(4)=elem%subcnc(2)%array(1)+NNDFL/2 ! upper surf nodes
-                elem%subcnc(2)%array(5)=elem%subcnc(2)%array(2)+NNDRL/2
-                elem%subcnc(2)%array(6)=elem%subcnc(2)%array(3)+NNDRL/2
-                
-                subglbcnc(2)%array(:)=elem%node_connec(elem%subcnc(2)%array(:))
-                
-                ! sub elm 3 connec
-                elem%subcnc(3)%array(1)=topo(1,e4)
-                elem%subcnc(3)%array(2)=topo(2,e4)
-                elem%subcnc(3)%array(3)=topo(3,e1); if(edgstat(e1)<cohcrack) elem%subcnc(3)%array(3)=jnode1
-                
-                elem%subcnc(3)%array(4)=elem%subcnc(3)%array(1)+NNDRL/2 ! upper surf nodes
-                elem%subcnc(3)%array(5)=elem%subcnc(3)%array(2)+NNDRL/2
-                elem%subcnc(3)%array(6)=elem%subcnc(3)%array(3)+NNDFL/2
-                
-                subglbcnc(3)%array(:)=elem%node_connec(elem%subcnc(3)%array(:))
-                
-                ! sub elm 4 connec
-                elem%subcnc(4)%array(1)=topo(3,e1); if(edgstat(e1)<cohcrack) elem%subcnc(4)%array(1)=jnode1
-                elem%subcnc(4)%array(2)=topo(4,e2); if(edgstat(e2)<cohcrack) elem%subcnc(4)%array(2)=jnode2
-                elem%subcnc(4)%array(3)=topo(2,e3)
-
-                elem%subcnc(4)%array(4)=elem%subcnc(4)%array(1)+NNDFL/2 ! upper surf nodes
-                elem%subcnc(4)%array(5)=elem%subcnc(4)%array(2)+NNDFL/2
-                elem%subcnc(4)%array(6)=elem%subcnc(4)%array(3)+NNDRL/2
-                
-                subglbcnc(4)%array(:)=elem%node_connec(elem%subcnc(4)%array(:))
-                
-                ! create sub bulk elements
-                call set(elem%subelem(1),eltype='wedge',matkey=elem%bulkmat,&
-                &ply_angle=elem%ply_angle,glbcnc=subglbcnc(1)%array)
-                call set(elem%subelem(2),eltype='wedge',matkey=elem%bulkmat,&
-                &ply_angle=elem%ply_angle,glbcnc=subglbcnc(2)%array)
-                call set(elem%subelem(3),eltype='wedge',matkey=elem%bulkmat,&
-                &ply_angle=elem%ply_angle,glbcnc=subglbcnc(3)%array)
-                call set(elem%subelem(4),eltype='wedge',matkey=elem%bulkmat,&
-                &ply_angle=elem%ply_angle,glbcnc=subglbcnc(4)%array)
-                
-                if(iscoh) then
-                
-                ! sub elm 5 connec
-                elem%subcnc(5)%array(5)=topo(4,e1); if(edgstat(e1)<cohcrack) elem%subcnc(5)%array(5)=jnode1
-                elem%subcnc(5)%array(6)=topo(3,e2); if(edgstat(e2)<cohcrack) elem%subcnc(5)%array(6)=jnode2
-                
-                elem%subcnc(5)%array(7)=elem%subcnc(5)%array(6)+NNDFL/2
-                elem%subcnc(5)%array(8)=elem%subcnc(5)%array(5)+NNDFL/2
-                
-                elem%subcnc(5)%array(1)=topo(3,e1); if(edgstat(e1)<cohcrack) elem%subcnc(5)%array(1)=jnode1
-                elem%subcnc(5)%array(2)=topo(4,e2); if(edgstat(e2)<cohcrack) elem%subcnc(5)%array(2)=jnode2   
-                
-                elem%subcnc(5)%array(3)=elem%subcnc(5)%array(2)+NNDFL/2
-                elem%subcnc(5)%array(4)=elem%subcnc(5)%array(1)+NNDFL/2
-                
-                subglbcnc(5)%array(:)=elem%node_connec(elem%subcnc(5)%array(:))
-                
-                call set(elem%subelem(5),eltype='coh3d8', matkey=elem%cohmat, glbcnc=subglbcnc(5)%array)
-                
-                end if
-                
-            case default
-                write(msg_file,*)'wrong nbulk in update subcnc fBrick'
-                call exit_function
-        end select
-
-      
-!        case(6)
-    ! do not update partition
-        
-
-!        case(8)
+  ! allocate & define subBulks
+  do_subbulks: do j = 1, nsub
+      ! determine no. of nodes in sub elem j
+      subnnode = 2 * size(subBulks_nds_top(j)%array)
+      ! determine sub elem type based on subnnode
+      select case (subnnode)
+        case (6)
+          subeltype = 'wedge'
+        case (8)
+          subeltype = 'brick'
+        case default
+          istat = STAT_FAILURE
+          emsg  = 'unexpected no. of nodes for sub elem in'//trim(msgloc)
+          call clean_up (subBulks_glb_connec, subBulks_nds_top, subBulks_nds_bot)
+          return
+      end select
+      ! allocate connec for sub elems
+      allocate(el%subBulks_nodes(j)%array(subnnode))
+      allocate(subBulks_glb_connec(j)%array(subnnode))
+      ! initialize these arrays
+      el%subBulks_nodes(j)%array   = 0
+      subBulks_glb_connec(j)%array = 0
+      ! populate lcl connec
+      ! copy top surf. lcl connec
+      el%subBulks_nodes(j)%array( subnnode/2 + 1 : subnnode   ) = &
+      &  subBulks_nds_top(j)%array(:)
+      ! copy bot surf. lcl connec
+      el%subBulks_nodes(j)%array(              1 : subnnode/2 ) = &
+      &  subBulks_nds_bot(j)%array(:)
+      ! populate glb connec through el%node_connec
+      subBulks_glb_connec(j)%array = el%node_connec(el%subBulks_nodes(j)%array)
+      ! set this sub element
+      call set(el%subBulks(j), eltype=trim(subeltype),               &
+      & connec=subBulks_glb_connec(j)%array, ply_angle=el%ply_angle, &
+      & istat=istat, emsg=emsg)
+      if (istat == STAT_FAILURE) then
+        emsg = emsg//trim(msgloc)
+        call clean_up (subBulks_glb_connec, subBulks_nds_top, subBulks_nds_bot)
+        return
+      end if
+  end do do_subbulks
+  
+  ! :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::!
+  ! based on the el's current partition status,
+  ! allocate and populate the el%cohCrack_nodes array and set el%cohCrack
+  ! :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::!
+  
+  if (el%curr_status == CRACK_WAKE_ELEM .or. &
+  &   el%curr_status == MATRIX_CRACK_ELEM) then
+  ! cohCrack is present for this partition
+      ! allocate arrays for the coh crack
+      if (.not. allocated(el%cohCrack)) allocate(el%cohCrack)
+      if (.not. allocated(el%cohCrack_nodes)) then
+        allocate(el%cohCrack_nodes)
+        ! allocate 8 nodes for coh3d8 coh crack subelem
+        allocate(el%cohCrack_nodes%array(8))
+        el%cohCrack_nodes%array = 0
+      end if
+      ! assign values to the cohcrack nodes from top&bot suf 2d cohcrack nodes
+      el%cohCrack_nodes%array(1:2) = cohcrack_nds_top(1:2)
+      el%cohCrack_nodes%array(3:4) = cohcrack_nds_bot(2:1)
+      el%cohCrack_nodes%array(5:6) = cohcrack_nds_top(4:3)
+      el%cohCrack_nodes%array(7:8) = cohcrack_nds_bot(3:4)
+      ! populate glb connec through el%node_connec
+      cohcrack_glb_connec = el%node_connec(el%cohCrack_nodes%array)
+      ! set this sub element
+      call set(el%cohCrack, connec=cohCrack_glb_connec, istat=istat, emsg=emsg)
+      if (istat == STAT_FAILURE) then
+        emsg = emsg//trim(msgloc)
+        call clean_up (subBulks_glb_connec, subBulks_nds_top, subBulks_nds_bot)
+        return
+      end if
+  end if
 
 
-       
-    case default
-       write(msg_file,*) 'WARNING: fBrick update subcnc case selection default!'
-       
-    end select
-    
-    
-    ! deallocate local array
-    
-    if(allocated(subglbcnc)) deallocate(subglbcnc)
-
+  ! deallocate local alloc arrays before successful return
+  call clean_up (subBulks_glb_connec, subBulks_nds_top, subBulks_nds_bot)
+  
+  return
+  
+  contains 
+  
+  pure subroutine clean_up (subBulks_glb_connec, subBulks_nds_top, &
+  & subBulks_nds_bot)
+    type(INT_ALLOC_ARRAY), allocatable, intent(inout) :: subBulks_glb_connec(:) 
+    type(INT_ALLOC_ARRAY), allocatable, intent(inout) :: subBulks_nds_top(:)
+    type(INT_ALLOC_ARRAY), allocatable, intent(inout) :: subBulks_nds_bot(:)
+  
+    if (allocated(subBulks_glb_connec)) deallocate(subBulks_glb_connec)
+    if (allocated(subBulks_nds_top))    deallocate(subBulks_nds_top)
+    if (allocated(subBulks_nds_bot))    deallocate(subBulks_nds_bot)
+  
+  end subroutine clean_up
 
 end subroutine partition_elem
 

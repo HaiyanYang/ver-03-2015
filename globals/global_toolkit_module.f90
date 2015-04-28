@@ -933,8 +933,8 @@ contains
 
 
 
-  pure subroutine partition_quad_elem (NODES_ON_EDGES, lcl_ID_crack_edges, &
-  & subelem_connec, istat, emsg)
+  pure subroutine partition_quad_elem (NODES_ON_EDGES, crack_edges, &
+  & subelem_nodes, istat, emsg, crack_nodes)
   ! Purpose :
   ! partition a quad element into sub elems based on passed in local indices of
   ! its cracked edges
@@ -973,15 +973,17 @@ contains
     INTEGER,    PARAMETER :: NNODE = 12, NEDGE = 4
 
     integer,  intent (in) :: NODES_ON_EDGES(4, NEDGE)
-    integer,  intent (in) :: lcl_ID_crack_edges(NEDGE)
-    type(INT_ALLOC_ARRAY), allocatable, intent(out) :: subelem_connec(:)
-    integer, intent(out)  :: istat
+    integer,  intent (in) :: crack_edges(NEDGE)
+    type(INT_ALLOC_ARRAY), allocatable, intent(out) :: subelem_nodes(:)
+    integer,                  intent(out) :: istat
     character(len=MSGLENGTH), intent(out) :: emsg
+    integer,        optional, intent(out) :: crack_nodes(4)
 
     ! local variables
     character(len=MSGLENGTH) :: msgloc
     integer :: n_crackedges, Icrackedge1, Icrackedge2
     integer :: nsub, e1, e2, e3, e4
+    integer :: cknodes(4)
     integer :: i, j
 
     ! initialize intent out and local variables
@@ -993,6 +995,7 @@ contains
     Icrackedge2  = 0
     nsub = 0
     e1 = 0; e2 = 0; e3 = 0; e4 = 0
+    cknodes = 0
     i = 0; j = 0
 
     ! check input validity
@@ -1001,22 +1004,22 @@ contains
       emsg  = 'incorrect NODES_ON_EDGES in'//trim(msgloc)
       return
     end if
-    if ( any(lcl_ID_crack_edges < 0) .or. any(lcl_ID_crack_edges > NEDGE) ) then
+    if ( any(crack_edges < 0) .or. any(crack_edges > NEDGE) ) then
       istat = STAT_FAILURE
-      emsg  = 'incorrect lcl_ID_crack_edges in'//trim(msgloc)
+      emsg  = 'incorrect crack_edges in'//trim(msgloc)
       return
     end if
     ! check format: lcl ID of cracked edges must be stored first in array elements
     do i = 1, NEDGE-1
         ! when the array elem becomes 0, all the rest must also be 0
-        if (lcl_ID_crack_edges(i) == 0) then
+        if (crack_edges(i) == 0) then
             ! check the terms after the ith term
             do j = i+1, NEDGE
                 ! if any of the following term is NOT 0, flag error and exit program
-                if (lcl_ID_crack_edges(j) /= 0) then
+                if (crack_edges(j) /= 0) then
                   istat = STAT_FAILURE
                   emsg  = "cracked edges' local indices must be stored first in &
-                  & lcl_ID_crack_edges array in"//trim(msgloc)
+                  & crack_edges array in"//trim(msgloc)
                   return
                 end if
             end do
@@ -1024,7 +1027,7 @@ contains
     end do
 
     ! find no. of cracked edges
-    n_crackedges = count (lcl_ID_crack_edges > 0)
+    n_crackedges = count (crack_edges > 0)
 
     select_ncrackedges: select case (n_crackedges)
 
@@ -1035,7 +1038,7 @@ contains
       case (1) select_ncrackedges
 
           ! find the index of the cracked edge
-          Icrackedge1 = lcl_ID_crack_edges(1)
+          Icrackedge1 = crack_edges(1)
 
           ! find e1 - e4
           ! e1 - e4: re-index edges to facilitate partitioning domain
@@ -1057,14 +1060,14 @@ contains
           ! nsub: no. of sub elems; here, 3 tri sub elems
           nsub = 3
 
-          ! allocate nsub no. of subelem_connec
-          allocate(subelem_connec(nsub))
+          ! allocate nsub no. of subelem_nodes
+          allocate(subelem_nodes(nsub))
           ! allocate&initialize the internal arrays of these arrays
           do j=1, nsub
             ! allocate connec for 3 nodes of tri sub elems
-            allocate(subelem_connec(j)%array(3))
+            allocate(subelem_nodes(j)%array(3))
             ! initialize these arrays
-            subelem_connec(j)%array = 0
+            subelem_nodes(j)%array = 0
           end do
 
           !:::::::::::::::::::::::::!
@@ -1072,25 +1075,25 @@ contains
           !:::::::::::::::::::::::::!
           ! define its local connec with parent element nodes
           ! top 3 nodes: e1 nodes 3, and e2 nodes 1 & 2
-          subelem_connec(1)%array(1)=NODES_ON_EDGES(3,e1)
-          subelem_connec(1)%array(2)=NODES_ON_EDGES(1,e2)
-          subelem_connec(1)%array(3)=NODES_ON_EDGES(2,e2)
+          subelem_nodes(1)%array(1)=NODES_ON_EDGES(3,e1)
+          subelem_nodes(1)%array(2)=NODES_ON_EDGES(1,e2)
+          subelem_nodes(1)%array(3)=NODES_ON_EDGES(2,e2)
           !:::::::::::::::::::::::::!
           !*** define sub elm 2 ***
           !:::::::::::::::::::::::::!
           ! define its local connec with parent element nodes
           ! top 3 nodes: e2 node 3, and e3 nodes 1 & 2
-          subelem_connec(2)%array(1)=NODES_ON_EDGES(3,e1)
-          subelem_connec(2)%array(2)=NODES_ON_EDGES(1,e3)
-          subelem_connec(2)%array(3)=NODES_ON_EDGES(2,e3)
+          subelem_nodes(2)%array(1)=NODES_ON_EDGES(3,e1)
+          subelem_nodes(2)%array(2)=NODES_ON_EDGES(1,e3)
+          subelem_nodes(2)%array(3)=NODES_ON_EDGES(2,e3)
           !:::::::::::::::::::::::::!
           !*** define sub elm 3 ***
           !:::::::::::::::::::::::::!
           ! define its local connec with parent element nodes
           ! top 3 nodes: e4 nodes 1 & 2, and e1 node 3
-          subelem_connec(3)%array(1)=NODES_ON_EDGES(1,e4)
-          subelem_connec(3)%array(2)=NODES_ON_EDGES(2,e4)
-          subelem_connec(3)%array(3)=NODES_ON_EDGES(3,e1)
+          subelem_nodes(3)%array(1)=NODES_ON_EDGES(1,e4)
+          subelem_nodes(3)%array(2)=NODES_ON_EDGES(2,e4)
+          subelem_nodes(3)%array(3)=NODES_ON_EDGES(3,e1)
 
           ! ** NOTE : ONLY NODE 3 of the cracked edge is used for this partition
 
@@ -1103,8 +1106,8 @@ contains
       !- two edges cracked
 
           ! find the indices of the two broken edges, sorted in ascending order
-          Icrackedge1 = min( lcl_ID_crack_edges(1), lcl_ID_crack_edges(2) )
-          Icrackedge2 = max( lcl_ID_crack_edges(1), lcl_ID_crack_edges(2) )
+          Icrackedge1 = min( crack_edges(1), crack_edges(2) )
+          Icrackedge2 = max( crack_edges(1), crack_edges(2) )
 
           ! Icrackedge1 must be between 1 to 3, and Icrackedge2 between 2 to 4,
           ! with Icrackedge2 > Icrackedge1
@@ -1182,33 +1185,40 @@ contains
                 !:::::::::::::::::::::::::!
                 !*** prepare arrays ***
                 !:::::::::::::::::::::::::!
-                ! allocate nsub no. of subelem_connec
-                allocate(subelem_connec(nsub))
+                ! allocate nsub no. of subelem_nodes
+                allocate(subelem_nodes(nsub))
                 ! allocate&initialize the internal arrays of these arrays
                 do j=1, nsub
                   ! allocate connec for the 4 nodes of quad sub elems
-                  allocate(subelem_connec(j)%array(4))
+                  allocate(subelem_nodes(j)%array(4))
                   ! initialize these arrays
-                  subelem_connec(j)%array = 0
+                  subelem_nodes(j)%array = 0
                 end do
                 !:::::::::::::::::::::::::!
                 !*** define sub elm 1 ***
                 !:::::::::::::::::::::::::!
                 ! define its local connec with parent element nodes
                 ! top 4 nodes: e1 nodes 1 & 3, and e3 nodes 4 & 2
-                subelem_connec(1)%array(1)=NODES_ON_EDGES(1,e1)
-                subelem_connec(1)%array(2)=NODES_ON_EDGES(3,e1)
-                subelem_connec(1)%array(3)=NODES_ON_EDGES(4,e3)
-                subelem_connec(1)%array(4)=NODES_ON_EDGES(2,e3)
+                subelem_nodes(1)%array(1)=NODES_ON_EDGES(1,e1)
+                subelem_nodes(1)%array(2)=NODES_ON_EDGES(3,e1)
+                subelem_nodes(1)%array(3)=NODES_ON_EDGES(4,e3)
+                subelem_nodes(1)%array(4)=NODES_ON_EDGES(2,e3)
                 !:::::::::::::::::::::::::!
                 !*** define sub elm 2 ***
                 !:::::::::::::::::::::::::!
                 ! define its local connec with parent element nodes
                 ! top 4 nodes: e1 nodes 4 & 2, and e3 nodes 1 & 3
-                subelem_connec(2)%array(1)=NODES_ON_EDGES(4,e1)
-                subelem_connec(2)%array(2)=NODES_ON_EDGES(2,e1)
-                subelem_connec(2)%array(3)=NODES_ON_EDGES(1,e3)
-                subelem_connec(2)%array(4)=NODES_ON_EDGES(3,e3)
+                subelem_nodes(2)%array(1)=NODES_ON_EDGES(4,e1)
+                subelem_nodes(2)%array(2)=NODES_ON_EDGES(2,e1)
+                subelem_nodes(2)%array(3)=NODES_ON_EDGES(1,e3)
+                subelem_nodes(2)%array(4)=NODES_ON_EDGES(3,e3)
+                !:::::::::::::::::::::::::!
+                !*** define cknodes ***
+                !:::::::::::::::::::::::::!
+                cknodes(1) = NODES_ON_EDGES(4,e1)
+                cknodes(2) = NODES_ON_EDGES(3,e2)
+                cknodes(3) = NODES_ON_EDGES(4,e2)
+                cknodes(4) = NODES_ON_EDGES(3,e1)
 
             ! :::::::::::::::::::::::::::::::::::::::::!
             ! four tri subdomains
@@ -1217,47 +1227,55 @@ contains
                 !:::::::::::::::::::::::::!
                 !*** prepare arrays ***
                 !:::::::::::::::::::::::::!
-                ! allocate nsub no. of subelem_connec
-                allocate(subelem_connec(nsub))
+                ! allocate nsub no. of subelem_nodes
+                allocate(subelem_nodes(nsub))
                 ! allocate&initialize the internal arrays of these arrays
                 do j=1, nsub
                   ! allocate connec for 3 nodes of tri sub elems
-                  allocate(subelem_connec(j)%array(3))
+                  allocate(subelem_nodes(j)%array(3))
                   ! initialize these arrays
-                  subelem_connec(j)%array = 0
+                  subelem_nodes(j)%array = 0
                 end do
                 !:::::::::::::::::::::::::!
                 !*** define sub elm 1 ***
                 !:::::::::::::::::::::::::!
                 ! define its local connec with parent element nodes
                 ! top 3 nodes: e1 nodes 4, and e2 nodes 1 & 3
-                subelem_connec(1)%array(1)=NODES_ON_EDGES(4,e1)
-                subelem_connec(1)%array(2)=NODES_ON_EDGES(1,e2)
-                subelem_connec(1)%array(3)=NODES_ON_EDGES(3,e2)
+                subelem_nodes(1)%array(1)=NODES_ON_EDGES(4,e1)
+                subelem_nodes(1)%array(2)=NODES_ON_EDGES(1,e2)
+                subelem_nodes(1)%array(3)=NODES_ON_EDGES(3,e2)
                 !:::::::::::::::::::::::::!
                 !*** define sub elm 2 ***
                 !:::::::::::::::::::::::::!
                 ! define its local connec with parent element nodes
                 ! top 3 nodes: e2 node 4, and e3 nodes 1 & 2
-                subelem_connec(2)%array(1)=NODES_ON_EDGES(4,e2)
-                subelem_connec(2)%array(2)=NODES_ON_EDGES(1,e3)
-                subelem_connec(2)%array(3)=NODES_ON_EDGES(2,e3)
+                subelem_nodes(2)%array(1)=NODES_ON_EDGES(4,e2)
+                subelem_nodes(2)%array(2)=NODES_ON_EDGES(1,e3)
+                subelem_nodes(2)%array(3)=NODES_ON_EDGES(2,e3)
                 !:::::::::::::::::::::::::!
                 !*** define sub elm 3 ***
                 !:::::::::::::::::::::::::!
                 ! define its local connec with parent element nodes
                 ! top 3 nodes: e4 nodes 1 & 2, and e1 node 3
-                subelem_connec(3)%array(1)=NODES_ON_EDGES(1,e4)
-                subelem_connec(3)%array(2)=NODES_ON_EDGES(2,e4)
-                subelem_connec(3)%array(3)=NODES_ON_EDGES(3,e1)
+                subelem_nodes(3)%array(1)=NODES_ON_EDGES(1,e4)
+                subelem_nodes(3)%array(2)=NODES_ON_EDGES(2,e4)
+                subelem_nodes(3)%array(3)=NODES_ON_EDGES(3,e1)
                 !:::::::::::::::::::::::::!
                 !*** define sub elm 4 ***
                 !:::::::::::::::::::::::::!
                 ! define its local connec with parent element nodes
                 ! top 3 nodes: e1 node 3, e2 node 4 and e3 node 2
-                subelem_connec(4)%array(1)=NODES_ON_EDGES(3,e1)
-                subelem_connec(4)%array(2)=NODES_ON_EDGES(4,e2)
-                subelem_connec(4)%array(3)=NODES_ON_EDGES(2,e3)
+                subelem_nodes(4)%array(1)=NODES_ON_EDGES(3,e1)
+                subelem_nodes(4)%array(2)=NODES_ON_EDGES(4,e2)
+                subelem_nodes(4)%array(3)=NODES_ON_EDGES(2,e3)
+                !:::::::::::::::::::::::::!
+                !*** define cknodes ***
+                !:::::::::::::::::::::::::!
+                cknodes(1) = NODES_ON_EDGES(4,e1)
+                cknodes(2) = NODES_ON_EDGES(3,e2)
+                cknodes(3) = NODES_ON_EDGES(4,e2)
+                cknodes(4) = NODES_ON_EDGES(3,e1)
+                
             ! :::::::::::::::::::::::::::::::::::::::::!
             ! unsupported no. of sub elems, ERROR
             ! :::::::::::::::::::::::::::::::::::::::::!
@@ -1278,6 +1296,9 @@ contains
           return
 
       end select select_ncrackedges
+      
+      
+      if (present(crack_nodes)) crack_nodes = cknodes
 
 
   end subroutine partition_quad_elem
