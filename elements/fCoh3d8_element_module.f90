@@ -64,7 +64,7 @@ module fCoh3d8_element_module
 !
 !
 !
-!  topological definition of top sub element, type fCoh3d8_subelem:
+!  topological definition of top subelem, type fCoh3d8sub_element:
 !
 !  8____22__TE3___21___7
 !  |\                  |\
@@ -85,7 +85,7 @@ module fCoh3d8_element_module
 !
 !
 !
-!  topological definition of bot sub element (flip over), type fCoh3d8_subelem:
+!  topological definition of bot subelem (flip over), type fCoh3d8sub_element:
 !
 !  1_____9___BE1__10___2
 !  |\                  |\
@@ -112,9 +112,9 @@ module fCoh3d8_element_module
 !    23/04/15  B. Y. Chen            Original code
 !
 
-use parameter_module,       only : NDIM
-use coh3d8_element_module,  only : coh3d8_element
-use fCoh3d8_subelem_module, only : fCoh3d8_subelem
+use parameter_module,          only : NDIM
+use coh3d8_element_module,     only : coh3d8_element
+use fCoh3d8sub_element_module, only : fCoh3d8sub_element
 
 
 implicit none
@@ -146,9 +146,9 @@ type, public :: fCoh3d8_element
     integer :: node_connec(NNODE) = 0
     logical :: top_subelem_set    = .false.
     logical :: bot_subelem_set    = .false.
-    type(coh3d8_element),  allocatable   :: intact_elem
-    type(fCoh3d8_subelem), allocatable   :: top_subelem
-    type(fCoh3d8_subelem), allocatable   :: bot_subelem
+    type(coh3d8_element),     allocatable :: intact_elem
+    type(fCoh3d8sub_element), allocatable :: top_subelem
+    type(fCoh3d8sub_element), allocatable :: bot_subelem
 
 end type fCoh3d8_element
 
@@ -260,7 +260,7 @@ use parameter_module, only : MSGLENGTH, STAT_FAILURE, STAT_SUCCESS,&
                       & INTACT, TRANSITION_EDGE, REFINEMENT_EDGE,  &
                       & CRACK_TIP_EDGE, WEAK_CRACK_EDGE,           &
                       & COH_CRACK_EDGE, STRONG_CRACK_EDGE
-use fCoh3d8_subelem_module, only : set
+use fCoh3d8sub_element_module, only : set
 
   type(fCoh3d8_element),    intent(inout) :: elem
   integer,                  intent(in)    :: ply_edge_status(NEDGE/2)
@@ -370,15 +370,15 @@ end subroutine update_fCoh3d8_element
 
 pure subroutine extract_fCoh3d8_element(elem, top_subelem_set, bot_subelem_set,&
 & intact_elem, top_subelem, bot_subelem)
-use coh3d8_element_module,  only : coh3d8_element
-use fCoh3d8_subelem_module, only : fCoh3d8_subelem
+use coh3d8_element_module,     only : coh3d8_element
+use fCoh3d8sub_element_module, only : fCoh3d8sub_element
 
-  type(fCoh3d8_element),                        intent(in)   :: elem
-  logical,                            optional, intent(out)  :: top_subelem_set
-  logical,                            optional, intent(out)  :: bot_subelem_set
-  type(coh3d8_element),  allocatable, optional, intent(out)  :: intact_elem
-  type(fCoh3d8_subelem), allocatable, optional, intent(out)  :: top_subelem
-  type(fCoh3d8_subelem), allocatable, optional, intent(out)  :: bot_subelem
+  type(fCoh3d8_element),                           intent(in)  :: elem
+  logical,                               optional, intent(out) :: top_subelem_set
+  logical,                               optional, intent(out) :: bot_subelem_set
+  type(coh3d8_element),     allocatable, optional, intent(out) :: intact_elem
+  type(fCoh3d8sub_element), allocatable, optional, intent(out) :: top_subelem
+  type(fCoh3d8sub_element), allocatable, optional, intent(out) :: bot_subelem
 
   if (present(top_subelem_set)) top_subelem_set = elem%top_subelem_set
   if (present(bot_subelem_set)) bot_subelem_set = elem%bot_subelem_set
@@ -413,11 +413,11 @@ pure subroutine integrate_fCoh3d8_element (elem, nodes, material, K_matrix, &
 
 use parameter_module, only : DP, MSGLENGTH, STAT_FAILURE, STAT_SUCCESS, ZERO, &
                       & NDIM, HALF
-use xnode_module,             only : xnode
-use cohesive_material_module, only : cohesive_material
-use coh3d8_element_module,    only : integrate
-use fCoh3d8_subelem_module,   only : integrate
-use global_toolkit_module,    only : assembleKF
+use xnode_module,              only : xnode
+use cohesive_material_module,  only : cohesive_material
+use coh3d8_element_module,     only : integrate
+use fCoh3d8sub_element_module, only : integrate
+use global_toolkit_module,     only : assembleKF
 
   type(fCoh3d8_element),    intent(inout) :: elem
   type(xnode),              intent(inout) :: nodes(NNODE)

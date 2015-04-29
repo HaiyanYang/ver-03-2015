@@ -1,4 +1,4 @@
-module fCoh3d8_subelem_module
+module fCoh3d8sub_element_module
 !
 !  Purpose:
 !    define a floating-node coh3d8 sub-element object, with a breakable top
@@ -82,36 +82,36 @@ integer, parameter :: NODES_ON_BOT_EDGES(4,NEDGE_SURF) =    &
 & reshape([1,2,17,17,  2,3,18,18,  3,4,19,19,  4,1,20,20], [4,NEDGE_SURF])
 
 
-type, public :: fCoh3d8_subelem
+type, public :: fCoh3d8sub_element
   private
   ! list of components of this type:
   ! node_connec         : nodes global connectivity
   ! top_edge_status     : edge status of top surf. edges
   ! edge_lambda         : = (distance btw the crack pnt (if present) on an edge
   !                       and the endnode 1 of the edge) / (length of the edge)
-  ! subelem             : list of subelems of type baseCoh
-  ! subelem_lcl_connec  : lcl connec of subelems' nodes
+  ! subelems            : list of subelems of type baseCoh
+  ! subelems_nodes      : indices of subelems' nodes
   integer  :: node_connec(NNODE)            = 0
   integer  :: top_edge_status(NEDGE_SURF)   = 0
   real(DP) :: edge_lambda(NEDGE_SURF)       = ZERO
-  type(baseCoh_element), allocatable :: subelem(:)
-  type(INT_ALLOC_ARRAY), allocatable :: subelem_lcl_connec(:)
-end type fCoh3d8_subelem
+  type(baseCoh_element), allocatable :: subelems(:)
+  type(INT_ALLOC_ARRAY), allocatable :: subelems_nodes(:)
+end type fCoh3d8sub_element
 
 interface empty
-    module procedure empty_fCoh3d8_subelem
+    module procedure empty_fCoh3d8sub_element
 end interface
 
 interface set
-    module procedure set_fCoh3d8_subelem
+    module procedure set_fCoh3d8sub_element
 end interface
 
 interface integrate
-    module procedure integrate_fCoh3d8_subelem
+    module procedure integrate_fCoh3d8sub_element
 end interface
 
 interface extract
-    module procedure extract_fCoh3d8_subelem
+    module procedure extract_fCoh3d8sub_element
 end interface
 
 
@@ -125,19 +125,19 @@ contains
 
 
 
-pure subroutine empty_fCoh3d8_subelem (elem)
+pure subroutine empty_fCoh3d8sub_element (elem)
 
-  type(fCoh3d8_subelem), intent(inout) :: elem
+  type(fCoh3d8sub_element), intent(inout) :: elem
 
-  type(fCoh3d8_subelem) :: elem_lcl
+  type(fCoh3d8sub_element) :: elem_lcl
 
   elem = elem_lcl
 
-end subroutine empty_fCoh3d8_subelem
+end subroutine empty_fCoh3d8sub_element
 
 
 
-pure subroutine extract_fCoh3d8_subelem (elem, subelem)
+pure subroutine extract_fCoh3d8sub_element (elem, subelems)
 ! Purpose:
 ! to extract components of this element, generally used in output
 ! ** Note: **
@@ -145,21 +145,21 @@ pure subroutine extract_fCoh3d8_subelem (elem, subelem)
 ! extract the connec, fstat, dm, traction, separation, etc. from each sub elem
 use baseCoh_element_module, only : baseCoh_element
 
-  type(fCoh3d8_subelem),                        intent(in)  :: elem
-  type(baseCoh_element), allocatable, optional, intent(out) :: subelem(:)
+  type(fCoh3d8sub_element),                     intent(in)  :: elem
+  type(baseCoh_element), allocatable, optional, intent(out) :: subelems(:)
 
-  if(present(subelem)) then
-    if(allocated(elem%subelem)) then
-      allocate(subelem(size(elem%subelem)))
-      subelem=elem%subelem
+  if(present(subelems)) then
+    if(allocated(elem%subelems)) then
+      allocate(subelems(size(elem%subelems)))
+      subelems=elem%subelems
     end if
   end if
 
-end subroutine extract_fCoh3d8_subelem
+end subroutine extract_fCoh3d8sub_element
 
 
 
-pure subroutine set_fCoh3d8_subelem (elem, node_connec, top_edge_status, &
+pure subroutine set_fCoh3d8sub_element (elem, node_connec, top_edge_status, &
 & istat, emsg)
 ! Purpose:
 ! to set the element ready for first use
@@ -168,7 +168,7 @@ use parameter_module, only : MSGLENGTH, STAT_FAILURE, STAT_SUCCESS,&
                       & CRACK_TIP_EDGE, WEAK_CRACK_EDGE,           &
                       & COH_CRACK_EDGE, STRONG_CRACK_EDGE
 
-  type(fCoh3d8_subelem),    intent(inout) :: elem
+  type(fCoh3d8sub_element), intent(inout) :: elem
   integer,                  intent(in)    :: node_connec(NNODE)
   integer,                  intent(in)    :: top_edge_status(NEDGE_SURF)
   integer,                  intent(out)   :: istat
@@ -180,7 +180,7 @@ use parameter_module, only : MSGLENGTH, STAT_FAILURE, STAT_SUCCESS,&
 
   istat  = STAT_SUCCESS
   emsg   = ''
-  msgloc = ' set, fCoh3d8_subelem module'
+  msgloc = ' set, fCoh3d8sub_element module'
   n_crackedges = 0
   
   ! check validity of inputs
@@ -217,12 +217,12 @@ use parameter_module, only : MSGLENGTH, STAT_FAILURE, STAT_SUCCESS,&
   elem%node_connec     = node_connec
   elem%top_edge_status = top_edge_status
 
-end subroutine set_fCoh3d8_subelem
+end subroutine set_fCoh3d8sub_element
 
 
 
 
-pure subroutine integrate_fCoh3d8_subelem (elem, nodes, material, K_matrix, &
+pure subroutine integrate_fCoh3d8sub_element (elem, nodes, material, K_matrix, &
 & F_vector, istat, emsg, nofailure)
 ! Purpose:
 ! to integrate this fCoh3d8 subelem and update its internal nodes in nodes array
@@ -230,7 +230,7 @@ use parameter_module, only : DP, MSGLENGTH, STAT_FAILURE, STAT_SUCCESS, ZERO
 use xnode_module,             only : xnode
 use cohesive_material_module, only : cohesive_material
 
-  type(fCoh3d8_subelem),    intent(inout) :: elem
+  type(fCoh3d8sub_element), intent(inout) :: elem
   type(xnode),              intent(inout) :: nodes(NNODE)
   type(cohesive_material),  intent(in)    :: material
   real(DP),    allocatable, intent(out)   :: K_matrix(:,:), F_vector(:)
@@ -239,7 +239,7 @@ use cohesive_material_module, only : cohesive_material
   logical,        optional, intent(in)    :: nofailure
 
   ! local variables
-  type(fCoh3d8_subelem) :: el
+  type(fCoh3d8sub_element) :: el
   type(xnode) :: nodes_lcl(NNODE)
   logical :: nofail
 
@@ -269,10 +269,10 @@ use cohesive_material_module, only : cohesive_material
   !**** MAIN CALCULATIONS ****
 
   ! partition element if first time integration
-  if (.not. allocated(elem%subelem)) then
+  if (.not. allocated(elem%subelems)) then
     call partition_element (el, nodes_lcl, istat, emsg)
     if (istat == STAT_FAILURE) then
-      call clean_up(K_matrix, F_vector)
+      call zeroKF (K_matrix, F_vector)
       return
     end if
   end if
@@ -281,10 +281,10 @@ use cohesive_material_module, only : cohesive_material
   call update_internal_nodes (el, nodes_lcl)
 
   ! integrate sub elems and assemble system matrices
-  call integrate_assemble_subelem(el, nodes_lcl, material, K_matrix, &
+  call integrate_assemble_subelems(el, nodes_lcl, material, K_matrix, &
   & F_vector, istat, emsg, nofail)
   if (istat == STAT_FAILURE) then
-    call clean_up(K_matrix, F_vector)
+    call zeroKF (K_matrix, F_vector)
     return
   end if
 
@@ -299,13 +299,13 @@ use cohesive_material_module, only : cohesive_material
   contains
 
 
-    pure subroutine clean_up (K_matrix, F_vector)
+    pure subroutine zeroKF (K_matrix, F_vector)
       real(DP), intent(inout) :: K_matrix(:,:), F_vector(:)
       K_matrix = ZERO
       F_vector = ZERO
-    end subroutine clean_up
+    end subroutine zeroKF
 
-end subroutine integrate_fCoh3d8_subelem
+end subroutine integrate_fCoh3d8sub_element
 
 
 
@@ -314,8 +314,8 @@ pure subroutine partition_element (el, nodes, istat, emsg)
 ! to partition the element into sub elements
 ! specifically, this subroutine will set the following el's components:
 ! - edge_lamda
-! - subelem_lcl_connec
-! - subelem
+! - subelems_nodes
+! - subelems
 ! according to the edge status of top edges of this element
 !** NOTE: ONLY PARTITION WITH TWO CRACKED EDGES IS ALLOWED **
 use parameter_module, only : MSGLENGTH, STAT_SUCCESS, STAT_FAILURE, &
@@ -326,14 +326,14 @@ use baseCoh_element_module, only : set
 use global_toolkit_module,  only : distance, partition_quad_elem
 
   ! passed-in variables
-  type(fCoh3d8_subelem),    intent(inout) :: el
+  type(fCoh3d8sub_element), intent(inout) :: el
   type(xnode),              intent(in)    :: nodes(NNODE)
   integer,                  intent(out)   :: istat
   character(len=MSGLENGTH), intent(out)   :: emsg
 
   ! local variables
   ! msgloc : location of this procedure, attached at the end of error message
-  ! lcl_ID_crack_edges        : local indices of cracked edges
+  ! crack_edges               : indices of cracked edges
   ! n_crackedges              : no. of cracked edges on top surf.
   ! jcrackedge                : lcl ID of a cracked edge
   ! jcracknode                : fl. node indices on cracked top edges
@@ -343,56 +343,56 @@ use global_toolkit_module,  only : distance, partition_quad_elem
   ! distn1n2, distn1nc        : distance btw 2 endnodes of an edge, and distance
   !                             btw endnode1 and crack point on this edge
   ! lambda                    : = distn1nc / distn1n2
-  ! subelem_lcl_connec_top    : local connec of sub elem top    surf. nodes
-  ! subelem_lcl_connec_bot    : local connec of sub elem bottom surf. nodes
-  ! subelem_glb_connec        : global connec of sub elem nodes
+  ! subelem_nodes_top         : indices of sub elem top    surf. nodes
+  ! subelems_nodes_bot        : indices of sub elem bottom surf. nodes
+  ! subelems_glb_connec       : global connec of sub elem nodes
   ! nsub                      : no. of sub elements
-  ! subelem_nnode             : no. of nodes in a sub elem
-  ! subelem_type              : eltype of sub elem
+  ! subelems_nnode            : no. of nodes in a sub elem
+  ! subelems_type             : eltype of sub elem
   !
   character(len=MSGLENGTH) :: msgloc
-  integer               :: lcl_ID_crack_edges(NEDGE_SURF)
+  integer               :: crack_edges(NEDGE_SURF)
   ! variables to define edge lambda
   integer               :: n_crackedges, jcrackedge
   integer               :: jcracknode, jendnode1, jendnode2
   real(DP), allocatable :: x1(:), x2(:), xc(:)
   real(DP)              :: distn1n2, distn1nc, lambda
   ! variables to define sub elems
-  type(INT_ALLOC_ARRAY), allocatable :: subelem_lcl_connec_top(:)
-  type(INT_ALLOC_ARRAY), allocatable :: subelem_lcl_connec_bot(:)
-  type(INT_ALLOC_ARRAY), allocatable :: subelem_glb_connec(:)
-  integer                            :: nsub, subelem_nnode
-  character(len=ELTYPELENGTH)        :: subelem_type
+  type(INT_ALLOC_ARRAY), allocatable :: subelems_nodes_top(:)
+  type(INT_ALLOC_ARRAY), allocatable :: subelems_nodes_bot(:)
+  type(INT_ALLOC_ARRAY), allocatable :: subelems_glb_connec(:)
+  integer                            :: nsub, subelems_nnode
+  character(len=ELTYPELENGTH)        :: subelems_type
   ! counters
   integer :: i, j, l
 
   ! initialize intent out and local variables
-  istat  = STAT_SUCCESS
-  emsg   = ''
-  msgloc = ' partition_element, fCoh3d8_subelem_module'
-  lcl_ID_crack_edges = 0
-  n_crackedges = 0
-  jcrackedge   = 0
-  jcracknode   = 0
-  jendnode1    = 0
-  jendnode2    = 0
-  distn1n2     = ZERO
-  distn1nc     = ZERO
-  lambda       = ZERO
-  nsub          = 0
-  subelem_nnode = 0
-  subelem_type  = ''
+  istat           = STAT_SUCCESS
+  emsg            = ''
+  msgloc          = ' partition_element, fCoh3d8sub_element_module'
+  crack_edges     = 0
+  n_crackedges    = 0
+  jcrackedge      = 0
+  jcracknode      = 0
+  jendnode1       = 0
+  jendnode2       = 0
+  distn1n2        = ZERO
+  distn1nc        = ZERO
+  lambda          = ZERO
+  nsub            = 0
+  subelems_nnode  = 0
+  subelems_type   = ''
   i=0; j=0; l=0
 
   ! Note: no need to check for input validity or create local copy of intent
   ! inout dummy arg because this is an internal procedure
 
   ! find the no. of broken edges, and store their local indices in the array
-  ! lcl_ID_crack_edges
+  ! crack_edges
   do j = 1, NEDGE_SURF
     if (el%top_edge_status(j) >= COH_CRACK_EDGE) then
       n_crackedges = n_crackedges + 1
-      lcl_ID_crack_edges (n_crackedges) = j
+      crack_edges(n_crackedges) = j
     end if
   end do
 
@@ -408,7 +408,7 @@ use global_toolkit_module,  only : distance, partition_quad_elem
   ! :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::!
   do j = 1, n_crackedges
     ! find the edge index of the jth cracked edge
-    jcrackedge = lcl_ID_crack_edges(j)
+    jcrackedge = crack_edges(j)
     ! find the fl. node (crack point) and the real nodes (endnodes) on this edge
     jcracknode = NODES_ON_TOP_EDGES(3,jcrackedge)
     jendnode1  = NODES_ON_TOP_EDGES(1,jcrackedge)
@@ -425,8 +425,8 @@ use global_toolkit_module,  only : distance, partition_quad_elem
     if (distn1n2 < SMALLNUM .or. distn1nc < SMALLNUM) then
       istat = STAT_FAILURE
       emsg = 'coords of edge end nodes or fl. nodes are incorrect'//trim(msgloc)
-      call clean_up (subelem_glb_connec, subelem_lcl_connec_top, &
-      & subelem_lcl_connec_bot, x1, x2, xc)
+      call clean_up (subelems_glb_connec, subelems_nodes_top, &
+      & subelems_nodes_bot, x1, x2, xc)
       return
     end if
     ! calculate lambda
@@ -435,8 +435,8 @@ use global_toolkit_module,  only : distance, partition_quad_elem
     if ( .not. (SMALLNUM < lambda .and. lambda < ONE-SMALLNUM) ) then
       istat = STAT_FAILURE
       emsg  = 'edge lambda is out of range'//trim(msgloc)
-      call clean_up (subelem_glb_connec, subelem_lcl_connec_top, &
-      & subelem_lcl_connec_bot, x1, x2, xc)
+      call clean_up (subelems_glb_connec, subelems_nodes_top, &
+      & subelems_nodes_bot, x1, x2, xc)
       return
     end if
     ! update lambda to el components
@@ -449,96 +449,96 @@ use global_toolkit_module,  only : distance, partition_quad_elem
 
   ! pass the TOP surface topology NODES_ON_TOP_EDGES into the subroutine,
   ! this will partition the element top surface into 2D sub elems,
-  ! whose nodes (in lcl indices) will be stored in subelem_lcl_connec_top
-  call partition_quad_elem (NODES_ON_TOP_EDGES, lcl_ID_crack_edges, &
-  & subelem_lcl_connec_top, istat, emsg)
+  ! whose nodes (in lcl indices) will be stored in subelems_nodes_top
+  call partition_quad_elem (NODES_ON_TOP_EDGES, crack_edges, &
+  & subelems_nodes_top, istat, emsg)
   if (istat == STAT_FAILURE) then
     emsg = emsg//trim(msgloc)
-    call clean_up (subelem_glb_connec, subelem_lcl_connec_top, &
-    & subelem_lcl_connec_bot, x1, x2, xc)
+    call clean_up (subelems_glb_connec, subelems_nodes_top, &
+    & subelems_nodes_bot, x1, x2, xc)
     return
   end if
 
   ! pass the BOTTOM surface topology NODES_ON_BOT_EDGES into the subroutine,
   ! this will partition the element bottom surface into 2D sub elems,
-  ! whose nodes (in lcl indices) will be stored in subelem_lcl_connec_bot
-  call partition_quad_elem (NODES_ON_BOT_EDGES, lcl_ID_crack_edges, &
-  & subelem_lcl_connec_bot, istat, emsg)
+  ! whose nodes (in lcl indices) will be stored in subelems_nodes_bot
+  call partition_quad_elem (NODES_ON_BOT_EDGES, crack_edges, &
+  & subelems_nodes_bot, istat, emsg)
   if (istat == STAT_FAILURE) then
     emsg = emsg//trim(msgloc)
-    call clean_up (subelem_glb_connec, subelem_lcl_connec_top, &
-    & subelem_lcl_connec_bot, x1, x2, xc)
+    call clean_up (subelems_glb_connec, subelems_nodes_top, &
+    & subelems_nodes_bot, x1, x2, xc)
     return
   end if
 
   ! ** NOTE **
-  ! the lcl_ID_crack_edges array is applicable to both top and bottom edges; so
+  ! the crack_edges array is applicable to both top and bottom edges; so
   ! the top and bottom surfaces are partitioned in exactly the same way, i.e.,
   ! same number of sub elems, same sub elem types.
 
   ! :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::!
-  ! based on the top/bot surface partitions in subelem_lcl_connec_top/bot,
-  ! allocate and populate the el%subelem_lcl_connec array
+  ! based on the top/bot surface partitions in subelems_nodes_top/bot,
+  ! allocate and populate the el%subelems_nodes array
   ! :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::!
 
   ! extract no. of sub elems
-  nsub = size(subelem_lcl_connec_top)
+  nsub = size(subelems_nodes_top)
 
-  ! allocate nsub no. of subelem, subelem_lcl_connec and
-  ! subelem_glb_connec
-  if(allocated(el%subelem))            deallocate(el%subelem)
-  if(allocated(el%subelem_lcl_connec)) deallocate(el%subelem_lcl_connec)
-  if(allocated(subelem_glb_connec))    deallocate(subelem_glb_connec)
-  allocate(el%subelem(nsub))
-  allocate(el%subelem_lcl_connec(nsub))
-  allocate(subelem_glb_connec(nsub))
+  ! allocate nsub no. of subelems, subelems_nodes and
+  ! subelems_glb_connec
+  if(allocated(el%subelems))           deallocate(el%subelems)
+  if(allocated(el%subelems_nodes))     deallocate(el%subelems_nodes)
+  if(allocated(subelems_glb_connec))   deallocate(subelems_glb_connec)
+  allocate(el%subelems(nsub))
+  allocate(el%subelems_nodes(nsub))
+  allocate(subelems_glb_connec(nsub))
 
   ! allocate & define these arrays
   do j = 1, nsub
 
     ! determine no. of nodes in sub elem j
-    subelem_nnode = 2 * size(subelem_lcl_connec_top(j)%array)
+    subelems_nnode = 2 * size(subelems_nodes_top(j)%array)
 
-    ! determine sub elem type based on subelem_nnode
-    select case (subelem_nnode)
+    ! determine sub elem type based on subelems_nnode
+    select case (subelems_nnode)
       case (6)
-        subelem_type = 'coh3d6'
+        subelems_type = 'coh3d6'
       case (8)
-        subelem_type = 'coh3d8'
+        subelems_type = 'coh3d8'
       case default
         istat = STAT_FAILURE
         emsg  = 'unexpected no. of nodes for sub elem in'//trim(msgloc)
-        call clean_up (subelem_glb_connec, subelem_lcl_connec_top, &
-        & subelem_lcl_connec_bot, x1, x2, xc)
+        call clean_up (subelems_glb_connec, subelems_nodes_top, &
+        & subelems_nodes_bot, x1, x2, xc)
         return
     end select
 
     ! allocate connec for sub elems
-    allocate(el%subelem_lcl_connec(j)%array(subelem_nnode))
-    allocate(subelem_glb_connec(j)%array(subelem_nnode))
+    allocate(el%subelems_nodes(j)%array(subelems_nnode))
+    allocate(subelems_glb_connec(j)%array(subelems_nnode))
 
     ! initialize these arrays
-    el%subelem_lcl_connec(j)%array = 0
-    subelem_glb_connec(j)%array    = 0
+    el%subelems_nodes(j)%array   = 0
+    subelems_glb_connec(j)%array = 0
 
     ! populate lcl connec
     ! copy top surf. lcl connec
-    el%subelem_lcl_connec(j)%array( subelem_nnode/2 + 1 : subelem_nnode   ) = &
-    &  subelem_lcl_connec_top(j)%array(:)
+    el%subelems_nodes(j)%array( subelems_nnode/2 + 1 : subelems_nnode   ) = &
+    &  subelems_nodes_top(j)%array(:)
     ! copy bot surf. lcl connec
-    el%subelem_lcl_connec(j)%array(                   1 : subelem_nnode/2 ) = &
-    &  subelem_lcl_connec_bot(j)%array(:)
+    el%subelems_nodes(j)%array(                    1 : subelems_nnode/2 ) = &
+    &  subelems_nodes_bot(j)%array(:)
 
     ! populate glb connec through el%node_connec
-    subelem_glb_connec(j)%array = el%node_connec(el%subelem_lcl_connec(j)%array)
+    subelems_glb_connec(j)%array = el%node_connec(el%subelems_nodes(j)%array)
 
     ! set this sub element
-    call set(el%subelem(j), eltype=trim(subelem_type), &
-    & connec=subelem_glb_connec(j)%array, istat=istat, emsg=emsg)
+    call set(el%subelems(j), eltype=trim(subelems_type), &
+    & connec=subelems_glb_connec(j)%array, istat=istat, emsg=emsg)
     if (istat == STAT_FAILURE) then
       emsg = emsg//trim(msgloc)
-      call clean_up (subelem_glb_connec, subelem_lcl_connec_top, &
-      & subelem_lcl_connec_bot, x1, x2, xc)
+      call clean_up (subelems_glb_connec, subelems_nodes_top, &
+      & subelems_nodes_bot, x1, x2, xc)
       return
     end if
 
@@ -546,8 +546,8 @@ use global_toolkit_module,  only : distance, partition_quad_elem
 
 
   ! deallocate local alloc arrays before successful return
-  call clean_up (subelem_glb_connec, subelem_lcl_connec_top, &
-  & subelem_lcl_connec_bot, x1, x2, xc)
+  call clean_up (subelems_glb_connec, subelems_nodes_top, &
+  & subelems_nodes_bot, x1, x2, xc)
   return
 
 
@@ -555,19 +555,19 @@ use global_toolkit_module,  only : distance, partition_quad_elem
   contains
 
 
-  pure subroutine clean_up (subelem_glb_connec, subelem_lcl_connec_top, &
-  & subelem_lcl_connec_bot, x1, x2, xc)
-  type(INT_ALLOC_ARRAY), allocatable, intent(inout) :: subelem_glb_connec(:)
-  type(INT_ALLOC_ARRAY), allocatable, intent(inout) :: subelem_lcl_connec_top(:)
-  type(INT_ALLOC_ARRAY), allocatable, intent(inout) :: subelem_lcl_connec_bot(:)
+  pure subroutine clean_up (subelems_glb_connec, subelems_nodes_top, &
+  & subelems_nodes_bot, x1, x2, xc)
+  type(INT_ALLOC_ARRAY), allocatable, intent(inout) :: subelems_glb_connec(:)
+  type(INT_ALLOC_ARRAY), allocatable, intent(inout) :: subelems_nodes_top(:)
+  type(INT_ALLOC_ARRAY), allocatable, intent(inout) :: subelems_nodes_bot(:)
   real(DP),              allocatable, intent(inout) :: x1(:), x2(:), xc(:)
 
-  if(allocated(subelem_glb_connec)) deallocate(subelem_glb_connec)
-  if(allocated(subelem_lcl_connec_top)) deallocate(subelem_lcl_connec_top)
-  if(allocated(subelem_lcl_connec_bot)) deallocate(subelem_lcl_connec_bot)
-  if(allocated(x1)) deallocate(x1)
-  if(allocated(x2)) deallocate(x2)
-  if(allocated(xc)) deallocate(xc)
+  if(allocated(subelems_glb_connec))  deallocate(subelems_glb_connec)
+  if(allocated(subelems_nodes_top))   deallocate(subelems_nodes_top)
+  if(allocated(subelems_nodes_bot))   deallocate(subelems_nodes_bot)
+  if(allocated(x1))                   deallocate(x1)
+  if(allocated(x2))                   deallocate(x2)
+  if(allocated(xc))                   deallocate(xc)
   end subroutine clean_up
 
 
@@ -581,7 +581,7 @@ pure subroutine update_internal_nodes (el, nodes)
 use parameter_module, only : ZERO, ONE, COH_CRACK_EDGE
 use xnode_module,     only : xnode, operator(+), operator(*)
 
-  type(fCoh3d8_subelem), intent(in)    :: el
+  type(fCoh3d8sub_element), intent(in) :: el
   type(xnode),           intent(inout) :: nodes(NNODE)
 
   integer     :: Icrackedge, Iinnode, Iendnode1, Iendnode2
@@ -621,7 +621,7 @@ end subroutine update_internal_nodes
 
 
 
-pure subroutine integrate_assemble_subelem (elem, nodes, material, K_matrix, &
+pure subroutine integrate_assemble_subelems (elem, nodes, material, K_matrix, &
 & F_vector, istat, emsg, nofailure)
 ! Purpose:
 ! integrate and assemble sub element system arrays
@@ -633,7 +633,7 @@ use baseCoh_element_module,   only : integrate
 use global_toolkit_module,    only : assembleKF
 
   ! - passed in variables
-  type(fCoh3d8_subelem),    intent(inout) :: elem
+  type(fCoh3d8sub_element), intent(inout) :: elem
   type(xnode),              intent(in)    :: nodes(NNODE)
   type(cohesive_material),  intent(in)    :: material
   real(DP),                 intent(out)   :: K_matrix(NDOF,NDOF), F_vector(NDOF)
@@ -655,7 +655,7 @@ use global_toolkit_module,    only : assembleKF
   F_vector = ZERO
   istat  = STAT_SUCCESS
   emsg   = ''
-  msgloc = ', integrate_assemble_subelem, fCoh3d8_subelem_module'
+  msgloc = ', integrate_assemble_subelems, fCoh3d8sub_element_module'
   nofail = .false.
   isub=0; j=0; k=0; l=0; n=0
 
@@ -665,16 +665,16 @@ use global_toolkit_module,    only : assembleKF
   !:::::::::::::::::::::::::::::::::::::!
   ! integrate and assemble sub elems
   !:::::::::::::::::::::::::::::::::::::!
-  do isub = 1, size(elem%subelem)
+  do isub = 1, size(elem%subelems)
 
     ! extract the local node connec of this sub elem
     if(allocated(subcnc)) deallocate(subcnc)
-    allocate(subcnc(size(elem%subelem_lcl_connec(isub)%array)))
-    subcnc = elem%subelem_lcl_connec(isub)%array
+    allocate(subcnc(size(elem%subelems_nodes(isub)%array)))
+    subcnc = elem%subelems_nodes(isub)%array
 
-    ! call the integrate procedure asoc. with the subelem type
+    ! call the integrate procedure asoc. with the subelems type
     ! exit the do loop (and if-else subsequently) if an error is encountered
-    call integrate(elem%subelem(isub), nodes(subcnc), material, Ki, Fi, &
+    call integrate(elem%subelems(isub), nodes(subcnc), material, Ki, Fi, &
     & istat, emsg, nofail)
     if (istat == STAT_FAILURE) exit
 
@@ -727,7 +727,7 @@ use global_toolkit_module,    only : assembleKF
   if(allocated(Kmat_r))         deallocate(Kmat_r)
   if(allocated(Fvec_r))         deallocate(Fvec_r)
 
-end subroutine integrate_assemble_subelem
+end subroutine integrate_assemble_subelems
 
 
 
@@ -738,8 +738,8 @@ pure subroutine get_Tmatrix (el, Tmatrixfull)
 ! internal nodal dofs are interpolated from the other nodal dofs.
 use parameter_module, only : DP, ZERO, ONE, COH_CRACK_EDGE
 
-  type(fCoh3d8_subelem), intent(in)  :: el
-  real(DP), allocatable, intent(out) :: Tmatrixfull(:,:)
+  type(fCoh3d8sub_element), intent(in)  :: el
+  real(DP),    allocatable, intent(out) :: Tmatrixfull(:,:)
 
   ! local var.
   real(DP), allocatable :: Tmatrix(:,:)
@@ -810,4 +810,4 @@ end subroutine get_Tmatrix
 
 
 
-end module fCoh3d8_subelem_module
+end module fCoh3d8sub_element_module

@@ -150,7 +150,7 @@ interface extract
 end interface extract
 
 
-public :: empty, set, display, ddsdde, update, extract
+public :: empty, set, display, ddsdde, update, extract, lamina_scaled_Gfc
 
 
 
@@ -365,6 +365,19 @@ contains
 
 
   end subroutine set_lamina
+
+
+
+  pure function lamina_scaled_Gfc (this, nplies) result(this_nGfc)
+    type(lamina_material), intent(in) :: this
+    integer,               intent(in) :: nplies
+    type(lamina_material)             :: this_nGfc
+
+    this_nGfc = this
+    this_nGfc%fibreToughness%GfcT = real(nplies, DP) * this%fibreToughness%GfcT
+    this_nGfc%fibreToughness%GfcC = real(nplies, DP) * this%fibreToughness%GfcC
+
+  end function lamina_scaled_Gfc
 
 
 

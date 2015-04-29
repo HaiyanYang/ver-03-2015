@@ -1,5 +1,5 @@
 GFORTRAN module version '10' created from C:\Users\mpecb\Documents\GitHub\ver-03-2015\compile_elements.f90
-MD5:bf60cce75c4bf32831b3a86d9c126d73 -- If you edit this, you'll get what you deserve.
+MD5:aa691d8a248899109c5a1bfeccc6445f -- If you edit this, you'll get what you deserve.
 
 (() () () () () () () () () () () () () () () () () () () () () () () ()
 () () ())
@@ -206,90 +206,94 @@ UNKNOWN-PROC UNKNOWN UNKNOWN 0 0) (UNKNOWN 0 0 0 0 UNKNOWN ()) 0 0 () ()
 UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN IMPLICIT-SAVE 0 0) (INTEGER 4 0 0 0
 INTEGER ()) 0 0 () (CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '5') () 0 ()
 () () 0 0)
-60 'pi' 'parameter_module' '' 1 ((PARAMETER UNKNOWN-INTENT UNKNOWN-PROC
+60 'penalty_stiffness' 'parameter_module' '' 1 ((PARAMETER
+UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN IMPLICIT-SAVE 0 0) (REAL 8 0 0 0
+REAL ()) 0 0 () (CONSTANT (REAL 8 0 0 0 REAL ()) 0 '0.f4240000000000@5')
+() 0 () () () 0 0)
+61 'pi' 'parameter_module' '' 1 ((PARAMETER UNKNOWN-INTENT UNKNOWN-PROC
 UNKNOWN IMPLICIT-SAVE 0 0) (REAL 8 0 0 0 REAL ()) 0 0 () (CONSTANT (
 REAL 8 0 0 0 REAL ()) 0 '0.3243f6a8885dd4@1') () 0 () () () 0 0)
-61 'quarter' 'parameter_module' '' 1 ((PARAMETER UNKNOWN-INTENT
+62 'quarter' 'parameter_module' '' 1 ((PARAMETER UNKNOWN-INTENT
 UNKNOWN-PROC UNKNOWN IMPLICIT-SAVE 0 0) (REAL 8 0 0 0 REAL ()) 0 0 () (
 CONSTANT (REAL 8 0 0 0 REAL ()) 0 '0.40000000000000@0') () 0 () () () 0
 0)
-62 'real_alloc_array' 'parameter_module' '' 1 ((PROCEDURE UNKNOWN-INTENT
+63 'real_alloc_array' 'parameter_module' '' 1 ((PROCEDURE UNKNOWN-INTENT
 UNKNOWN-PROC DECL UNKNOWN 0 0 FUNCTION GENERIC) (UNKNOWN 0 0 0 0 UNKNOWN
 ()) 0 0 () () 0 () () () 0 0)
-63 'real_alloc_matrix' 'parameter_module' '' 1 ((PROCEDURE
+64 'real_alloc_matrix' 'parameter_module' '' 1 ((PROCEDURE
 UNKNOWN-INTENT UNKNOWN-PROC DECL UNKNOWN 0 0 FUNCTION GENERIC) (UNKNOWN
 0 0 0 0 UNKNOWN ()) 0 0 () () 0 () () () 0 0)
-64 'refinement_edge' 'parameter_module' '' 1 ((PARAMETER UNKNOWN-INTENT
+65 'refinement_edge' 'parameter_module' '' 1 ((PARAMETER UNKNOWN-INTENT
 UNKNOWN-PROC UNKNOWN IMPLICIT-SAVE 0 0) (INTEGER 4 0 0 0 INTEGER ()) 0 0
 () (CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '2') () 0 () () () 0 0)
-65 'refinement_elem' 'parameter_module' '' 1 ((PARAMETER UNKNOWN-INTENT
+66 'refinement_elem' 'parameter_module' '' 1 ((PARAMETER UNKNOWN-INTENT
 UNKNOWN-PROC UNKNOWN IMPLICIT-SAVE 0 0) (INTEGER 4 0 0 0 INTEGER ()) 0 0
 () (CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '2') () 0 () () () 0 0)
-66 'residual_modulus' 'parameter_module' '' 1 ((PARAMETER UNKNOWN-INTENT
+67 'residual_modulus' 'parameter_module' '' 1 ((PARAMETER UNKNOWN-INTENT
 UNKNOWN-PROC UNKNOWN IMPLICIT-SAVE 0 0) (REAL 8 0 0 0 REAL ()) 0 0 () (
 CONSTANT (REAL 8 0 0 0 REAL ()) 0 '0.10000000000000@1') () 0 () () () 0
 0)
-67 'root_three_fifth' 'parameter_module' '' 1 ((PARAMETER UNKNOWN-INTENT
+68 'root_three_fifth' 'parameter_module' '' 1 ((PARAMETER UNKNOWN-INTENT
 UNKNOWN-PROC UNKNOWN IMPLICIT-SAVE 0 0) (REAL 8 0 0 0 REAL ()) 0 0 () (
 CONSTANT (REAL 8 0 0 0 REAL ()) 0 '0.c64bf7a1fb9240@0') () 0 () () () 0
 0)
-68 'sdv_array' 'parameter_module' '' 1 ((PROCEDURE UNKNOWN-INTENT
+69 'sdv_array' 'parameter_module' '' 1 ((PROCEDURE UNKNOWN-INTENT
 UNKNOWN-PROC DECL UNKNOWN 0 0 FUNCTION GENERIC) (UNKNOWN 0 0 0 0 UNKNOWN
 ()) 0 0 () () 0 () () () 0 0)
-69 'selected_real_kind' '(intrinsic)' '' 1 ((PROCEDURE UNKNOWN-INTENT
+70 'selected_real_kind' '(intrinsic)' '' 1 ((PROCEDURE UNKNOWN-INTENT
 UNKNOWN-PROC UNKNOWN UNKNOWN 0 0 FUNCTION) (UNKNOWN 0 0 0 0 UNKNOWN ())
-0 0 () () 69 () () () 0 0)
-70 'setnamelength' 'parameter_module' '' 1 ((PARAMETER UNKNOWN-INTENT
+0 0 () () 70 () () () 0 0)
+71 'setnamelength' 'parameter_module' '' 1 ((PARAMETER UNKNOWN-INTENT
 UNKNOWN-PROC UNKNOWN IMPLICIT-SAVE 0 0) (INTEGER 4 0 0 0 INTEGER ()) 0 0
 () (CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '30') () 0 () () () 0 0)
-71 'seven' 'parameter_module' '' 1 ((PARAMETER UNKNOWN-INTENT
+72 'seven' 'parameter_module' '' 1 ((PARAMETER UNKNOWN-INTENT
 UNKNOWN-PROC UNKNOWN IMPLICIT-SAVE 0 0) (REAL 8 0 0 0 REAL ()) 0 0 () (
 CONSTANT (REAL 8 0 0 0 REAL ()) 0 '0.70000000000000@1') () 0 () () () 0
 0)
-72 'six' 'parameter_module' '' 1 ((PARAMETER UNKNOWN-INTENT UNKNOWN-PROC
+73 'six' 'parameter_module' '' 1 ((PARAMETER UNKNOWN-INTENT UNKNOWN-PROC
 UNKNOWN IMPLICIT-SAVE 0 0) (REAL 8 0 0 0 REAL ()) 0 0 () (CONSTANT (
 REAL 8 0 0 0 REAL ()) 0 '0.60000000000000@1') () 0 () () () 0 0)
-73 'smallnum' 'parameter_module' '' 1 ((PARAMETER UNKNOWN-INTENT
+74 'smallnum' 'parameter_module' '' 1 ((PARAMETER UNKNOWN-INTENT
 UNKNOWN-PROC UNKNOWN IMPLICIT-SAVE 0 0) (REAL 8 0 0 0 REAL ()) 0 0 () (
 CONSTANT (REAL 8 0 0 0 REAL ()) 0 '0.10000000000000@-12') () 0 () () ()
 0 0)
-74 'sqrt' '(intrinsic)' '' 1 ((PROCEDURE UNKNOWN-INTENT UNKNOWN-PROC
-UNKNOWN UNKNOWN 0 0 FUNCTION) (UNKNOWN 0 0 0 0 UNKNOWN ()) 0 0 () () 74
+75 'sqrt' '(intrinsic)' '' 1 ((PROCEDURE UNKNOWN-INTENT UNKNOWN-PROC
+UNKNOWN UNKNOWN 0 0 FUNCTION) (UNKNOWN 0 0 0 0 UNKNOWN ()) 0 0 () () 75
 () () () 0 0)
-75 'stat_failure' 'parameter_module' '' 1 ((PARAMETER UNKNOWN-INTENT
+76 'stat_failure' 'parameter_module' '' 1 ((PARAMETER UNKNOWN-INTENT
 UNKNOWN-PROC UNKNOWN IMPLICIT-SAVE 0 0) (INTEGER 4 0 0 0 INTEGER ()) 0 0
 () (CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '1') () 0 () () () 0 0)
-76 'stat_success' 'parameter_module' '' 1 ((PARAMETER UNKNOWN-INTENT
+77 'stat_success' 'parameter_module' '' 1 ((PARAMETER UNKNOWN-INTENT
 UNKNOWN-PROC UNKNOWN IMPLICIT-SAVE 0 0) (INTEGER 4 0 0 0 INTEGER ()) 0 0
 () (CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '0') () 0 () () () 0 0)
-77 'strong_crack_edge' 'parameter_module' '' 1 ((PARAMETER
+78 'strong_crack_edge' 'parameter_module' '' 1 ((PARAMETER
 UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN IMPLICIT-SAVE 0 0) (INTEGER 4 0 0 0
 INTEGER ()) 0 0 () (CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '5') () 0 ()
 () () 0 0)
-78 'ten' 'parameter_module' '' 1 ((PARAMETER UNKNOWN-INTENT UNKNOWN-PROC
+79 'ten' 'parameter_module' '' 1 ((PARAMETER UNKNOWN-INTENT UNKNOWN-PROC
 UNKNOWN IMPLICIT-SAVE 0 0) (REAL 8 0 0 0 REAL ()) 0 0 () (CONSTANT (
 REAL 8 0 0 0 REAL ()) 0 '0.a0000000000000@1') () 0 () () () 0 0)
-79 'three' 'parameter_module' '' 1 ((PARAMETER UNKNOWN-INTENT
+80 'three' 'parameter_module' '' 1 ((PARAMETER UNKNOWN-INTENT
 UNKNOWN-PROC UNKNOWN IMPLICIT-SAVE 0 0) (REAL 8 0 0 0 REAL ()) 0 0 () (
 CONSTANT (REAL 8 0 0 0 REAL ()) 0 '0.30000000000000@1') () 0 () () () 0
 0)
-80 'transition_edge' 'parameter_module' '' 1 ((PARAMETER UNKNOWN-INTENT
+81 'transition_edge' 'parameter_module' '' 1 ((PARAMETER UNKNOWN-INTENT
 UNKNOWN-PROC UNKNOWN IMPLICIT-SAVE 0 0) (INTEGER 4 0 0 0 INTEGER ()) 0 0
 () (CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '1') () 0 () () () 0 0)
-81 'transition_elem' 'parameter_module' '' 1 ((PARAMETER UNKNOWN-INTENT
+82 'transition_elem' 'parameter_module' '' 1 ((PARAMETER UNKNOWN-INTENT
 UNKNOWN-PROC UNKNOWN IMPLICIT-SAVE 0 0) (INTEGER 4 0 0 0 INTEGER ()) 0 0
 () (CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '1') () 0 () () () 0 0)
-82 'two' 'parameter_module' '' 1 ((PARAMETER UNKNOWN-INTENT UNKNOWN-PROC
+83 'two' 'parameter_module' '' 1 ((PARAMETER UNKNOWN-INTENT UNKNOWN-PROC
 UNKNOWN IMPLICIT-SAVE 0 0) (REAL 8 0 0 0 REAL ()) 0 0 () (CONSTANT (
 REAL 8 0 0 0 REAL ()) 0 '0.20000000000000@1') () 0 () () () 0 0)
-83 'two_third' 'parameter_module' '' 1 ((PARAMETER UNKNOWN-INTENT
+84 'two_third' 'parameter_module' '' 1 ((PARAMETER UNKNOWN-INTENT
 UNKNOWN-PROC UNKNOWN IMPLICIT-SAVE 0 0) (REAL 8 0 0 0 REAL ()) 0 0 () (
 CONSTANT (REAL 8 0 0 0 REAL ()) 0 '0.aaaaaaaaaaaaa8@0') () 0 () () () 0
 0)
-84 'weak_crack_edge' 'parameter_module' '' 1 ((PARAMETER UNKNOWN-INTENT
+85 'weak_crack_edge' 'parameter_module' '' 1 ((PARAMETER UNKNOWN-INTENT
 UNKNOWN-PROC UNKNOWN IMPLICIT-SAVE 0 0) (INTEGER 4 0 0 0 INTEGER ()) 0 0
 () (CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '3') () 0 () () () 0 0)
-85 'zero' 'parameter_module' '' 1 ((PARAMETER UNKNOWN-INTENT
+86 'zero' 'parameter_module' '' 1 ((PARAMETER UNKNOWN-INTENT
 UNKNOWN-PROC UNKNOWN IMPLICIT-SAVE 0 0) (REAL 8 0 0 0 REAL ()) 0 0 () (
 CONSTANT (REAL 8 0 0 0 REAL ()) 0 '0.00000000000000@0') () 0 () () () 0
 0)
@@ -310,11 +314,11 @@ CONSTANT (REAL 8 0 0 0 REAL ()) 0 '0.00000000000000@0') () 0 () () () 0
 'msg_file' 0 46 'msglength' 0 47 'ndim' 0 48 'nine' 0 49 'ninety' 0 50
 'nst_cohesive' 0 51 'nst_standard' 0 52 'one' 0 53 'one_eighth' 0 54
 'one_root3' 0 55 'one_sixth' 0 56 'one_third' 0 57 'parameter_module' 0
-58 'partitioned_fcohsub' 0 59 'pi' 0 60 'quarter' 0 61 'real_alloc_array'
-0 62 'real_alloc_matrix' 0 63 'refinement_edge' 0 64 'refinement_elem' 0
-65 'residual_modulus' 0 66 'root_three_fifth' 0 67 'sdv_array' 0 68
-'selected_real_kind' 0 69 'setnamelength' 0 70 'seven' 0 71 'six' 0 72
-'smallnum' 0 73 'sqrt' 0 74 'stat_failure' 0 75 'stat_success' 0 76
-'strong_crack_edge' 0 77 'ten' 0 78 'three' 0 79 'transition_edge' 0 80
-'transition_elem' 0 81 'two' 0 82 'two_third' 0 83 'weak_crack_edge' 0
-84 'zero' 0 85)
+58 'partitioned_fcohsub' 0 59 'penalty_stiffness' 0 60 'pi' 0 61 'quarter'
+0 62 'real_alloc_array' 0 63 'real_alloc_matrix' 0 64 'refinement_edge'
+0 65 'refinement_elem' 0 66 'residual_modulus' 0 67 'root_three_fifth' 0
+68 'sdv_array' 0 69 'selected_real_kind' 0 70 'setnamelength' 0 71 'seven'
+0 72 'six' 0 73 'smallnum' 0 74 'sqrt' 0 75 'stat_failure' 0 76
+'stat_success' 0 77 'strong_crack_edge' 0 78 'ten' 0 79 'three' 0 80
+'transition_edge' 0 81 'transition_elem' 0 82 'two' 0 83 'two_third' 0
+84 'weak_crack_edge' 0 85 'zero' 0 86)
