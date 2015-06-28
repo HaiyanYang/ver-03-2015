@@ -64,7 +64,7 @@ use parameter_module,       only : NDIM, DP, ZERO, INT_ALLOC_ARRAY
 use global_clock_module,    only : program_clock
 use brick_element_module,   only : brick_element
 use basePly_element_module, only : basePly_element
-use coh3d8_element_module,  only : coh3d8_element
+use cohCrack_element_module,only : cohCrack_element
 
 
 implicit none
@@ -107,7 +107,7 @@ type, public :: fBrick_element
   type(program_clock)                :: local_clock
   type(brick_element),   allocatable :: intact_elem
   type(basePly_element), allocatable :: subBulks(:)
-  type(coh3d8_element),  allocatable :: cohCrack
+  type(cohCrack_element),allocatable :: cohCrack
   type(INT_ALLOC_ARRAY), allocatable :: subBulks_nodes(:)
   type(INT_ALLOC_ARRAY), allocatable :: cohCrack_nodes
 
@@ -223,7 +223,7 @@ pure subroutine extract_fBrick_element (elem, curr_status, edge_status_lcl, &
   integer,    optional, intent(out) :: edge_status_lcl(NEDGE_SURF)
   type(brick_element),   allocatable, optional, intent(out) :: intact_elem
   type(basePly_element), allocatable, optional, intent(out) :: subBulks(:)
-  type(coh3d8_element),  allocatable, optional, intent(out) :: cohCrack
+  type(cohCrack_element),allocatable, optional, intent(out) :: cohCrack
 
   if(present(curr_status)) curr_status=elem%curr_status
 
@@ -814,7 +814,7 @@ use parameter_module,       only : DP, MSGLENGTH, STAT_SUCCESS, STAT_FAILURE, &
 use xnode_module,           only : xnode, extract, update
 use brick_element_module,   only : extract
 use basePly_element_module, only : extract
-use coh3d8_element_module,  only : extract
+use cohCrack_element_module,only : extract
 use global_toolkit_module,  only : crack_elem_centroid2d, crack_elem_cracktip2d
 
   ! passed-in variables
@@ -1189,7 +1189,7 @@ use parameter_module, only : MSGLENGTH, STAT_SUCCESS, STAT_FAILURE,         &
                       & COH_CRACK_EDGE,  TRANSITION_EDGE
 use global_toolkit_module,  only : partition_quad_elem
 use basePly_element_module, only : set
-use coh3d8_element_module,  only : set
+use cohCrack_element_module,only : set
 
   ! passed-in variables
   type(fBrick_element),     intent(inout) :: el
@@ -1479,7 +1479,7 @@ use coh3d8_element_module,  only : set
       if (.not. allocated(el%cohCrack)) allocate(el%cohCrack)
       if (.not. allocated(el%cohCrack_nodes)) then
         allocate(el%cohCrack_nodes)
-        ! allocate 8 nodes for coh3d8 coh crack subelem
+        ! allocate 8 nodes for cohCrack coh crack subelem
         allocate(el%cohCrack_nodes%array(8))
         el%cohCrack_nodes%array = 0
       end if
@@ -1545,7 +1545,7 @@ use lamina_material_module,   only : lamina_material
 use cohesive_material_module, only : cohesive_material
 use brick_element_module,     only : integrate
 use basePly_element_module,   only : integrate
-use coh3d8_element_module,    only : integrate
+use cohCrack_element_module,    only : integrate
 use global_toolkit_module,    only : assembleKF
 
   ! - passed in variables

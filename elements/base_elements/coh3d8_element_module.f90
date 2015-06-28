@@ -31,14 +31,15 @@ module coh3d8_element_module
 !    Date      Programmer            Description of change
 !    ========  ====================  ========================================
 !    17/04/15  B. Y. Chen            Original code
+!    28/06/15  B. Y. Chen            include fdir for integration
 !
 
 use parameter_module, only : NST => NST_COHESIVE, NDIM, DP, ZERO, ONE, HALF, &
-                      & ONE_ROOT3, QUARTER, &
+                      & ONE_ROOT3, QUARTER, SMALLNUM, &
                       & MSGLENGTH, STAT_SUCCESS, STAT_FAILURE
 ! list of external modules used in type definition and other procedures:
-! global clock module    : needed in element definition, extract and integrate
-! lamina material module : needed in element definition, extract and integrate
+! global clock module      : needed in element definition, extract and integrate
+! cohesive material module : needed in element definition, extract and integrate
 use global_clock_module,      only : program_clock, GLOBAL_CLOCK, clock_in_sync
 use cohesive_material_module, only : cohesive_ig_point, cohesive_material, &
                               & cohesive_sdv, ddsdde, update, extract
@@ -188,8 +189,8 @@ end subroutine extract_coh3d8_element
 
 
 
-pure subroutine integrate_coh3d8_element (elem, nodes, material, K_matrix, &
-& F_vector, istat, emsg, nofailure)
+pure subroutine integrate_coh3d8_element (elem, nodes, material, fdir, &
+& K_matrix, F_vector, istat, emsg, nofailure)
 ! Purpose:
 ! updates K matrix, F vector, integration point stress and strain,
 ! and the solution dependent variables (sdvs) of ig points and element
@@ -202,11 +203,12 @@ pure subroutine integrate_coh3d8_element (elem, nodes, material, K_matrix, &
 use xnode_module,                only : xnode, extract
 use global_toolkit_module,       only : cross_product3d, normalize_vect, &
                                  & determinant2d
-
-  ! mnodes: material (interpolated) nodes
+  ! most args are self-explanatory
+  ! fdir: fibre direction
   type(coh3d8_element),     intent(inout) :: elem
   type(xnode),              intent(in)    :: nodes(NNODE)
   type(cohesive_material),  intent(in)    :: material
+  real(DP),                 intent(in)    :: fdir(NDIM)
   real(DP),    allocatable, intent(out)   :: K_matrix(:,:), F_vector(:)
   integer,                  intent(out)   :: istat
   character(len=MSGLENGTH), intent(out)   :: emsg
@@ -392,18 +394,23 @@ use global_toolkit_module,       only : cross_product3d, normalize_vect, &
 
   !** local coords and rotational matrix, and element determinant:
   ! compute tangent1 of the interface: node 2 coords - node 1 coords
-  tangent1(1)=midcoords(1,2)-midcoords(1,1)
-  tangent1(2)=midcoords(2,2)-midcoords(2,1)
-  tangent1(3)=midcoords(3,2)-midcoords(3,1)
-  ! compute tangent2 of the interface: node 3 coords - node 1 coords
-  tangent2(1)=midcoords(1,3)-midcoords(1,1)
-  tangent2(2)=midcoords(2,3)-midcoords(2,1)
-  tangent2(3)=midcoords(3,3)-midcoords(3,1)
+  tangent1(:)=midcoords(:,2)-midcoords(:,1)
+  ! compute tangent2 of the interface: node 4 coords - node 1 coords
+  tangent2(:)=midcoords(:,4)-midcoords(:,1)
   ! compute normal vector of the interface,
   normal = cross_product3d(tangent1,tangent2)
-  ! - re-evaluate tangent1 so that it is perpendicular to both
-  ! tangent2 and normal
-  tangent1 = cross_product3d(tangent2,normal)
+  ! verify that fdir is on the tangent plane, return if not
+  if (dot_product(normal,fdir) > SMALLNUM) then
+    istat = STAT_FAILURE
+    emsg  = 'passed-in fibre direction is incorrect, coh3d8 element module'
+    call clean_up (K_matrix, F_vector, uj, xj)
+    return
+  end if
+  ! change tangent1 to passed-in fibre direction
+  tangent1 = fdir
+  ! - re-evaluate tangent2 so that it is perpendicular to both
+  ! tangent1 and normal
+  tangent2 = cross_product3d(normal,tangent1)
   ! - normalize these vectors, exit w error if ZERO vector is encountered
   call normalize_vect(normal, is_zero_vect)
   if (is_zero_vect) then
@@ -427,11 +434,11 @@ use global_toolkit_module,       only : cross_product3d, normalize_vect, &
     return
   end if
   ! - compute Q matrix
-  do j=1,3
-    Qmatrix(1,j)=normal(j)
-    Qmatrix(2,j)=tangent1(j)
-    Qmatrix(3,j)=tangent2(j)
-  end do
+  Qmatrix(1,:)=normal(:)
+  Qmatrix(2,:)=tangent1(:)
+  Qmatrix(3,:)=tangent2(:)
+  ! - rotate midcoords to planar coord sys.
+  midcoords = matmul(Qmatrix,midcoords)
 
   !** analysis logical control variables:
   ! check if last iteration has converged by checking if the global clock has

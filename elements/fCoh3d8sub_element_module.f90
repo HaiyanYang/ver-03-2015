@@ -44,6 +44,7 @@ module fCoh3d8sub_element_module
 !    Date      Programmer            Description of change
 !    ========  ====================  ========================================
 !    19/04/15  B. Y. Chen            Original code
+!    29/06/15  B. Y. Chen            add fdir
 !
 
 ! load the modules and entities used for derived type declaration only
