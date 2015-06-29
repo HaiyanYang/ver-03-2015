@@ -59,7 +59,12 @@ module fBrick_element_module
 !        \|__________________\|
 !         1                   2
 !
-
+!
+!  Record of revision:
+!    Date      Programmer            Description of change
+!    ========  ====================  ========================================
+!    29/06/15  B. Y. Chen            Original code
+!
 use parameter_module,       only : NDIM, DP, ZERO, INT_ALLOC_ARRAY
 use global_clock_module,    only : program_clock
 use brick_element_module,   only : brick_element

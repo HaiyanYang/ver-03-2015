@@ -1,5 +1,15 @@
 module fBrickLam_element_module
-
+!
+!  Purpose:
+!    define a floating-node brick laminate element
+!    
+!
+!
+!  Record of revision:
+!    Date      Programmer            Description of change
+!    ========  ====================  ========================================
+!    29/06/15  B. Y. Chen            Original code
+!
 use parameter_module,       only : DP, INT_ALLOC_ARRAY, ZERO
 use fBrick_element_module,  only : fBrick_element
 use fDelam8_element_module, only : fDelam8_element
