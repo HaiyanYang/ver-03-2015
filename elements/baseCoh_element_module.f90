@@ -233,7 +233,7 @@ use coh3d8_element_module, only : coh3d8_element
 
 
 
-  pure subroutine integrate_baseCoh_element (elem, nodes, material, fdir, &
+  pure subroutine integrate_baseCoh_element (elem, nodes, material, &
   & Kmatrix, Fvector, istat, emsg, nofailure)
   ! extra modules needed to declare the type of some dummy args
   use xnode_module,             only : xnode
@@ -244,7 +244,6 @@ use coh3d8_element_module, only : coh3d8_element
       type(baseCoh_element),    intent(inout) :: elem
       type(xnode),              intent(in)    :: nodes(:)
       type(cohesive_material),  intent(in)    :: material
-      real(DP),                 intent(in)    :: fdir(NDIM)
       real(DP), allocatable,    intent(out)   :: Kmatrix(:,:), Fvector(:)
       integer,                  intent(out)   :: istat
       character(len=MSGLENGTH), intent(out)   :: emsg
@@ -276,7 +275,7 @@ use coh3d8_element_module, only : coh3d8_element
               return
             end if
             
-            call integrate(elem%coh3d6, nodes, material, fdir, Kmatrix, Fvector, &
+            call integrate(elem%coh3d6, nodes, material, Kmatrix, Fvector, &
             & istat, emsg, nofail)
 
         case('coh3d8')
@@ -289,7 +288,7 @@ use coh3d8_element_module, only : coh3d8_element
               return
             end if
             
-            call integrate(elem%coh3d8, nodes, material, fdir, Kmatrix, Fvector, &
+            call integrate(elem%coh3d8, nodes, material, Kmatrix, Fvector, &
             & istat, emsg, nofail)
 
         case default

@@ -1,14 +1,15 @@
 GFORTRAN module version '10' created from C:\Users\mpecb\Documents\GitHub\ver-03-2015\compile_elements.f90
-MD5:a571943be41fbde67597b6a51e699d29 -- If you edit this, you'll get what you deserve.
+MD5:41b6ae510f908e099fbe415f8e64b5ba -- If you edit this, you'll get what you deserve.
 
 (() () () () () () () () () () () () () () () () () () () () () () ()
 () () () ())
 
 ()
 
-(('coh3d6_element' 'coh3d6_element_module' 2) ('empty'
-'coh3d6_element_module' 3) ('extract' 'cohesive_material_module' 4 5 6)
-('integrate' 'coh3d6_element_module' 7) ('set' 'coh3d6_element_module' 8))
+(('cohcrack_element' 'cohcrack_element_module' 2) ('empty'
+'cohcrack_element_module' 3) ('extract' 'cohesive_material_module' 4 5 6)
+('integrate' 'cohcrack_element_module' 7) ('set' 'cohcrack_element_module'
+8))
 
 ()
 
@@ -16,13 +17,13 @@ MD5:a571943be41fbde67597b6a51e699d29 -- If you edit this, you'll get what you de
 
 ()
 
-(2 'Coh3d6_element' 'coh3d6_element_module' '' 1 ((DERIVED
+(2 'Cohcrack_element' 'cohcrack_element_module' '' 1 ((DERIVED
 UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0 ALLOC_COMP PRIVATE_COMP)
 (UNKNOWN 0 0 0 0 UNKNOWN ()) 0 0 () () 0 ((9 'fstat' (INTEGER 4 0 0 0
 INTEGER ()) () (UNKNOWN-FL UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN UNKNOWN 0
 0) UNKNOWN-ACCESS (CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '0')) (10
 'connec' (INTEGER 4 0 0 0 INTEGER ()) (1 0 EXPLICIT (CONSTANT (INTEGER 4
-0 0 0 INTEGER ()) 0 '1') (CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '6'))
+0 0 0 INTEGER ()) 0 '1') (CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '8'))
 (UNKNOWN-FL UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0 DIMENSION)
 UNKNOWN-ACCESS (CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '0')) (11
 'local_clock' (DERIVED 12 0 0 0 DERIVED ()) () (UNKNOWN-FL
@@ -31,7 +32,7 @@ STRUCTURE (DERIVED 12 0 0 0 DERIVED ()) 0 (((CONSTANT (INTEGER 4 0 0 0
 INTEGER ()) 0 '0') ()) ((CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '0') ()))
 ())) (13 'ig_points' (DERIVED 14 0 0 0 DERIVED ()) (1 0 EXPLICIT (
 CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '1') (CONSTANT (INTEGER 4 0 0 0
-INTEGER ()) 0 '3')) (UNKNOWN-FL UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN
+INTEGER ()) 0 '4')) (UNKNOWN-FL UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN
 UNKNOWN 0 0 DIMENSION) UNKNOWN-ACCESS (STRUCTURE (DERIVED 14 0 0 0
 DERIVED ()) 0 (((NULL (REAL 8 0 0 0 REAL ()) 0) ()) ((NULL (REAL 8 0 0 0
 REAL ()) 0) ()) ((NULL (REAL 8 0 0 0 REAL ()) 0) ()) ((NULL (REAL 8 0 0
@@ -54,14 +55,14 @@ UNKNOWN-INTENT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0 DIMENSION)
 UNKNOWN-ACCESS (CONSTANT (REAL 8 0 0 0 REAL ()) 0 '0.00000000000000@0'))
 (18 'dm' (REAL 8 0 0 0 REAL ()) () (UNKNOWN-FL UNKNOWN-INTENT
 UNKNOWN-PROC UNKNOWN UNKNOWN 0 0) UNKNOWN-ACCESS (CONSTANT (REAL 8 0 0 0
-REAL ()) 0 '0.00000000000000@0'))) PRIVATE (() () () ()) () 0 0 49217120)
-19 'coh3d6_element' 'coh3d6_element_module' '' 1 ((PROCEDURE
+REAL ()) 0 '0.00000000000000@0'))) PRIVATE (() () () ()) () 0 0 97119370)
+19 'cohcrack_element' 'cohcrack_element_module' '' 1 ((PROCEDURE
 UNKNOWN-INTENT UNKNOWN-PROC DECL UNKNOWN 0 0 FUNCTION GENERIC) (UNKNOWN
 0 0 0 0 UNKNOWN ()) 0 0 () () 0 () () () 0 0)
-3 'empty_coh3d6_element' 'coh3d6_element_module' '' 1 ((PROCEDURE
+3 'empty_cohcrack_element' 'cohcrack_element_module' '' 1 ((PROCEDURE
 UNKNOWN-INTENT MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE PURE) (UNKNOWN 0
 0 0 0 UNKNOWN ()) 20 0 (21) () 0 () () () 0 0)
-4 'extract_coh3d6_element' 'coh3d6_element_module' '' 1 ((PROCEDURE
+4 'extract_cohcrack_element' 'cohcrack_element_module' '' 1 ((PROCEDURE
 UNKNOWN-INTENT MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE PURE
 ALWAYS_EXPLICIT) (UNKNOWN 0 0 0 0 UNKNOWN ()) 22 0 (23 24 25 26 27 28 29)
 () 0 () () () 0 0)
@@ -73,11 +74,11 @@ ALWAYS_EXPLICIT) (UNKNOWN 0 0 0 0 UNKNOWN ()) 30 0 (31 32 33 34 35 36 37)
 UNKNOWN-INTENT MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE PURE
 ALWAYS_EXPLICIT) (UNKNOWN 0 0 0 0 UNKNOWN ()) 38 0 (39 40 41 42 43) () 0
 () () () 0 0)
-7 'integrate_coh3d6_element' 'coh3d6_element_module' '' 1 ((PROCEDURE
-UNKNOWN-INTENT MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE PURE
+7 'integrate_cohcrack_element' 'cohcrack_element_module' '' 1 ((
+PROCEDURE UNKNOWN-INTENT MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE PURE
 ALWAYS_EXPLICIT) (UNKNOWN 0 0 0 0 UNKNOWN ()) 44 0 (45 46 47 48 49 50 51
 52) () 0 () () () 0 0)
-8 'set_coh3d6_element' 'coh3d6_element_module' '' 1 ((PROCEDURE
+8 'set_cohcrack_element' 'cohcrack_element_module' '' 1 ((PROCEDURE
 UNKNOWN-INTENT MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE PURE) (UNKNOWN 0
 0 0 0 UNKNOWN ()) 53 0 (54 55 56 57) () 0 () () () 0 0)
 12 'Program_clock' 'global_clock_module' '' 1 ((DERIVED UNKNOWN-INTENT
@@ -187,7 +188,7 @@ DUMMY) (DERIVED 2 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
 46 'nodes' '' '' 44 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
 DIMENSION DUMMY) (DERIVED 70 0 0 0 DERIVED ()) 0 0 () (1 0 EXPLICIT (
 CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '1') (CONSTANT (INTEGER 4 0 0 0
-INTEGER ()) 0 '6')) 0 () () () 0 0)
+INTEGER ()) 0 '8')) 0 () () () 0 0)
 47 'material' '' '' 44 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
 DUMMY) (DERIVED 71 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
 48 'k_matrix' '' '' 44 ((VARIABLE OUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
@@ -208,7 +209,7 @@ DUMMY) (DERIVED 2 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
 55 'connec' '' '' 53 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
 DIMENSION DUMMY) (INTEGER 4 0 0 0 INTEGER ()) 0 0 () (1 0 EXPLICIT (
 CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '1') (CONSTANT (INTEGER 4 0 0 0
-INTEGER ()) 0 '6')) 0 () () () 0 0)
+INTEGER ()) 0 '8')) 0 () () () 0 0)
 56 'istat' '' '' 53 ((VARIABLE OUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
 DUMMY) (INTEGER 4 0 0 0 INTEGER ()) 0 0 () () 0 () () () 0 0)
 57 'emsg' '' '' 53 ((VARIABLE OUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0 DUMMY)
@@ -290,4 +291,4 @@ UNKNOWN-PROC UNKNOWN UNKNOWN 0 0) UNKNOWN-ACCESS (CONSTANT (REAL 8 0 0 0
 REAL ()) 0 '0.00000000000000@0'))) PUBLIC (() () () ()) () 0 0 93717485)
 )
 
-('Coh3d6_element' 0 2 'coh3d6_element' 0 19)
+('Cohcrack_element' 0 2 'cohcrack_element' 0 19)

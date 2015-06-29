@@ -31,7 +31,6 @@ module coh3d8_element_module
 !    Date      Programmer            Description of change
 !    ========  ====================  ========================================
 !    17/04/15  B. Y. Chen            Original code
-!    28/06/15  B. Y. Chen            include fdir for integration
 !
 
 use parameter_module, only : NST => NST_COHESIVE, NDIM, DP, ZERO, ONE, HALF, &
@@ -189,7 +188,7 @@ end subroutine extract_coh3d8_element
 
 
 
-pure subroutine integrate_coh3d8_element (elem, nodes, material, fdir, &
+pure subroutine integrate_coh3d8_element (elem, nodes, material, &
 & K_matrix, F_vector, istat, emsg, nofailure)
 ! Purpose:
 ! updates K matrix, F vector, integration point stress and strain,
@@ -208,7 +207,6 @@ use global_toolkit_module,       only : cross_product3d, normalize_vect, &
   type(coh3d8_element),     intent(inout) :: elem
   type(xnode),              intent(in)    :: nodes(NNODE)
   type(cohesive_material),  intent(in)    :: material
-  real(DP),                 intent(in)    :: fdir(NDIM)
   real(DP),    allocatable, intent(out)   :: K_matrix(:,:), F_vector(:)
   integer,                  intent(out)   :: istat
   character(len=MSGLENGTH), intent(out)   :: emsg
@@ -399,15 +397,6 @@ use global_toolkit_module,       only : cross_product3d, normalize_vect, &
   tangent2(:)=midcoords(:,4)-midcoords(:,1)
   ! compute normal vector of the interface,
   normal = cross_product3d(tangent1,tangent2)
-  ! verify that fdir is on the tangent plane, return if not
-  if (dot_product(normal,fdir) > SMALLNUM) then
-    istat = STAT_FAILURE
-    emsg  = 'passed-in fibre direction is incorrect, coh3d8 element module'
-    call clean_up (K_matrix, F_vector, uj, xj)
-    return
-  end if
-  ! change tangent1 to passed-in fibre direction
-  tangent1 = fdir
   ! - re-evaluate tangent2 so that it is perpendicular to both
   ! tangent1 and normal
   tangent2 = cross_product3d(normal,tangent1)
