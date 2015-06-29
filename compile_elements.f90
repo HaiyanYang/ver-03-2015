@@ -8,6 +8,8 @@ include 'materials/lamina_material_module.f90'
 include 'materials/cohesive_material_module.f90'
 include 'elements/base_elements/brick_element_module.f90'
 include 'elements/base_elements/wedge_element_module.f90'
+include 'elements/base_elements/delam6_element_module.f90'
+include 'elements/base_elements/delam8_element_module.f90'
 include 'elements/base_elements/coh3d6_element_module.f90'
 include 'elements/base_elements/coh3d8_element_module.f90'
 include 'elements/base_elements/cohCrack_element_module.f90'
@@ -33,6 +35,8 @@ use brick_element_module ! use everything
 use wedge_element_module ! use everything
 use coh3d6_element_module
 use coh3d8_element_module
+use delam6_element_module
+use delam8_element_module
 use cohCrack_element_module
 use basePly_element_module
 use baseCoh_element_module
