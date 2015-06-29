@@ -2,12 +2,12 @@ module fBrickLam_element_module
 
 use parameter_module,       only : DP, INT_ALLOC_ARRAY, ZERO
 use fBrick_element_module,  only : fBrick_element
-use fCoh3d8_element_module, only : fCoh3d8_element
+use fDelam8_element_module, only : fDelam8_element
 
 implicit none
 private
 
-! parameters for ply-block elem (fbrick) and interface elem (fCoh3d8)
+! parameters for ply-block elem (fbrick) and interface elem (fDelam8)
 integer, parameter :: NNODE_PLYBLK = 24
 integer, parameter :: NNODE_INTERF = 32
 integer, parameter :: NEDGE = 8, NNDRL = 8, NNDFL = 16, NNDIN_INTERF = 8
@@ -24,7 +24,7 @@ type, public :: fBrickLam_element
   integer,               allocatable :: node_connec(:)
   type(plyblock_layup),  allocatable :: layup(:)
   type(fBrick_element),  allocatable :: plyblks(:)
-  type(fCoh3d8_element), allocatable :: interfs(:)
+  type(fDelam8_element), allocatable :: interfs(:)
   type(INT_ALLOC_ARRAY), allocatable :: plyblks_nodes(:)
   type(INT_ALLOC_ARRAY), allocatable :: interfs_nodes(:)
   type(INT_ALLOC_ARRAY), allocatable :: plyblks_edges(:)
@@ -74,13 +74,13 @@ end subroutine empty_fBrickLam_element
 pure subroutine extract_fBrickLam_element (elem, curr_status, layup, plyblks, &
 & interfs)
 use fBrick_element_module,  only : fBrick_element
-use fCoh3d8_element_module, only : fCoh3d8_element
+use fDelam8_element_module, only : fDelam8_element
 
   type(fBrickLam_element),                     intent(in)  :: elem
   integer,                           optional, intent(out) :: curr_status
   type(plyblock_layup), allocatable, optional, intent(out) :: layup(:)
   type(fBrick_element), allocatable, optional, intent(out) :: plyblks(:)
-  type(fCoh3d8_element),allocatable, optional, intent(out) :: interfs(:)
+  type(fDelam8_element),allocatable, optional, intent(out) :: interfs(:)
 
   if(present(curr_status)) curr_status = elem%curr_status
 
@@ -113,7 +113,7 @@ pure subroutine set_fBrickLam_element (elem, NPLYBLKS, node_connec, layup, &
 & istat, emsg)
 use parameter_module, only : DP, MSGLENGTH, STAT_SUCCESS, STAT_FAILURE
 use fBrick_element_module,  only : set
-use fCoh3d8_element_module, only : set
+use fDelam8_element_module, only : set
 
   type(fBrickLam_element),  intent(inout) :: elem
   integer,  intent(in)  :: NPLYBLKS
@@ -210,7 +210,7 @@ use fCoh3d8_element_module, only : set
       ! top plyblk elem bottom surface (nodes 9-16)
         el%interfs_nodes(i  )%array(NNDRL+NNDFL/2+1 : NNDRL+NNDFL  ) =        &
       & el%plyblks_nodes(i+1)%array(NNDRL+        1 : NNDRL+NNDFL/2)
-      ! internal nodes of interface element fCoh3d8
+      ! internal nodes of interface element fDelam8
         jstart = NPLYBLKS*NNODE_PLYBLK + (i-1)* NNDIN_INTERF+1
         jend   = NPLYBLKS*NNODE_PLYBLK +  i   * NNDIN_INTERF
         el%interfs_nodes(i)%array(NNDRL+NNDFL+1 : NNDRL+NNDFL+NNDIN_INTERF) = &
@@ -226,7 +226,7 @@ use fCoh3d8_element_module, only : set
         el%interfs_edges(i  )%array(NEDGE/2+1 : NEDGE  ) =                    &
       & el%plyblks_edges(i+1)%array(        1 : NEDGE/2)
 
-      ! set this fCoh3d8 element
+      ! set this fDelam8 element
       call set (el%interfs(i), node_connec(el%interfs_nodes(i)%array),        &
       & istat, emsg)
       if (istat == STAT_FAILURE) then
@@ -252,7 +252,7 @@ use xnode_module,             only : xnode
 use lamina_material_module,   only : lamina_material, lamina_scaled_Gfc
 use cohesive_material_module, only : cohesive_material
 use fBrick_element_module,    only : extract, integrate
-use fCoh3d8_element_module,   only : extract, update, integrate
+use fDelam8_element_module,   only : extract, update, integrate
 use global_toolkit_module,    only : assembleKF
 
   type(fBrickLam_element),  intent(inout) :: elem
@@ -275,6 +275,7 @@ use global_toolkit_module,    only : assembleKF
   type(xnode)              :: plyblknds(NNODE_PLYBLK), interfnds(NNODE_INTERF)
   integer                  :: subegstatus(NEDGE)
   type(lamina_material)    :: plyblklam_mat
+  real(DP)                 :: theta1, theta2
   real(DP), allocatable    :: Ki(:,:), Fi(:)
   logical                  :: topsurf_set, botsurf_set
   integer                  :: plyblk_status, plyblk_egstatus_lcl(NEDGE/2)
@@ -290,6 +291,8 @@ use global_toolkit_module,    only : assembleKF
   ninterfs    = 0
   ndof        = 0
   subegstatus = 0
+  theta1      = ZERO
+  theta2      = ZERO
   topsurf_set = .false.
   botsurf_set = .false.
   plyblk_status       = 0
@@ -386,8 +389,12 @@ use global_toolkit_module,    only : assembleKF
       !----- integration and assembly -----
       ! extract nodes of this interf for integration
       interfnds = nds(el%interfs_nodes(i)%array)
+      ! extract top and bot ply angles of this interf
+      theta1 = el%layup(i)%angle
+      theta2 = el%layup(i+1)%angle
       ! integrate this interf elem and update its nodes
-      call integrate (el%interfs(i), interfnds, interf_mat, Ki, Fi, istat, emsg)
+      call integrate (el%interfs(i), interfnds, interf_mat, theta1, theta2,   &
+      & Ki, Fi, istat, emsg)
       if (istat == STAT_FAILURE) exit loop_interfs
       ! assemble this elem's K and F
       call assembleKF (K_matrix, F_vector, Ki, Fi, el%interfs_nodes(i)%array, &

@@ -10,13 +10,11 @@ include 'elements/base_elements/brick_element_module.f90'
 include 'elements/base_elements/wedge_element_module.f90'
 include 'elements/base_elements/delam6_element_module.f90'
 include 'elements/base_elements/delam8_element_module.f90'
-include 'elements/base_elements/coh3d6_element_module.f90'
-include 'elements/base_elements/coh3d8_element_module.f90'
 include 'elements/base_elements/cohCrack_element_module.f90'
 include 'elements/basePly_element_module.f90'
 include 'elements/baseCoh_element_module.f90'
-include 'elements/fCoh3d8sub_element_module.f90'
-include 'elements/fCoh3d8_element_module.f90'
+include 'elements/fDelam8sub_element_module.f90'
+include 'elements/fDelam8_element_module.f90'
 include 'elements/fBrick_element_module.f90'
 include 'elements/fBrickLam_element_module.f90'
 
@@ -31,17 +29,15 @@ program compile_base_elements
 !    09/04/15  B. Y. Chen            Original code
 !
 !
-use brick_element_module ! use everything
-use wedge_element_module ! use everything
-use coh3d6_element_module
-use coh3d8_element_module
+use brick_element_module
+use wedge_element_module
 use delam6_element_module
 use delam8_element_module
 use cohCrack_element_module
 use basePly_element_module
 use baseCoh_element_module
-use fCoh3d8sub_element_module
-use fCoh3d8_element_module
+use fDelam8sub_element_module
+use fDelam8_element_module
 use fBrick_element_module
 use fBrickLam_element_module
 

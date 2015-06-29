@@ -1,7 +1,7 @@
-module fCoh3d8_element_module
+module fDelam8_element_module
 !
 !  Purpose:
-!    define a floating-node coh3d8 element object, with breakable top & bottom
+!    define a floating-node delam8 element object, with breakable top & bottom
 !    surfaces.
 !
 !  topological definition of this element:
@@ -43,7 +43,7 @@ module fCoh3d8_element_module
 !
 !
 !
-!  topological definition of intact element, type coh3d8_element:
+!  topological definition of intact element, type delam8_element:
 !
 !  8___________________7
 !  |\                  |\
@@ -64,7 +64,7 @@ module fCoh3d8_element_module
 !
 !
 !
-!  topological definition of top subelem, type fCoh3d8sub_element:
+!  topological definition of top subelem, type fDelam8sub_element:
 !
 !  8____22__TE3___21___7
 !  |\                  |\
@@ -85,7 +85,7 @@ module fCoh3d8_element_module
 !
 !
 !
-!  topological definition of bot subelem (flip over), type fCoh3d8sub_element:
+!  topological definition of bot subelem (flip over), type fDelam8sub_element:
 !
 !  1_____9___BE1__10___2
 !  |\                  |\
@@ -109,12 +109,12 @@ module fCoh3d8_element_module
 !  Record of revision:
 !    Date      Programmer            Description of change
 !    ========  ====================  ========================================
-!    23/04/15  B. Y. Chen            Original code
+!    29/06/15  B. Y. Chen            Original code
 !
 
 use parameter_module,          only : NDIM
-use coh3d8_element_module,     only : coh3d8_element
-use fCoh3d8sub_element_module, only : fCoh3d8sub_element
+use delam8_element_module,     only : delam8_element
+use fDelam8sub_element_module, only : fDelam8sub_element
 
 
 implicit none
@@ -140,36 +140,36 @@ integer, parameter :: TOP_SUBELEM_NODES(20) = &
 integer, parameter :: BOT_SUBELEM_NODES(20) = [8,7,6,5,4,3,2,1,  &
                    &  14,13,12,11,10, 9,16,15,   31,30,29,32]
 
-type, public :: fCoh3d8_element
+type, public :: fDelam8_element
     private
 
     integer :: node_connec(NNODE) = 0
     logical :: top_subelem_set    = .false.
     logical :: bot_subelem_set    = .false.
-    type(coh3d8_element),     allocatable :: intact_elem
-    type(fCoh3d8sub_element), allocatable :: top_subelem
-    type(fCoh3d8sub_element), allocatable :: bot_subelem
+    type(delam8_element),     allocatable :: intact_elem
+    type(fDelam8sub_element), allocatable :: top_subelem
+    type(fDelam8sub_element), allocatable :: bot_subelem
 
-end type fCoh3d8_element
+end type fDelam8_element
 
 interface empty
-    module procedure empty_fCoh3d8_element
+    module procedure empty_fDelam8_element
 end interface
 
 interface set
-    module procedure set_fCoh3d8_element
+    module procedure set_fDelam8_element
 end interface
 
 interface update
-    module procedure update_fCoh3d8_element
+    module procedure update_fDelam8_element
 end interface
 
 interface integrate
-    module procedure integrate_fCoh3d8_element
+    module procedure integrate_fDelam8_element
 end interface
 
 interface extract
-    module procedure extract_fCoh3d8_element
+    module procedure extract_fDelam8_element
 end interface
 
 
@@ -181,31 +181,31 @@ contains
 
 
 
-pure subroutine empty_fCoh3d8_element (elem)
+pure subroutine empty_fDelam8_element (elem)
 
-  type(fCoh3d8_element), intent(inout) :: elem
+  type(fDelam8_element), intent(inout) :: elem
 
-  type(fCoh3d8_element) :: elem_lcl
+  type(fDelam8_element) :: elem_lcl
 
   elem = elem_lcl
 
-end subroutine empty_fCoh3d8_element
+end subroutine empty_fDelam8_element
 
 
 
-pure subroutine set_fCoh3d8_element (elem, node_connec, istat, emsg)
+pure subroutine set_fDelam8_element (elem, node_connec, istat, emsg)
 ! Purpose:
 ! to set the element ready for first use
 use parameter_module,       only : MSGLENGTH, STAT_FAILURE, STAT_SUCCESS
-use coh3d8_element_module,  only : set
+use delam8_element_module,  only : set
 
-  type(fCoh3d8_element),    intent(inout) :: elem
+  type(fDelam8_element),    intent(inout) :: elem
   integer,                  intent(in)    :: node_connec(nnode)
   integer,                  intent(out)   :: istat
   character(len=MSGLENGTH), intent(out)   :: emsg
 
   ! local copy of elem
-  type(fCoh3d8_element) :: elem_lcl
+  type(fDelam8_element) :: elem_lcl
   ! global_connec of sub element
   integer, allocatable  :: global_connec(:)
   ! location for emsg
@@ -213,7 +213,7 @@ use coh3d8_element_module,  only : set
 
   istat = STAT_SUCCESS
   emsg  = ''
-  msgloc = ' set, fCoh3d8_element module'
+  msgloc = ' set, fDelam8_element module'
 
   ! check validity of inputs
   if ( any(node_connec < 1) ) then
@@ -247,11 +247,11 @@ use coh3d8_element_module,  only : set
 
   if (allocated(global_connec)) deallocate(global_connec)
 
-end subroutine set_fCoh3d8_element
+end subroutine set_fDelam8_element
 
 
 
-pure subroutine update_fCoh3d8_element (elem, ply_edge_status, top_or_bottom, &
+pure subroutine update_fDelam8_element (elem, ply_edge_status, top_or_bottom, &
 & istat, emsg)
 ! Purpose:
 ! this subroutine is used to update the edge_status array of the element
@@ -260,16 +260,16 @@ use parameter_module, only : MSGLENGTH, STAT_FAILURE, STAT_SUCCESS,&
                       & INTACT, TRANSITION_EDGE, REFINEMENT_EDGE,  &
                       & CRACK_TIP_EDGE, WEAK_CRACK_EDGE,           &
                       & COH_CRACK_EDGE, STRONG_CRACK_EDGE
-use fCoh3d8sub_element_module, only : set
+use fDelam8sub_element_module, only : set
 
-  type(fCoh3d8_element),    intent(inout) :: elem
+  type(fDelam8_element),    intent(inout) :: elem
   integer,                  intent(in)    :: ply_edge_status(NEDGE/2)
   character(len=*),         intent(in)    :: top_or_bottom
   integer,                  intent(out)   :: istat
   character(len=MSGLENGTH), intent(out)   :: emsg
 
   ! local copy of elem
-  type(fCoh3d8_element)    :: el
+  type(fDelam8_element)    :: el
   character(len=MSGLENGTH) :: msgloc
   integer                  :: n_crackedges
 
@@ -278,7 +278,7 @@ use fCoh3d8sub_element_module, only : set
 
   istat  = STAT_SUCCESS
   emsg   = ''
-  msgloc = ' update, fCoh3d8_element module'
+  msgloc = ' update, fDelam8_element module'
   n_crackedges = 0
 
   ! check edge status, see if there's any unexpected edge status value
@@ -364,21 +364,21 @@ use fCoh3d8sub_element_module, only : set
   ! copy definition to input arg. before successful return
   elem = el
 
-end subroutine update_fCoh3d8_element
+end subroutine update_fDelam8_element
 
 
 
-pure subroutine extract_fCoh3d8_element(elem, top_subelem_set, bot_subelem_set,&
+pure subroutine extract_fDelam8_element(elem, top_subelem_set, bot_subelem_set,&
 & intact_elem, top_subelem, bot_subelem)
-use coh3d8_element_module,     only : coh3d8_element
-use fCoh3d8sub_element_module, only : fCoh3d8sub_element
+use delam8_element_module,     only : delam8_element
+use fDelam8sub_element_module, only : fDelam8sub_element
 
-  type(fCoh3d8_element),                           intent(in)  :: elem
+  type(fDelam8_element),                           intent(in)  :: elem
   logical,                               optional, intent(out) :: top_subelem_set
   logical,                               optional, intent(out) :: bot_subelem_set
-  type(coh3d8_element),     allocatable, optional, intent(out) :: intact_elem
-  type(fCoh3d8sub_element), allocatable, optional, intent(out) :: top_subelem
-  type(fCoh3d8sub_element), allocatable, optional, intent(out) :: bot_subelem
+  type(delam8_element),     allocatable, optional, intent(out) :: intact_elem
+  type(fDelam8sub_element), allocatable, optional, intent(out) :: top_subelem
+  type(fDelam8sub_element), allocatable, optional, intent(out) :: bot_subelem
 
   if (present(top_subelem_set)) top_subelem_set = elem%top_subelem_set
   if (present(bot_subelem_set)) bot_subelem_set = elem%bot_subelem_set
@@ -404,24 +404,25 @@ use fCoh3d8sub_element_module, only : fCoh3d8sub_element
     end if
   end if
 
-end subroutine extract_fCoh3d8_element
+end subroutine extract_fDelam8_element
 
 
 
-pure subroutine integrate_fCoh3d8_element (elem, nodes, material, K_matrix, &
-& F_vector, istat, emsg, nofailure)
+pure subroutine integrate_fDelam8_element (elem, nodes, material, theta1, theta2, &
+& K_matrix, F_vector, istat, emsg, nofailure)
 
 use parameter_module, only : DP, MSGLENGTH, STAT_FAILURE, STAT_SUCCESS, ZERO, &
                       & NDIM, HALF
 use xnode_module,              only : xnode
 use cohesive_material_module,  only : cohesive_material
-use coh3d8_element_module,     only : integrate
-use fCoh3d8sub_element_module, only : integrate
+use delam8_element_module,     only : integrate
+use fDelam8sub_element_module, only : integrate
 use global_toolkit_module,     only : assembleKF
 
-  type(fCoh3d8_element),    intent(inout) :: elem
+  type(fDelam8_element),    intent(inout) :: elem
   type(xnode),              intent(inout) :: nodes(NNODE)
   type(cohesive_material),  intent(in)    :: material
+  real(DP),                 intent(in)    :: theta1, theta2
   real(DP),    allocatable, intent(out)   :: K_matrix(:,:), F_vector(:)
   integer,                  intent(out)   :: istat
   character(len=MSGLENGTH), intent(out)   :: emsg
@@ -429,7 +430,7 @@ use global_toolkit_module,     only : assembleKF
 
   !:::: local variables ::::
   ! local copy of intent inout variables
-  type(fCoh3d8_element) :: el
+  type(fDelam8_element) :: el
   type(xnode)           :: nds(NNODE), subelem_nds(20)
   ! sub elem K and F
   real(DP), allocatable :: Ki(:,:), Fi(:)
@@ -445,7 +446,7 @@ use global_toolkit_module,     only : assembleKF
   istat    = STAT_SUCCESS
   emsg     = ''
   nofail   = .false.
-  msgloc   = ' integrate, fCoh3d8_element module'
+  msgloc   = ' integrate, fDelam8_element module'
 
   ! copy intent inout variables to their local copies
   el  = elem
@@ -462,8 +463,8 @@ use global_toolkit_module,     only : assembleKF
 
       ! integrate the intact elem
       call integrate (el%intact_elem, nodes=nds(INTACT_ELEM_NODES),          &
-      & material=material, K_matrix=Ki, F_vector=Fi, istat=istat, emsg=emsg, &
-      & nofailure=nofail)
+      & material=material, theta1=theta1, theta2=theta2,                     &
+      & K_matrix=Ki, F_vector=Fi, istat=istat, emsg=emsg, nofailure=nofail)
       if (istat==STAT_FAILURE) then
         emsg = emsg//trim(msgloc)
         call clean_up(Ki, Fi)
@@ -507,7 +508,8 @@ use global_toolkit_module,     only : assembleKF
       subelem_nds = nds(TOP_SUBELEM_NODES)
       ! integrate the top subelem
       call integrate (el%top_subelem, nodes=subelem_nds, material=material, &
-      & K_matrix=Ki, F_vector=Fi, istat=istat, emsg=emsg, nofailure=nofail)
+      & theta1=theta1, theta2=theta2, K_matrix=Ki, F_vector=Fi,             &
+      & istat=istat, emsg=emsg, nofailure=nofail)
       if (istat==STAT_FAILURE) then
         emsg = emsg//trim(msgloc)
         call clean_up(Ki, Fi)
@@ -538,7 +540,8 @@ use global_toolkit_module,     only : assembleKF
       subelem_nds = nds(BOT_SUBELEM_NODES)
       ! integrate the bot subelem
       call integrate (el%bot_subelem, nodes=subelem_nds, material=material, &
-      & K_matrix=Ki, F_vector=Fi, istat=istat, emsg=emsg, nofailure=nofail)
+      & theta1=theta1, theta2=theta2, K_matrix=Ki, F_vector=Fi,             &
+      & istat=istat, emsg=emsg, nofailure=nofail)
       if (istat==STAT_FAILURE) then
         emsg = emsg//trim(msgloc)
         call clean_up(Ki, Fi)
@@ -590,8 +593,8 @@ use global_toolkit_module,     only : assembleKF
     end subroutine clean_up
 
 
-end subroutine integrate_fCoh3d8_element
+end subroutine integrate_fDelam8_element
 
 
 
-end module fCoh3d8_element_module
+end module fDelam8_element_module
