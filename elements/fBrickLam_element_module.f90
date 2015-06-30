@@ -147,6 +147,11 @@ use fDelam8_element_module, only : set
   i = 0; j = 0
 
   ! check input validity
+  if ( NPLYBLKS < 1 ) then
+    istat = STAT_FAILURE
+    emsg  = 'NPLYBLKS must be >=1,'//trim(msgloc)
+    return
+  end if
   if ( any(node_connec < 1) ) then
     istat = STAT_FAILURE
     emsg  = 'node connec indices must be >=1,'//trim(msgloc)
@@ -193,6 +198,9 @@ use fDelam8_element_module, only : set
   !:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::!
 
   !:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::!
+  ! if more than one ply, then interf subelem needs to be allocated
+  if (NPLYBLKS > 1) then
+  
   !***** allocate nodes to interfs and set interfs elements *****
   allocate(el%interfs(NPLYBLKS-1))
   allocate(el%interfs_nodes(NPLYBLKS-1))
@@ -244,6 +252,8 @@ use fDelam8_element_module, only : set
         return
       end if
   end do
+  
+  end if ! NPLYBLK > 1
   !:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::!
 
   ! update to elem before successful return
@@ -365,6 +375,8 @@ use global_toolkit_module,    only : assembleKF
   !::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::!
   !***** integrate interface elements and assemble into global matrix *****
   !::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::!
+  if (ninterfs > 0) then
+  
   loop_interfs: do i = 1, ninterfs
       !----- update edge status -----
       ! extract status of this interface
@@ -419,6 +431,8 @@ use global_toolkit_module,    only : assembleKF
     call clean_up(Ki, Fi)
     return
   end if
+  
+  end if ! ninterf > 0
 
   ! update the intent inout args
   elem        = el

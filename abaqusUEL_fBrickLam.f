@@ -24,22 +24,22 @@ include 'outputs/output_module.f90'
 !   Abaqus user subroutine for I/O to external files
 !---------------------------------------------------------!
 subroutine uexternaldb(lop,lrestart,time,dtime,kstep,kinc)
-use parameter_module
-use glb_clock_module
-use initialize_lib_module
+use parameter_module, 
+use global_clock_module, only :
+use initialization_module
 use output_module
 
 implicit none
 
-real(kind=dp), intent(in)   :: time(2)
-real(kind=dp), intent(in)   :: dtime
+real(kind=DP), intent(in)   :: time(2)
+real(kind=DP), intent(in)   :: dtime
 integer,       intent(in)   :: lop,lrestart,kstep,kinc
 
 ! local variables
 character(len=dirlength)    :: workdir
 integer                     :: lenworkdir
 integer                     :: freq
-real(dp)                    :: prvdtime,crrpnewdt
+real(DP)                    :: prvdtime,crrpnewdt
 
     workdir=''
     lenworkdir=0
@@ -100,13 +100,9 @@ real(dp)                    :: prvdtime,crrpnewdt
     
     else if (lop .eq. 3) then
 !	    end of the analysis
-        call empty_lib_mat
-        call empty_lib_node
-        call empty_lib_edge
-        call empty_lib_elem
-        call empty_lib_bcd
+      call cleanup_all
         
-  
+
     end if
 
 
@@ -125,101 +121,114 @@ subroutine uel(rhs,amatrx,svars,energy,ndofel,nrhs,nsvars, &
  &       kstep,kinc,jelem,params,ndload,jdltyp,adlmag,predef,npredf, &
  &       lflags,mlvarx,ddlmag,mdload,pnewdt,jprops,njprop,period)
 ! load FNM modules
-use parameter_module,       only:
+use parameter_module,       only: DP, ZERO, MSG_FILE, MSGLENGTH, STAT_SUCCESS, &
+                                & STAT_FAILURE, EXIT_FUNCTION
 use xnode_module,           only: xnode
 use global_nodelist_module, only: global_node_list
 use global_edgelist_module, only: global_edge_list
 use global_elemlist_module, only: global_fBrickLam_list
-use global_material_module, only: plylam_mat, plycoh_mat, interf_mat
+use global_material_module, only: lamina_material, matrixCrack_material, &
+                                & interface_material
 
-! use Abaqus default implict type declaration for passed-in variables only
-include 'aba_param.inc'
+  ! use Abaqus default implict type declaration for passed-in variables only
+  include 'aba_param.inc'
 
-dimension rhs(mlvarx,*),amatrx(ndofel,ndofel),props(*)
-dimension svars(*),energy(8),coords(mcrd,nnode),u(ndofel)
-dimension du(mlvarx,*),v(ndofel),a(ndofel),time(2),params(*)
-dimension jdltyp(mdload,*),adlmag(mdload,*),ddlmag(mdload,*)
-dimension predef(2,npredf,nnode),lflags(*),jprops(*)
-
-
-
-! explicitly define all local variables
+  dimension rhs(mlvarx,*),amatrx(ndofel,ndofel),props(*)
+  dimension svars(*),energy(8),coords(mcrd,nnode),u(ndofel)
+  dimension du(mlvarx,*),v(ndofel),a(ndofel),time(2),params(*)
+  dimension jdltyp(mdload,*),adlmag(mdload,*),ddlmag(mdload,*)
+  dimension predef(2,npredf,nnode),lflags(*),jprops(*)
 
 
+  ! explicitly define all local variables
+  integer                 :: istat
+  character(len=MSGLENGTH):: emsg
+  character(len=MSGLENGTH):: msgloc
+  real(DP),allocatable    :: Kmat(:,:), Fvec(:)
+  real(DP)                :: uj(mcrd,nnode)
+  type(fBrickLam_element) :: elem
+  type(xnode)             :: nodes(nnode)
+  integer, allocatable    :: edge_status(:)
+  integer, allocatable    :: node_cnc(:), edge_cnc(:)
+  integer                 :: j
 
-! element K matrix and F vector
-real(dp),allocatable    :: Kmat(:,:), Fvec(:)
+  amatrx    = ZERO
+  rhs(:,1)  = ZERO
+  istat     = STAT_SUCCESS
+  emsg      = ''
+  msgloc    = ', abaqusUEL_fBrickLam.f'
+  Kmat      = ZERO
+  Fvec      = ZERO
+  uj        = ZERO
+  j         = 0
+  
 
-! variables of element nodes, to be extracted from uel passed-in variables
-! u, to be updated to global node array 'global_node_list' according to
-! the element nodal connectivity
-real(dp)                :: uj(mcrd,nnode)
+  ! copy this element definition from glb list, using the element key jelem
+  elem = global_fBrickLam_list(jelem)
 
-! create this element
-type(fBrickLam_element) :: elem
+  ! extract nodal connec of this elem
+  call extract(elem, node_connec=node_cnc, edge_connec=edge_cnc)
 
-! elem nodes
-type(xnode)             :: nodes(nnode)
+  ! extract nodal values from passed in variables
+  do j=1, nnode
+    uj(1:mcrd,j) = u( (j-1)*mcrd+1 : j*mcrd )
+  end do
 
-! elem edge status
-integer                 :: edge_status(nedge)
+  ! update nodal values to glb node library lib_node according to cnc
+  do j=1, nnode
+    call update(global_node_list(node_cnc(j)),u=uj(:,j))
+  end do
 
-! nodal cnc of this elem
-integer, allocatable    :: node_cnc(:), edge_cnc(:)
+  ! extract info needed for integration
+  nodes       = global_node_list(node_cnc)
+  edge_status = global_edge_list(edge_cnc)
 
-! counters
-integer :: i,j,l
+  ! integrate this element
+  call integrate (elem, nodes, edge_status, lamina_material, matrixCrack_material,&
+  &  interface_material, K_matrix, F_vector, istat, emsg)
+  if (istat == STAT_FAILURE) then
+    emsg = emsg//trim(msgloc)
+    write(MSG_FILE,*) emsg
+    call cleanup (Kmat, Fvec, edge_status, node_cnc, edge_cnc)
+    call cleanup_all
+    call EXIT_FUNCTION
+  end if
 
-uj=zero
-i=0; j=0; l=0
+  ! update intent inout global lists
+  global_fBrickLam_list(jelem) = elem
+  global_node_list(node_cnc)   = nodes
+  global_edge_list(edge_cnc)   = edge_status
 
-amatrx   = zero
-rhs(:,1) = zero
+  ! in the end, pass Kmat and Fvec to Abaqus UEL amatrx and rhs
+  amatrx   =  Kmat
+  rhs(:,1) = -Fvec(:)
 
-!---------------------------------------------------------------------------------!
-!           Abaqus UEL interface to FNM codes for variable pass-in
-!---------------------------------------------------------------------------------!
-
-! copy this element definition from glb list, using the element key jelem
-elem = global_fBrickLam_list(jelem)
-
-! extract nodal connec of this elem
-call extract(elem, node_connec=node_cnc, edge_connec=edge_cnc)
-
-! extract nodal values from passed in variables
-do j=1, nnode
-  uj(1:mcrd,j) = u( (j-1)*mcrd+1 : j*mcrd )
-end do
-
-! update nodal values to glb node library lib_node according to cnc
-do j=1, nnode
-  call update(global_node_list(node_cnc(j)),u=uj(:,j))
-end do
-
-! extract info needed for integration
-nodes       = global_node_list(node_cnc)
-edge_status = global_edge_list(edge_cnc)
-
-! integrate this element
-call integrate (elem, nodes, edge_status, plylam_mat, plycoh_mat, interf_mat, &
-& K_matrix, F_vector, istat, emsg)
-if (istat == STAT_FAILURE) then
-  emsg = 'error in integrate, abaqusUEL_fBrickLam,f'
+  call cleanup (Kmat, Fvec, edge_status, node_cnc, edge_cnc)
   return
-end if
-
-! update intent inout global lists
-global_fBrickLam_list(jelem) = elem
-global_node_list(node_cnc)   = nodes
-global_edge_list(edge_cnc)   = edge_status
-
-! in the end, pass Kmat and Fvec to Abaqus UEL amatrx and rhs
-amatrx   =  Kmat
-rhs(:,1) = -Fvec(:)
-
-if(allocated(Kmat)) deallocate(Kmat)
-if(allocated(Fvec)) deallocate(Fvec)
-if(allocated(node_cnc)) deallocate(node_cnc)
-if(allocated(edge_cnc)) deallocate(edge_cnc)
+  
+  contains
+  
+  pure subroutine cleanup (Kmat, Fvec, edge_status, node_cnc, edge_cnc)
+    real(DP),allocatable, intent(inout)    :: Kmat(:,:), Fvec(:)
+    integer, allocatable, intent(inout)    :: edge_status(:)
+    integer, allocatable, intent(inout)    :: node_cnc(:), edge_cnc(:)
+    if(allocated(Kmat))         deallocate(Kmat)
+    if(allocated(Fvec))         deallocate(Fvec)
+    if(allocated(edge_status))  deallocate(edge_status)
+    if(allocated(node_cnc))     deallocate(node_cnc)
+    if(allocated(edge_cnc))     deallocate(edge_cnc)
+  end subroutine cleanup
 
 end subroutine uel
+
+
+
+subroutine cleanup_all()
+
+  call empty_lib_mat
+  call empty_lib_node
+  call empty_lib_edge
+  call empty_lib_elem
+  call empty_lib_bcd
+
+end subroutine cleanup_all
