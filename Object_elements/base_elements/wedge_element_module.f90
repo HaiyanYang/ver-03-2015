@@ -228,15 +228,15 @@ pure subroutine integrate_wedge_element (elem, nodes, material, K_matrix, &
 ! ZERO, MSGLENGTH, STAT_SUCCESS, STAT_FAILURE, SMALLNUM
 
 ! list of additionally used modules:
-! xnode_module                  : xnode derived type and its assoc. procedures
+! fnode_module                  : fnode derived type and its assoc. procedures
 ! global_toolkit_module         : global tools for element integration
-use xnode_module,                only : xnode, extract
+use fnode_module,                only : fnode, extract
 use global_toolkit_module,       only : crack_elem_centroid2d, determinant3d, &
                                       & invert_self3d, beemat3d, lcl_strain3d,&
                                       & glb_dee3d, distance
 
   type(wedge_element),      intent(inout) :: elem
-  type(xnode),              intent(in)    :: nodes(NNODE)
+  type(fnode),              intent(in)    :: nodes(NNODE)
   type(lamina_material),    intent(in)    :: material
   real(DP),    allocatable, intent(out)   :: K_matrix(:,:), F_vector(:)
   integer,                  intent(out)   :: istat

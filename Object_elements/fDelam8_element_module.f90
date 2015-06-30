@@ -413,14 +413,14 @@ pure subroutine integrate_fDelam8_element (elem, nodes, material, theta1, theta2
 
 use parameter_module, only : DP, MSGLENGTH, STAT_FAILURE, STAT_SUCCESS, ZERO, &
                       & NDIM, HALF
-use xnode_module,              only : xnode
+use fnode_module,              only : fnode
 use cohesive_material_module,  only : cohesive_material
 use delam8_element_module,     only : integrate
 use fDelam8sub_element_module, only : integrate
 use global_toolkit_module,     only : assembleKF
 
   type(fDelam8_element),    intent(inout) :: elem
-  type(xnode),              intent(inout) :: nodes(NNODE)
+  type(fnode),              intent(inout) :: nodes(NNODE)
   type(cohesive_material),  intent(in)    :: material
   real(DP),                 intent(in)    :: theta1, theta2
   real(DP),    allocatable, intent(out)   :: K_matrix(:,:), F_vector(:)
@@ -431,7 +431,7 @@ use global_toolkit_module,     only : assembleKF
   !:::: local variables ::::
   ! local copy of intent inout variables
   type(fDelam8_element) :: el
-  type(xnode)           :: nds(NNODE), subelem_nds(20)
+  type(fnode)           :: nds(NNODE), subelem_nds(20)
   ! sub elem K and F
   real(DP), allocatable :: Ki(:,:), Fi(:)
   ! local copy of optional input arg.

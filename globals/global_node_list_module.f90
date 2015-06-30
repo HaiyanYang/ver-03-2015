@@ -3,12 +3,12 @@
 !***************************************!
 
 module global_node_list_module
-use xnode_module, only: xnode
+use fnode_module, only: fnode
 
 implicit none
 save
 
-type(xnode), allocatable :: global_node_list(:)
+type(fnode), allocatable :: global_node_list(:)
 
 
 contains

@@ -265,13 +265,13 @@ use parameter_module,         only : DP, MSGLENGTH, STAT_SUCCESS, STAT_FAILURE,&
                               & ZERO,    INTACT, TRANSITION_ELEM,              &
                               & REFINEMENT_ELEM,  CRACK_TIP_ELEM,              &
                               & CRACK_WAKE_ELEM, MATRIX_CRACK_ELEM
-use xnode_module,             only : xnode
+use fnode_module,             only : fnode
 use lamina_material_module,   only : lamina_material
 use cohesive_material_module, only : cohesive_material
 use global_clock_module,      only : GLOBAL_CLOCK, clock_in_sync
 
   type(fBrick_element),     intent(inout) :: elem
-  type(xnode),              intent(inout) :: nodes(NNODE)
+  type(fnode),              intent(inout) :: nodes(NNODE)
   integer,                  intent(inout) :: edge_status(NEDGE)
   type(lamina_material),    intent(in)    :: lam_mat
   type(cohesive_material),  intent(in)    :: coh_mat
@@ -282,7 +282,7 @@ use global_clock_module,      only : GLOBAL_CLOCK, clock_in_sync
   !:::: local variables ::::
   ! local copy of intent inout variables
   type(fBrick_element)      :: el
-  type(xnode)               :: nds(NNODE)
+  type(fnode)               :: nds(NNODE)
   integer                   :: egstatus(NEDGE)
   integer                   :: elstatus
   ! logical control variables
@@ -471,12 +471,12 @@ use parameter_module,      only : DP, MSGLENGTH, STAT_SUCCESS, STAT_FAILURE,  &
                           & CRACK_TIP_EDGE,  COH_CRACK_EDGE,                  &
                           & TRANSITION_ELEM, REFINEMENT_ELEM,                 &
                           & CRACK_TIP_ELEM,  CRACK_WAKE_ELEM, MATRIX_CRACK_ELEM
-use xnode_module,          only : xnode, extract, update
+use fnode_module,          only : fnode, extract, update
 use global_toolkit_module, only : crack_elem_cracktip2d
 
   ! passed-in variables
   type(fBrick_element),     intent(inout) :: elem
-  type(xnode),              intent(inout) :: nodes(NNODE)
+  type(fnode),              intent(inout) :: nodes(NNODE)
   integer,                  intent(inout) :: edge_status(NEDGE)
   integer,                  intent(out)   :: istat
   character(len=MSGLENGTH), intent(out)   :: emsg
@@ -816,7 +816,7 @@ use parameter_module,       only : DP, MSGLENGTH, STAT_SUCCESS, STAT_FAILURE, &
                           & TRANSITION_EDGE, COH_CRACK_EDGE,                  &
                           & TRANSITION_ELEM, REFINEMENT_ELEM,                 &
                           & CRACK_TIP_ELEM,  CRACK_WAKE_ELEM, MATRIX_CRACK_ELEM
-use xnode_module,           only : xnode, extract, update
+use fnode_module,           only : fnode, extract, update
 use brick_element_module,   only : extract
 use basePly_element_module, only : extract
 use cohCrack_element_module,only : extract
@@ -824,7 +824,7 @@ use global_toolkit_module,  only : crack_elem_centroid2d, crack_elem_cracktip2d
 
   ! passed-in variables
   type(fBrick_element),     intent(inout) :: elem
-  type(xnode),              intent(inout) :: nodes(NNODE)
+  type(fnode),              intent(inout) :: nodes(NNODE)
   integer,                  intent(inout) :: edge_status(NEDGE)
   integer,                  intent(out)   :: istat
   character(len=MSGLENGTH), intent(out)   :: emsg
@@ -1545,7 +1545,7 @@ use parameter_module, only : MSGLENGTH, STAT_SUCCESS, STAT_FAILURE,         &
                       & DP, NDIM, ZERO, ONE, PENALTY_STIFFNESS, INTACT,     &
                       & TRANSITION_ELEM, REFINEMENT_ELEM,   CRACK_TIP_ELEM, &
                       & CRACK_WAKE_ELEM, MATRIX_CRACK_ELEM, CRACK_TIP_EDGE
-use xnode_module,             only : xnode
+use fnode_module,             only : fnode
 use lamina_material_module,   only : lamina_material
 use cohesive_material_module, only : cohesive_material
 use brick_element_module,     only : integrate
@@ -1555,7 +1555,7 @@ use global_toolkit_module,    only : assembleKF
 
   ! - passed in variables
   type(fBrick_element),     intent(inout) :: elem
-  type(xnode),              intent(in)    :: nodes(NNODE)
+  type(fnode),              intent(in)    :: nodes(NNODE)
   type(lamina_material),    intent(in)    :: lam_mat
   type(cohesive_material),  intent(in)    :: coh_mat
   real(DP),                 intent(out)   :: K_matrix(NDOF,NDOF), F_vector(NDOF)
@@ -1791,7 +1791,7 @@ use global_toolkit_module,    only : assembleKF
   pure subroutine integrate_assemble_intact_elem (elem, nodes, lam_mat, &
   & K_matrix, F_vector, istat, emsg, nofail)
     type(fBrick_element),     intent(inout) :: elem
-    type(xnode),              intent(in)    :: nodes(NNODE)
+    type(fnode),              intent(in)    :: nodes(NNODE)
     type(lamina_material),    intent(in)    :: lam_mat
     real(DP),                 intent(out)   :: K_matrix(NDOF,NDOF)
     real(DP),                 intent(out)   :: F_vector(NDOF)
@@ -1824,7 +1824,7 @@ use global_toolkit_module,    only : assembleKF
   pure subroutine integrate_assemble_subBulks (elem, nodes, lam_mat, &
   & K_matrix, F_vector, istat, emsg, nofail)
     type(fBrick_element),     intent(inout) :: elem
-    type(xnode),              intent(in)    :: nodes(NNODE)
+    type(fnode),              intent(in)    :: nodes(NNODE)
     type(lamina_material),    intent(in)    :: lam_mat
     real(DP),                 intent(out)   :: K_matrix(NDOF,NDOF)
     real(DP),                 intent(out)   :: F_vector(NDOF)
@@ -1863,7 +1863,7 @@ use global_toolkit_module,    only : assembleKF
   pure subroutine integrate_assemble_cohCrack (elem, nodes, coh_mat, &
   & K_matrix, F_vector, istat, emsg, nofail)
     type(fBrick_element),     intent(inout) :: elem
-    type(xnode),              intent(in)    :: nodes(NNODE)
+    type(fnode),              intent(in)    :: nodes(NNODE)
     type(cohesive_material),  intent(in)    :: coh_mat
     real(DP),                 intent(out)   :: K_matrix(NDOF,NDOF)
     real(DP),                 intent(out)   :: F_vector(NDOF)

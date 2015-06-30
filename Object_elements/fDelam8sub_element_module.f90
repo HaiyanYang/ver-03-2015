@@ -227,11 +227,11 @@ pure subroutine integrate_fDelam8sub_element (elem, nodes, material, theta1, the
 ! Purpose:
 ! to integrate this fDelam8 subelem and update its internal nodes in nodes array
 use parameter_module, only : DP, MSGLENGTH, STAT_FAILURE, STAT_SUCCESS, ZERO
-use xnode_module,             only : xnode
+use fnode_module,             only : fnode
 use cohesive_material_module, only : cohesive_material
 
   type(fDelam8sub_element), intent(inout) :: elem
-  type(xnode),              intent(inout) :: nodes(NNODE)
+  type(fnode),              intent(inout) :: nodes(NNODE)
   type(cohesive_material),  intent(in)    :: material
   real(DP),                 intent(in)    :: theta1, theta2
   real(DP),    allocatable, intent(out)   :: K_matrix(:,:), F_vector(:)
@@ -241,7 +241,7 @@ use cohesive_material_module, only : cohesive_material
 
   ! local variables
   type(fDelam8sub_element) :: el
-  type(xnode) :: nodes_lcl(NNODE)
+  type(fnode) :: nodes_lcl(NNODE)
   logical :: nofail
 
   ! initialize K & F and local variables
@@ -322,13 +322,13 @@ pure subroutine partition_element (el, nodes, istat, emsg)
 use parameter_module, only : MSGLENGTH, STAT_SUCCESS, STAT_FAILURE, &
                       & INT_ALLOC_ARRAY, DP, ELTYPELENGTH, ZERO,    &
                       & ONE, SMALLNUM, COH_CRACK_EDGE
-use xnode_module,           only : xnode, extract
+use fnode_module,           only : fnode, extract
 use baseCoh_element_module, only : set
 use global_toolkit_module,  only : distance, partition_quad_elem
 
   ! passed-in variables
   type(fDelam8sub_element), intent(inout) :: el
-  type(xnode),              intent(in)    :: nodes(NNODE)
+  type(fnode),              intent(in)    :: nodes(NNODE)
   integer,                  intent(out)   :: istat
   character(len=MSGLENGTH), intent(out)   :: emsg
 
@@ -580,14 +580,14 @@ pure subroutine update_internal_nodes (el, nodes)
 ! Purpose:
 ! - update the components of the internal nodes of this element
 use parameter_module, only : ZERO, ONE, COH_CRACK_EDGE
-use xnode_module,     only : xnode, operator(+), operator(*)
+use fnode_module,     only : fnode, operator(+), operator(*)
 
   type(fDelam8sub_element), intent(in) :: el
-  type(xnode),           intent(inout) :: nodes(NNODE)
+  type(fnode),           intent(inout) :: nodes(NNODE)
 
   integer     :: Icrackedge, Iinnode, Iendnode1, Iendnode2
   real(DP)    :: lambda
-  type(xnode) :: innode, endnode1, endnode2
+  type(fnode) :: innode, endnode1, endnode2
   integer     :: j
 
   ! initialize local var.
@@ -628,14 +628,14 @@ pure subroutine integrate_assemble_subelems (elem, nodes, material, theta1, thet
 ! integrate and assemble sub element system arrays
 use parameter_module, only : DP, MSGLENGTH, STAT_SUCCESS, STAT_FAILURE, ZERO, &
                       & NDIM
-use xnode_module,             only : xnode
+use fnode_module,             only : fnode
 use cohesive_material_module, only : cohesive_material
 use baseCoh_element_module,   only : integrate
 use global_toolkit_module,    only : assembleKF
 
   ! - passed in variables
   type(fDelam8sub_element), intent(inout) :: elem
-  type(xnode),              intent(in)    :: nodes(NNODE)
+  type(fnode),              intent(in)    :: nodes(NNODE)
   type(cohesive_material),  intent(in)    :: material
   real(DP),                 intent(in)    :: theta1, theta2
   real(DP),                 intent(out)   :: K_matrix(NDOF,NDOF), F_vector(NDOF)

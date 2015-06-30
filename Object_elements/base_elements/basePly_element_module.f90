@@ -247,13 +247,13 @@ use brick_element_module, only : brick_element
   pure subroutine integrate_basePly_element (elem, nodes, material, Kmatrix, &
   & Fvector, istat, emsg, nofailure)
   ! extra modules needed to declare the type of some dummy args
-  use xnode_module,           only : xnode
+  use fnode_module,           only : fnode
   use lamina_material_module, only : lamina_material
   use wedge_element_module,   only : integrate
   use brick_element_module,   only : integrate
 
       type(basePly_element),    intent(inout) :: elem
-      type(xnode),              intent(in)    :: nodes(:)
+      type(fnode),              intent(in)    :: nodes(:)
       type(lamina_material),    intent(in)    :: material
       real(DP), allocatable,    intent(out)   :: Kmatrix(:,:), Fvector(:)
       integer,                  intent(out)   :: istat

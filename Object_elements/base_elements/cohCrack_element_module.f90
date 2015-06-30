@@ -199,15 +199,15 @@ pure subroutine integrate_cohCrack_element (elem, nodes, material, &
 ! different element types
 
 ! list of used modules:
-! xnode_module                  : xnode derived type and its assoc. procedures
+! fnode_module                  : fnode derived type and its assoc. procedures
 ! global_toolkit_module         : global tools for element integration
-use xnode_module,                only : xnode, extract
+use fnode_module,                only : fnode, extract
 use global_toolkit_module,       only : cross_product3d, normalize_vect, &
                                  & determinant2d
   ! most args are self-explanatory
   ! fdir: fibre direction
   type(cohCrack_element),     intent(inout) :: elem
-  type(xnode),              intent(in)    :: nodes(NNODE)
+  type(fnode),              intent(in)    :: nodes(NNODE)
   type(cohesive_material),  intent(in)    :: material
   real(DP),    allocatable, intent(out)   :: K_matrix(:,:), F_vector(:)
   integer,                  intent(out)   :: istat

@@ -15,7 +15,7 @@ include 'globals/global_edge_list_module.f90'
 include 'globals/global_elem_list_module.f90'
 include 'object_materials/lamina_material_module.f90'
 include 'object_materials/cohesive_material_module.f90'
-include 'object_node/xnode_module.f90'
+include 'object_node/fnode_module.f90'
 include 'object_elements/base_elements/brick_element_module.f90'
 include 'object_elements/base_elements/wedge_element_module.f90'
 include 'object_elements/base_elements/cohCrack_element_module.f90'
@@ -112,7 +112,7 @@ subroutine uel(rhs,amatrx,svars,energy,ndofel,nrhs,nsvars, &
 ! load FNM modules
 use parameter_module,       only: DP, ZERO, MSG_FILE, MSGLENGTH, STAT_SUCCESS, &
                                 & STAT_FAILURE, EXIT_FUNCTION
-use xnode_module,           only: xnode
+use fnode_module,           only: fnode
 use global_node_list_module,only: global_node_list
 use global_edge_list_module,only: global_edge_list
 use global_elem_list_module,only: global_elem_list, elem_node_connec, elem_edge_connec
@@ -136,7 +136,7 @@ use global_material_module, only: UDSinglePly_material, matrixCrack_material, &
   real(DP),allocatable    :: Kmat(:,:), Fvec(:)
   real(DP)                :: uj(mcrd,nnode)
   type(fBrickLam_element) :: elem
-  type(xnode)             :: nodes(nnode)
+  type(fnode)             :: nodes(nnode)
   integer, allocatable    :: edge_status(:)
   integer, allocatable    :: node_cnc(:), edge_cnc(:)
   integer                 :: j

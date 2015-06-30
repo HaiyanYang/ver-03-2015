@@ -1,9 +1,9 @@
 include 'globals/parameter_module.f90'
-include 'globals/xnode_module.f90'
+include 'globals/fnode_module.f90'
 
-program test_xnode
+program test_fnode
 ! Purpose:
-! to perform unit testing on xnode_module
+! to perform unit testing on fnode_module
 !
 !
 !  Record of revision:
@@ -13,13 +13,13 @@ program test_xnode
 !
 !
 use parameter_module, only : DP, ZERO, ONE, MSGLENGTH, STAT_SUCCESS, STAT_FAILURE
-use xnode_module ! use everything
+use fnode_module ! use everything
 
 implicit none
 
 integer, parameter :: ndim = 3, ndof = 2
 
-type(xnode) :: node1, node2, node3
+type(fnode) :: node1, node2, node3
 real(DP), allocatable :: x(:)
 real(DP), allocatable :: u(:),   du(:)
 real(DP), allocatable :: v(:),   a(:)
@@ -113,4 +113,4 @@ call display (node3)
 
 
 
-end program test_xnode
+end program test_fnode

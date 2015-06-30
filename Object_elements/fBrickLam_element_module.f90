@@ -268,7 +268,7 @@ pure subroutine integrate_fBrickLam_element (elem, nodes, edge_status,        &
 
 use parameter_module, only : DP, MSGLENGTH, STAT_SUCCESS, STAT_FAILURE, NDIM, &
                       & ZERO, NDIM, MATRIX_CRACK_ELEM
-use xnode_module,             only : xnode
+use fnode_module,             only : fnode
 use lamina_material_module,   only : lamina_material, lamina_scaled_Gfc
 use cohesive_material_module, only : cohesive_material
 use fBrick_element_module,    only : extract, integrate
@@ -276,7 +276,7 @@ use fDelam8_element_module,   only : extract, update, integrate
 use global_toolkit_module,    only : assembleKF
 
   type(fBrickLam_element),  intent(inout) :: elem
-  type(xnode),              intent(inout) :: nodes(size(elem%node_connec))
+  type(fnode),              intent(inout) :: nodes(size(elem%node_connec))
   integer,                  intent(inout) :: edge_status(elem%NPLYBLKS*NEDGE)
   type(lamina_material),    intent(in)    :: plylam_mat
   type(cohesive_material),  intent(in)    :: plycoh_mat
@@ -289,10 +289,10 @@ use global_toolkit_module,    only : assembleKF
   ! local variables
   character(len=MSGLENGTH) :: msgloc
   type(fBrickLam_element)  :: el
-  type(xnode)              :: nds(size(nodes))
+  type(fnode)              :: nds(size(nodes))
   integer                  :: egstatus(size(edge_status))
   integer                  :: nplyblks, ninterfs, ndof
-  type(xnode)              :: plyblknds(NNODE_PLYBLK), interfnds(NNODE_INTERF)
+  type(fnode)              :: plyblknds(NNODE_PLYBLK), interfnds(NNODE_INTERF)
   integer                  :: subegstatus(NEDGE)
   type(lamina_material)    :: plyblklam_mat
   real(DP)                 :: theta1, theta2

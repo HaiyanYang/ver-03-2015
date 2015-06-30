@@ -239,13 +239,13 @@ use delam8_element_module, only : delam8_element
   pure subroutine integrate_baseCoh_element (elem, nodes, material, theta1, theta2,&
   & Kmatrix, Fvector, istat, emsg, nofailure)
   ! extra modules needed to declare the type of some dummy args
-  use xnode_module,             only : xnode
+  use fnode_module,             only : fnode
   use cohesive_material_module, only : cohesive_material
   use delam6_element_module,    only : integrate
   use delam8_element_module,    only : integrate
 
       type(baseCoh_element),    intent(inout) :: elem
-      type(xnode),              intent(in)    :: nodes(:)
+      type(fnode),              intent(in)    :: nodes(:)
       type(cohesive_material),  intent(in)    :: material
       real(DP),                 intent(in)    :: theta1, theta2
       real(DP), allocatable,    intent(out)   :: Kmatrix(:,:), Fvector(:)
