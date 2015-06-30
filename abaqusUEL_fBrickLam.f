@@ -5,16 +5,29 @@
 !***************************************!
 
 
-!------ include useful modules--------------------------
+!------ include FNM modules --------------------------
 include 'globals/parameter_module.f90'
 include 'globals/global_clock_module.f90'
 include 'globals/global_toolkit_module.f90'
-include 'libraries/lib_node_module.f90'
-include 'libraries/lib_edge_module.f90'
-include 'libraries/lib_mat_module.f90'
-include 'libraries/lib_bcd_module.f90'
-include 'libraries/lib_elem_module.f90'
-include 'libraries/initialize_lib_module.f90'
+include 'globals/global_material_module.f90'
+include 'globals/global_node_list_module.f90'
+include 'globals/global_edge_list_module.f90'
+include 'globals/global_elem_list_module.f90'
+include 'object_materials/lamina_material_module.f90'
+include 'object_materials/cohesive_material_module.f90'
+include 'object_node/xnode_module.f90'
+include 'object_elements/base_elements/brick_element_module.f90'
+include 'object_elements/base_elements/wedge_element_module.f90'
+include 'object_elements/base_elements/cohCrack_element_module.f90'
+include 'object_elements/base_elements/delam6_element_module.f90'
+include 'object_elements/base_elements/delam8_element_module.f90'
+include 'object_elements/base_elements/basePly_element_module.f90'
+include 'object_elements/base_elements/baseCoh_element_module.f90'
+include 'object_elements/fBrick_element_module.f90'
+include 'object_elements/fDelam8sub_element_module.f90'
+include 'object_elements/fDelam8_element_module.f90'
+include 'object_elements/fBrickLam_element_module.f90'
+include 'preprocessing/initialization_module.f90'
 include 'outputs/output_module.f90'
 !------------------------------------------------------
 
