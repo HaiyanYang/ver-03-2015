@@ -2,10 +2,8 @@
 !   the global list of nodes            !
 !***************************************!
 
-include "globals/xnode_module.f90"
-
 module global_node_list_module
-use xnode_module
+use xnode_module, only: xnode
 
 implicit none
 save
