@@ -1,4 +1,4 @@
-module fBrickLam_element_module
+module fBrickLam_elem_module
 !
 !  Purpose:
 !    define a floating-node brick laminate element
@@ -11,8 +11,8 @@ module fBrickLam_element_module
 !    29/06/15  B. Y. Chen            Original code
 !
 use parameter_module,       only : DP, INT_ALLOC_ARRAY, ZERO
-use fBrick_element_module,  only : fBrick_element
-use fDelam8_element_module, only : fDelam8_element
+use fBrickPly_elem_module,  only : fBrickPly_elem
+use fCoh8Delam_elem_module, only : fCoh8Delam_elem
 
 implicit none
 private
@@ -27,34 +27,34 @@ type, public :: plyblock_layup
   integer  :: nplies = 0
 end type plyblock_layup
 
-type, public :: fBrickLam_element
+type, public :: fBrickLam_elem
   private
   integer :: curr_status = 0
   integer :: NPLYBLKS    = 0
   integer,               allocatable :: node_connec(:)
   type(plyblock_layup),  allocatable :: layup(:)
-  type(fBrick_element),  allocatable :: plyblks(:)
-  type(fDelam8_element), allocatable :: interfs(:)
+  type(fBrickPly_elem),  allocatable :: plyblks(:)
+  type(fCoh8Delam_elem), allocatable :: interfs(:)
   type(INT_ALLOC_ARRAY), allocatable :: plyblks_nodes(:)
   type(INT_ALLOC_ARRAY), allocatable :: interfs_nodes(:)
   type(INT_ALLOC_ARRAY), allocatable :: plyblks_edges(:)
   type(INT_ALLOC_ARRAY), allocatable :: interfs_edges(:)
-end type fBrickLam_element
+end type fBrickLam_elem
 
 interface empty
-  module procedure empty_fBrickLam_element
+  module procedure empty_fBrickLam_elem
 end interface
 
 interface set
-  module procedure set_fBrickLam_element
+  module procedure set_fBrickLam_elem
 end interface
 
 interface integrate
-  module procedure integrate_fBrickLam_element
+  module procedure integrate_fBrickLam_elem
 end interface
 
 interface extract
-  module procedure extract_fBrickLam_element
+  module procedure extract_fBrickLam_elem
 end interface
 
 
@@ -69,28 +69,28 @@ contains
 
 
 
-pure subroutine empty_fBrickLam_element (elem)
+pure subroutine empty_fBrickLam_elem (elem)
 
-  type(fBrickLam_element), intent(inout) :: elem
+  type(fBrickLam_elem), intent(inout) :: elem
 
-  type(fBrickLam_element) :: el
+  type(fBrickLam_elem) :: el
 
   elem = el
 
-end subroutine empty_fBrickLam_element
+end subroutine empty_fBrickLam_elem
 
 
 
-pure subroutine extract_fBrickLam_element (elem, curr_status, layup, plyblks, &
+pure subroutine extract_fBrickLam_elem (elem, curr_status, layup, plyblks, &
 & interfs)
-use fBrick_element_module,  only : fBrick_element
-use fDelam8_element_module, only : fDelam8_element
+use fBrickPly_elem_module,  only : fBrickPly_elem
+use fCoh8Delam_elem_module, only : fCoh8Delam_elem
 
-  type(fBrickLam_element),                     intent(in)  :: elem
+  type(fBrickLam_elem),                     intent(in)  :: elem
   integer,                           optional, intent(out) :: curr_status
   type(plyblock_layup), allocatable, optional, intent(out) :: layup(:)
-  type(fBrick_element), allocatable, optional, intent(out) :: plyblks(:)
-  type(fDelam8_element),allocatable, optional, intent(out) :: interfs(:)
+  type(fBrickPly_elem), allocatable, optional, intent(out) :: plyblks(:)
+  type(fCoh8Delam_elem),allocatable, optional, intent(out) :: interfs(:)
 
   if(present(curr_status)) curr_status = elem%curr_status
 
@@ -115,17 +115,17 @@ use fDelam8_element_module, only : fDelam8_element
       end if
   end if
 
-end subroutine extract_fBrickLam_element
+end subroutine extract_fBrickLam_elem
 
 
 
-pure subroutine set_fBrickLam_element (elem, NPLYBLKS, node_connec, layup, &
+pure subroutine set_fBrickLam_elem (elem, NPLYBLKS, node_connec, layup, &
 & istat, emsg)
 use parameter_module, only : DP, MSGLENGTH, STAT_SUCCESS, STAT_FAILURE
-use fBrick_element_module,  only : set
-use fDelam8_element_module, only : set
+use fBrickPly_elem_module,  only : set
+use fCoh8Delam_elem_module, only : set
 
-  type(fBrickLam_element),  intent(inout) :: elem
+  type(fBrickLam_elem),  intent(inout) :: elem
   integer,  intent(in)  :: NPLYBLKS
   integer,  intent(in)  :: node_connec( NPLYBLKS   * NNODE_PLYBLK + &
                                      & (NPLYBLKS-1)* NNDIN_INTERF )
@@ -133,7 +133,7 @@ use fDelam8_element_module, only : set
   integer,                  intent(out) :: istat
   character(len=MSGLENGTH), intent(out) :: emsg
 
-  type(fBrickLam_element)  :: el
+  type(fBrickLam_elem)  :: el
   character(len=MSGLENGTH) :: msgloc
   integer                  :: nndtotal, jstart, jend
   integer                  :: i, j
@@ -259,11 +259,11 @@ use fDelam8_element_module, only : set
   ! update to elem before successful return
   elem = el
 
-end subroutine set_fBrickLam_element
+end subroutine set_fBrickLam_elem
 
 
 
-pure subroutine integrate_fBrickLam_element (elem, nodes, edge_status,        &
+pure subroutine integrate_fBrickLam_elem (elem, nodes, edge_status,        &
 & plylam_mat, plycoh_mat, interf_mat, K_matrix, F_vector, istat, emsg)
 
 use parameter_module, only : DP, MSGLENGTH, STAT_SUCCESS, STAT_FAILURE, NDIM, &
@@ -271,11 +271,11 @@ use parameter_module, only : DP, MSGLENGTH, STAT_SUCCESS, STAT_FAILURE, NDIM, &
 use fnode_module,             only : fnode
 use lamina_material_module,   only : lamina_material, lamina_scaled_Gfc
 use cohesive_material_module, only : cohesive_material
-use fBrick_element_module,    only : extract, integrate
-use fDelam8_element_module,   only : extract, update, integrate
+use fBrickPly_elem_module,    only : extract, integrate
+use fCoh8Delam_elem_module,   only : extract, update, integrate
 use global_toolkit_module,    only : assembleKF
 
-  type(fBrickLam_element),  intent(inout) :: elem
+  type(fBrickLam_elem),  intent(inout) :: elem
   type(fnode),              intent(inout) :: nodes(size(elem%node_connec))
   integer,                  intent(inout) :: edge_status(elem%NPLYBLKS*NEDGE)
   type(lamina_material),    intent(in)    :: plylam_mat
@@ -288,7 +288,7 @@ use global_toolkit_module,    only : assembleKF
 
   ! local variables
   character(len=MSGLENGTH) :: msgloc
-  type(fBrickLam_element)  :: el
+  type(fBrickLam_elem)  :: el
   type(fnode)              :: nds(size(nodes))
   integer                  :: egstatus(size(edge_status))
   integer                  :: nplyblks, ninterfs, ndof
@@ -460,9 +460,9 @@ use global_toolkit_module,    only : assembleKF
   end subroutine clean_up
 
 
-end subroutine integrate_fBrickLam_element
+end subroutine integrate_fBrickLam_elem
 
 
 
 
-end module fBrickLam_element_module
+end module fBrickLam_elem_module

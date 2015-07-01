@@ -1,31 +1,32 @@
-module delam8_element_module
+module coh6Delam_elem_module
 !
 !  Purpose:
-!    define a delam8 element object for delamination
+!    define a 3D 6-Node cohesive element object for delamination
 !    with the associated procedures to empty, set, integrate and extract
 !    its components
 !
-!  topological definition of this delam8 element, local nodal indices:
+!  topological definition of this wedge element, local nodal indices:
 !
-!  8___________________7
-!  |\                  |\
-!  | \                 | \
-!  |  \                |  \
-!  |   \               |   \
-!  |    \              |    \
-!  |     \5____________|_____\6
-!  |______|____________|      |
-! 4\      |           3\      |
-!   \     |             \     |
-!    \    |              \    |
-!     \   |               \   |
-!      \  |                \  |
-!       \ |                 \ |
-!        \|__________________\|
-!         1                   2
+!                     6
+!                    /|\
+!                   / | \
+!                  /  |  \
+!                 /   |   \
+!                /    |    \
+!               /     |     \
+!             4/______|______\5
+!             |       |       |
+!             |      /3\      |
+!             |     /   \     |
+!             |    /     \    |
+!             |   /       \   |
+!             |  /         \  |
+!             | /           \ |
+!             |/_____________\|
+!             1               2
 !
-!  bottom surface nodes (counter-clock vise): 1, 2, 3, 4
-!  top    surface nodes (counter-clock vise): 5, 6, 7, 8
+!  bottom surface nodes (counter-clock vise): 1, 2, 3
+!  top    surface nodes (counter-clock vise): 4, 5, 6
 !
 !  coord. system: x-y-z, z is normal dir.
 !
@@ -35,9 +36,9 @@ module delam8_element_module
 !    29/06/15  B. Y. Chen            Original code
 !
 
-use parameter_module, only : NST => NST_COHESIVE, NDIM, DP, ZERO, ONE, HALF, &
-                      & ONE_ROOT3, QUARTER, SMALLNUM, HALFCIRC, PI, INTACT,  &
-                      & MSGLENGTH, STAT_SUCCESS, STAT_FAILURE
+use parameter_module, only : NST => NST_COHESIVE, NDIM, DP, ZERO, HALF, ONE, &
+                      & ONE_SIXTH, MSGLENGTH, STAT_SUCCESS, STAT_FAILURE,    &
+                      & SMALLNUM, HALFCIRC, PI, INTACT
 ! list of external modules used in type definition and other procedures:
 ! global clock module      : needed in element definition, extract and integrate
 ! cohesive material module : needed in element definition, extract and integrate
@@ -53,10 +54,10 @@ private
 ! NIGPOINT      : no. of integration points in this element
 ! NDOF          : no. of degree-of-freedom  in this element
 !
-integer, parameter :: NNODE=8, NIGPOINT=4, NDOF=NDIM*NNODE
+integer, parameter :: NNODE=6, NIGPOINT=3, NDOF=NDIM*NNODE
 
 
-type, public :: delam8_element
+type, public :: coh6Delam_elem
   private
   ! list of type components:
   ! fstat         : element failure status
@@ -81,19 +82,19 @@ end type
 
 
 interface empty
-  module procedure empty_delam8_element
+  module procedure empty_coh6Delam_elem
 end interface
 
 interface set
-  module procedure set_delam8_element
+  module procedure set_coh6Delam_elem
 end interface
 
 interface integrate
-  module procedure integrate_delam8_element
+  module procedure integrate_coh6Delam_elem
 end interface
 
 interface extract
-  module procedure extract_delam8_element
+  module procedure extract_coh6Delam_elem
 end interface
 
 
@@ -109,60 +110,60 @@ contains
 
 
 
-pure subroutine empty_delam8_element (elem)
+pure subroutine empty_coh6Delam_elem (elem)
 ! Purpose:
 ! this subroutine is used to format the element for use
 ! it is used in the initialize_lib_elem procedure in the lib_elem module
 
-  type(delam8_element), intent(inout) :: elem
+  type(coh6Delam_elem), intent(inout) :: elem
 
   ! local variable, derived type var. is initialized upon declaration
-  type(delam8_element) :: elem_lcl
+  type(coh6Delam_elem) :: elem_lcl
 
   ! reset elem to the initial state
   elem = elem_lcl
 
-end subroutine empty_delam8_element
+end subroutine empty_coh6Delam_elem
 
 
 
-pure subroutine set_delam8_element (elem, connec, istat, emsg)
+pure subroutine set_coh6Delam_elem (elem, connec, istat, emsg)
 ! Purpose:
 ! this subroutine is used to set the components of the element
 ! it is used in the initialize_lib_elem procedure in the lib_elem module
 ! note that only some of the components need to be set during preproc,
 ! namely connec, ID_matlist
 
-  type(delam8_element),   intent(inout)   :: elem
+  type(coh6Delam_elem),   intent(inout)   :: elem
   integer,                intent(in)      :: connec(NNODE)
   integer,                  intent(out)   :: istat
   character(len=MSGLENGTH), intent(out)   :: emsg
-  
+
   istat = STAT_SUCCESS
   emsg  = ''
-  
+
   ! check validity of inputs
   if ( any(connec < 1) ) then
     istat = STAT_FAILURE
     emsg  = 'connec node indices must be >=1, set, &
-    &delam8_element_module'
+    &coh6Delam_elem_module'
     return
   end if
-  
+
   elem%connec    = connec
 
-end subroutine set_delam8_element
+end subroutine set_coh6Delam_elem
 
 
 
-pure subroutine extract_delam8_element (elem, fstat, connec, ig_points, &
+pure subroutine extract_coh6Delam_elem (elem, fstat, connec, ig_points, &
 & ig_angles, traction, separation, dm)
 ! Purpose:
 ! to extract the components of this element
 ! note that the dummy args connec and ig_points are allocatable arrays
 ! because their sizes vary with different element types
 
-  type(delam8_element),                           intent(in)  :: elem
+  type(coh6Delam_elem),                           intent(in)  :: elem
   integer,                              optional, intent(out) :: fstat
   integer,                 allocatable, optional, intent(out) :: connec(:)
   type(cohesive_ig_point), allocatable, optional, intent(out) :: ig_points(:)
@@ -194,11 +195,11 @@ pure subroutine extract_delam8_element (elem, fstat, connec, ig_points, &
 
   if (present(dm))          dm          = elem%dm
 
-end subroutine extract_delam8_element
+end subroutine extract_coh6Delam_elem
 
 
 
-pure subroutine integrate_delam8_element (elem, nodes, material, theta1, theta2,&
+pure subroutine integrate_coh6Delam_elem (elem, nodes, material, theta1, theta2,&
 & K_matrix, F_vector, istat, emsg, nofailure)
 ! Purpose:
 ! updates K matrix, F vector, integration point stress and strain,
@@ -210,11 +211,11 @@ pure subroutine integrate_delam8_element (elem, nodes, material, theta1, theta2,
 ! fnode_module                  : fnode derived type and its assoc. procedures
 ! global_toolkit_module         : global tools for element integration
 use fnode_module,                only : fnode, extract
-use global_toolkit_module,       only : cross_product3d, normalize_vect, &
-                                 & determinant2d
+use global_toolkit_module,       only : cross_product3d, normalize_vect
+
   ! most args are self-explanatory
   ! fdir: fibre direction
-  type(delam8_element),     intent(inout) :: elem
+  type(coh6Delam_elem),     intent(inout) :: elem
   type(fnode),              intent(in)    :: nodes(NNODE)
   type(cohesive_material),  intent(in)    :: material
   real(DP),                 intent(in)    :: theta1, theta2
@@ -252,10 +253,12 @@ use global_toolkit_module,       only : cross_product3d, normalize_vect, &
   !** local coords and rotational matrix
   ! - normal, tangent1/2 : normal and tangent vectors of the interface,
   !                     obtained from coords matrix
-  ! - is_zero_vect    : true of any of the above vectors has ZERO length
-  real(DP)            :: normal(NDIM) 
-  real(DP)            :: tangent1(NDIM), tangent2(NDIM), tangent3(NDIM)
+  ! - is_zero_vect    : true of any of the above vectors has zero length
+  real(DP)            :: normal(NDIM), tangent1(NDIM), tangent2(NDIM)
   logical             :: is_zero_vect
+  !** element determinant
+  ! - det             : determinant of jacobian
+  real(DP)            :: det
 
   !** analysis logical control variables:
   ! - last_converged  : true if last iteration has converged
@@ -268,7 +271,7 @@ use global_toolkit_module,       only : cross_product3d, normalize_vect, &
   ! - ig_sdv_conv/iter: integration point converged and iterating sdvs
   real(DP)            :: ig_xi(NDIM-1, NIGPOINT), ig_weight(NIGPOINT)
   type(cohesive_sdv)  :: ig_sdv_conv, ig_sdv_iter
-  
+
   ! - c(s)theta1(2)   : cos and sin of theta1 and theta2
   ! - deltaL1(2)      : longitudinal separation, along theta1(2)
   ! - Qmatrix         : rotation matrix from global to local coordinates
@@ -276,8 +279,7 @@ use global_toolkit_module,       only : cross_product3d, normalize_vect, &
   real(DP)            :: Qmatrix(NDIM,NDIM)
 
   !** variables needed for stiffness matrix derivation:
-  ! - fn, dn          : shape functions and their derivatives
-  ! - jac, det        : element jacobian and its determinant
+  ! - fn              : shape functions
   ! - Nmatrix         : obtained from fn to compute disp. jump vector ujump
   !                     across the interface: {u}_jump = [N]*{u}
   ! - ujump, delta    : {delta}=[Q]*{u}_jump, {delta} is the separation vector.
@@ -286,8 +288,7 @@ use global_toolkit_module,       only : cross_product3d, normalize_vect, &
   ! - QN              : [Q]*[N]
   ! - QNtDQN          : [QN]'*[D]*[QN]
   ! - QNtTau          : [QN]'*{tau}
-  real(DP)            :: fn(NNODE), dn(NNODE,NDIM-1)
-  real(DP)            :: jac(NDIM-1,NDIM-1), det
+  real(DP)            :: fn(NNODE)
   real(DP)            :: Nmatrix(NDIM,NDOF)
   real(DP)            :: ujump(NDIM), delta(NDIM)
   real(DP)            :: dee(NDIM,NDIM)
@@ -325,8 +326,9 @@ use global_toolkit_module,       only : cross_product3d, normalize_vect, &
   normal          = ZERO
   tangent1        = ZERO
   tangent2        = ZERO
-  tangent3        = ZERO
   is_zero_vect    = .false.
+  !** element determinant
+  det             = ZERO
   !** analysis logical control variables:
   last_converged  = .false.
   nofail          = .false.
@@ -344,19 +346,17 @@ use global_toolkit_module,       only : cross_product3d, normalize_vect, &
   Qmatrix         = ZERO
   !** variables needed for stiffness matrix derivation:
   fn              = ZERO
-  dn              = ZERO
-  jac             = ZERO
-  det             = ZERO
   Nmatrix         = ZERO
   ujump           = ZERO
   delta           = ZERO
   dee             = ZERO
   tau             = ZERO
+  ig_fstat        = 0
+  ig_dm           = ZERO
   QN              = ZERO
   QNtDQN          = ZERO
   QNtTau          = ZERO
-  ig_fstat        = 0
-  ig_dm           = ZERO
+
   !** integer counter variables:
   i=0; j=0; k=0; kig=0
 
@@ -392,7 +392,7 @@ use global_toolkit_module,       only : cross_product3d, normalize_vect, &
       deallocate(xj)
     else
       istat = STAT_FAILURE
-      emsg  = 'x not allocated for node, delam8_element_module'
+      emsg  = 'x not allocated for node, coh6Delam_elem_module'
       exit
     end if
     ! assign nodal displacement values (uj) to u vector
@@ -401,7 +401,7 @@ use global_toolkit_module,       only : cross_product3d, normalize_vect, &
       deallocate(uj)
     else
       istat = STAT_FAILURE
-      emsg  = 'u not allocated for node, delam8_element_module'
+      emsg  = 'u not allocated for node, coh6Delam_elem_module'
       exit
     end if
   end do
@@ -411,20 +411,18 @@ use global_toolkit_module,       only : cross_product3d, normalize_vect, &
     call clean_up (K_matrix, F_vector, uj, xj)
     return
   end if
-  
+
   ! calculate mid-plane coordinates from coords
   do j=1, NNODE/2
       midcoords(:,j) = HALF * (coords(:,j)+coords(:,j+NNODE/2))
   end do
-  
+
   ! check if all midcoords are on the x-y plane
   normal = [ZERO, ZERO, ONE]
   ! compute tangent1 of the interface: node 2 coords - node 1 coords
   tangent1(:)=midcoords(:,2)-midcoords(:,1)
-  ! compute tangent2 of the interface: node 4 coords - node 1 coords
-  tangent2(:)=midcoords(:,4)-midcoords(:,1)
-  ! compute tangent3 of the interface: node 3 coords - node 1 coords
-  tangent3(:)=midcoords(:,3)-midcoords(:,1)
+  ! compute tangent2 of the interface: node 3 coords - node 1 coords
+  tangent2(:)=midcoords(:,3)-midcoords(:,1)
   ! check if tangent1 is on x-y plane
   if (dot_product(tangent1,normal) > SMALLNUM) then
     istat = STAT_FAILURE
@@ -435,18 +433,23 @@ use global_toolkit_module,       only : cross_product3d, normalize_vect, &
   ! check if tangent2 is on x-y plane
   if (dot_product(tangent2,normal) > SMALLNUM) then
     istat = STAT_FAILURE
-    emsg  = 'edge 1-4 not on x-y plane, delam6 element module'
-    call clean_up (K_matrix, F_vector, uj, xj)
-    return
-  end if
-  ! check if tangent3 is on x-y plane
-  if (dot_product(tangent3,normal) > SMALLNUM) then
-    istat = STAT_FAILURE
     emsg  = 'edge 1-3 not on x-y plane, delam6 element module'
     call clean_up (K_matrix, F_vector, uj, xj)
     return
   end if
 
+  ! compute determinant of jacobian
+  ! note that determinant of linear tri elem is constant and is equal to
+  ! Atri / Atri_reference = Atri / 0.5 = 2 * Atri
+  ! so the length of tangent1 cross tangent2 = determinant of this elem
+  normal = cross_product3d(tangent1,tangent2)
+  call normalize_vect(normal, is_zero_vect, det)
+  if (is_zero_vect) then
+    istat = STAT_FAILURE
+    emsg  = 'element area is ZERO, delam6 element module'
+    call clean_up (K_matrix, F_vector, uj, xj)
+    return
+  end if
 
   !** analysis logical control variables:
   ! check if last iteration has converged by checking if the global clock has
@@ -474,16 +477,8 @@ use global_toolkit_module,       only : cross_product3d, normalize_vect, &
 
   loop_igpoint: do kig=1, NIGPOINT
 
-      ! get shape function matrix
-      call init_shape (fn, dn, ig_xi(:,kig))
-
-      ! calculate jacobian of element at this ig point using planar coordinates
-      ! 3rd row of midcoords are planar normal-dir. coords of the elem nodes
-      ! only the planar tangent dir. coords are used to calculate jacobian w.r.t
-      ! the reference rectangle of quadrilateral
-      ! only the shape funcs of the first half of nodes are needed
-      jac = matmul(midcoords(1:2,:),dn(1:NNODE/2,:))
-      det = determinant2d(jac)
+      !- get shape function matrix
+      call init_shape (fn, ig_xi(:,kig))
 
       ! Nmatrix: ujump (at each ig point) = Nmatrix * u
       do i = 1, NDIM
@@ -507,7 +502,7 @@ use global_toolkit_module,       only : cross_product3d, normalize_vect, &
       else
         ig_sdv_iter = ig_sdv_conv
       end if
-      
+
       ! calculate Qmatrix based on status of ig point
       ! - if ig point already starting to fail, then use the stored theta of this
       !   ig point.
@@ -541,7 +536,7 @@ use global_toolkit_module,       only : cross_product3d, normalize_vect, &
           Qmatrix(3,:)=[-stheta2, ctheta2, ZERO]
         end if
       end if
-      
+
       ! calculate separation delta in local coords: delta = Qmatrix * ujump
       delta = matmul(Qmatrix,ujump)
 
@@ -587,9 +582,6 @@ use global_toolkit_module,       only : cross_product3d, normalize_vect, &
 
       ! empty relevant arrays for reuse
       fn      = ZERO
-      dn      = ZERO
-      jac     = ZERO
-      det     = ZERO
       Nmatrix = ZERO
       ujump   = ZERO
       delta   = ZERO
@@ -598,6 +590,8 @@ use global_toolkit_module,       only : cross_product3d, normalize_vect, &
       QN      = ZERO
       QNtDQN  = ZERO
       QNtTau  = ZERO
+      ig_fstat= 0
+      ig_dm   = ZERO
 
   end do loop_igpoint !-looped over all int points. ig=NIGPOINT
 
@@ -648,7 +642,7 @@ use global_toolkit_module,       only : cross_product3d, normalize_vect, &
 
     end subroutine clean_up
 
-end subroutine integrate_delam8_element
+end subroutine integrate_coh6Delam_elem
 
 
 
@@ -664,7 +658,7 @@ end subroutine integrate_delam8_element
 
 pure subroutine init_ig_point (xi, wt, gauss)
 ! used parameters:
-! DP, ONE, ONE_ROOT3
+! DP, HALF, ZERO, ONE, ONE_SIXTH
 
   real(DP),          intent(inout) :: xi(NDIM-1,NIGPOINT), wt(NIGPOINT)
   logical, optional, intent(in)    :: gauss
@@ -677,75 +671,50 @@ pure subroutine init_ig_point (xi, wt, gauss)
 
   if(isgauss) then
   ! gauss integration points
-    xi(1,1) = -ONE_ROOT3
-    xi(2,1) = -ONE_ROOT3
-    xi(1,2) =  ONE_ROOT3
-    xi(2,2) = -ONE_ROOT3
-    xi(1,3) = -ONE_ROOT3
-    xi(2,3) =  ONE_ROOT3
-    xi(1,4) =  ONE_ROOT3
-    xi(2,4) =  ONE_ROOT3
+    xi(1,1) = HALF
+    xi(2,1) = HALF
+    xi(1,2) = HALF
+    xi(2,2) = ZERO
+    xi(1,3) = ZERO
+    xi(2,3) = HALF
   else
   ! newton-cotes integration points
-    xi(1,1) = -ONE
-    xi(2,1) = -ONE
-    xi(1,2) =  ONE
-    xi(2,2) = -ONE
-    xi(1,3) = -ONE
-    xi(2,3) =  ONE
-    xi(1,4) =  ONE
-    xi(2,4) =  ONE
+    xi(1,1) = ZERO
+    xi(2,1) = ZERO
+    xi(1,2) = ONE
+    xi(2,2) = ZERO
+    xi(1,3) = ZERO
+    xi(2,3) = ONE
   end if
-  wt = ONE
+  wt = ONE_SIXTH
 
 end subroutine init_ig_point
 
 
 
-pure subroutine init_shape (f, df, igxi)
+pure subroutine init_shape (f, igxi)
 ! used parameters:
-! DP, ZERO, ONE, QUARTER
+! DP, ZERO, ONE
 
-  real(DP), intent(inout) :: f(NNODE), df(NNODE,NDIM-1)
+  real(DP), intent(inout) :: f(NNODE)
   real(DP), intent(in)    :: igxi(NDIM-1)
 
-  ! local variables
-  real(DP) :: xi, eta
-
+  real(DP) :: xi, eta ! local variables
   xi  = ZERO
   eta = ZERO
 
   xi  = igxi(1)
   eta = igxi(2)
-
-  f(1)    =  QUARTER*(ONE-xi)*(ONE-eta)
-  f(2)    =  QUARTER*(ONE+xi)*(ONE-eta)
-  f(3)    =  QUARTER*(ONE+xi)*(ONE+eta)
-  f(4)    =  QUARTER*(ONE-xi)*(ONE+eta)
-  df(1,1) = -QUARTER*(ONE-eta)
-  df(2,1) =  QUARTER*(ONE-eta)
-  df(3,1) =  QUARTER*(ONE+eta)
-  df(4,1) = -QUARTER*(ONE+eta)
-  df(1,2) = -QUARTER*(ONE-xi)
-  df(2,2) = -QUARTER*(ONE+xi)
-  df(3,2) =  QUARTER*(ONE+xi)
-  df(4,2) =  QUARTER*(ONE-xi)
-
-  f(1+4)    =  QUARTER*(ONE-xi)*(ONE-eta)
-  f(2+4)    =  QUARTER*(ONE+xi)*(ONE-eta)
-  f(3+4)    =  QUARTER*(ONE+xi)*(ONE+eta)
-  f(4+4)    =  QUARTER*(ONE-xi)*(ONE+eta)
-  df(1+4,1) = -QUARTER*(ONE-eta)
-  df(2+4,1) =  QUARTER*(ONE-eta)
-  df(3+4,1) =  QUARTER*(ONE+eta)
-  df(4+4,1) = -QUARTER*(ONE+eta)
-  df(1+4,2) = -QUARTER*(ONE-xi)
-  df(2+4,2) = -QUARTER*(ONE+xi)
-  df(3+4,2) =  QUARTER*(ONE+xi)
-  df(4+4,2) =  QUARTER*(ONE-xi)
+  f(1) = ONE-xi-eta
+  f(2) = xi
+  f(3) = eta
+  f(4) = f(1)
+  f(5) = f(2)
+  f(6) = f(3)
 
 end subroutine init_shape
 
 
 
-end module delam8_element_module
+
+end module coh6Delam_elem_module

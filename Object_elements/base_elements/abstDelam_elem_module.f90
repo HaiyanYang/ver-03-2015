@@ -1,8 +1,8 @@
-module baseCoh_element_module
+module abstDelam_elem_module
 !
 !  Purpose:
 !    define an 'abstract element' object to interface with the
-!    base delam6 and delam8 elements
+!    base coh6Delam and coh8Delam elements
 !    with the associated procedures to empty, set, integrate and extract
 !    its components
 !
@@ -15,38 +15,38 @@ module baseCoh_element_module
 use parameter_module, only : NDIM, NST => NST_COHESIVE, DP, ELTYPELENGTH, &
                       & MSGLENGTH, STAT_SUCCESS, STAT_FAILURE
 
-use delam6_element_module, only : delam6_element
-use delam8_element_module, only : delam8_element
+use coh6Delam_elem_module, only : coh6Delam_elem
+use coh8Delam_elem_module, only : coh8Delam_elem
 
   implicit none
   private
   
-  type,public :: baseCoh_element
+  type,public :: abstDelam_elem
     ! encapsulate components of this type
     private 
     ! list of type components:
-    ! eltype  : element type
-    ! delam6  : allocated if eltype = 'delam6'
-    ! delam8  : allocated if eltype = 'delam8'
+    ! eltype    : element type
+    ! coh6Delam : allocated if eltype = 'coh6Delam'
+    ! coh8Delam : allocated if eltype = 'coh8Delam'
     character(len=ELTYPELENGTH)       :: eltype = ''
-    type(delam6_element), allocatable :: delam6
-    type(delam8_element), allocatable :: delam8   
+    type(coh6Delam_elem), allocatable :: coh6Delam
+    type(coh8Delam_elem), allocatable :: coh8Delam   
   end type
 
   interface empty
-      module procedure empty_baseCoh_element
+      module procedure empty_abstDelam_elem
   end interface
 
   interface set
-      module procedure set_baseCoh_element
+      module procedure set_abstDelam_elem
   end interface
   
   interface integrate
-      module procedure integrate_baseCoh_element
+      module procedure integrate_abstDelam_elem
   end interface
   
   interface extract
-      module procedure extract_baseCoh_element
+      module procedure extract_abstDelam_elem
   end interface
 
 
@@ -62,37 +62,37 @@ use delam8_element_module, only : delam8_element
   
    
   
-  pure subroutine empty_baseCoh_element (elem)
+  pure subroutine empty_abstDelam_elem (elem)
   
-    type(baseCoh_element), intent(inout) :: elem
+    type(abstDelam_elem), intent(inout) :: elem
     
     elem%eltype=''
 
-    if(allocated(elem%delam6))      deallocate(elem%delam6)
-    if(allocated(elem%delam8))      deallocate(elem%delam8)
+    if(allocated(elem%coh6Delam))      deallocate(elem%coh6Delam)
+    if(allocated(elem%coh8Delam))      deallocate(elem%coh8Delam)
       
-  end subroutine empty_baseCoh_element
+  end subroutine empty_abstDelam_elem
    
   
   
-  pure subroutine set_baseCoh_element (elem, eltype, connec, istat, emsg)
+  pure subroutine set_abstDelam_elem (elem, eltype, connec, istat, emsg)
   ! Purpose:
   ! this is an interface used to set the contained base element according to
   ! eltype:
-  ! - if eltype is delam8, the input dummy args are passed to set_delam8_element
-  ! to define the elem's delam8 component; elem's delam6 component is dealloc.
-  ! - if eltype is delam6, the input dummy args are passed to set_delam6_element
-  ! to define the elem's delam6 component; elem's delam8 component is dealloc.
+  ! - if eltype is coh8Delam, the input dummy args are passed to set_coh8Delam_elem
+  ! to define the elem's coh8Delam component; elem's coh6Delam component is dealloc.
+  ! - if eltype is coh6Delam, the input dummy args are passed to set_coh6Delam_elem
+  ! to define the elem's coh6Delam component; elem's coh8Delam component is dealloc.
   ! ** note:
   ! - size of connec is checked here against eltype to ensure compatibility
   ! the values of connec and other dummy args are not checked here; they are
   ! left for the called eltype's set procedure for checking
   ! - local copies of elem's components are used for set operation;
   ! they are copied to actual elem's components only before successful return
-  use delam6_element_module, only : delam6_element, set
-  use delam8_element_module, only : delam8_element, set
+  use coh6Delam_elem_module, only : coh6Delam_elem, set
+  use coh8Delam_elem_module, only : coh8Delam_elem, set
   
-      type(baseCoh_element),    intent(inout) :: elem
+      type(abstDelam_elem),     intent(inout) :: elem
       character(len=*),         intent(in)    :: eltype
       integer,                  intent(in)    :: connec(:)
       integer,                  intent(out)   :: istat
@@ -100,8 +100,8 @@ use delam8_element_module, only : delam8_element
       
       ! local variables
       character(len=ELTYPELENGTH)       :: eltype_lcl
-      type(delam6_element), allocatable :: delam6_lcl
-      type(delam8_element), allocatable :: delam8_lcl
+      type(coh6Delam_elem), allocatable :: coh6Delam_lcl
+      type(coh8Delam_elem), allocatable :: coh8Delam_lcl
                  
       ! initialize intent out and local variables (non derived type)
       istat = STAT_SUCCESS
@@ -112,22 +112,22 @@ use delam8_element_module, only : delam8_element
       
       select case (trim(eltype_lcl))
         
-        case ('delam6')
+        case ('coh6Delam')
             ! check no. of nodes, exit program if incorrect
             if ( size(connec) /= 6 ) then
               istat = STAT_FAILURE
-              emsg  = 'size of connec is not 6 for delam6 base element, &
-              & set, baseCoh_element_module'
+              emsg  = 'size of connec is not 6 for coh6Delam base element, &
+              & set, abstDelam_elem_module'
               return
             end if
             
-            ! allocate local delam6 base elem
-            allocate(delam6_lcl)
+            ! allocate local coh6Delam base elem
+            allocate(coh6Delam_lcl)
             ! call the set procedure of the base element
-            call set (delam6_lcl, connec, istat, emsg)
+            call set (coh6Delam_lcl, connec, istat, emsg)
             ! check istat, if istat is failure, clean up and exit program
             if (istat == STAT_FAILURE) then
-              deallocate(delam6_lcl)
+              deallocate(coh6Delam_lcl)
               return
             end if
             
@@ -136,28 +136,28 @@ use delam8_element_module, only : delam8_element
             ! set elem type
             elem%eltype = eltype_lcl
             ! allocate the appropriate base element
-            if (.not. allocated(elem%delam6)) allocate(elem%delam6)
+            if (.not. allocated(elem%coh6Delam)) allocate(elem%coh6Delam)
             ! deallocate the other base element
-            if (allocated(elem%delam8)) deallocate(elem%delam8)
+            if (allocated(elem%coh8Delam)) deallocate(elem%coh8Delam)
             ! copy definition from local variable
-            elem%delam6 = delam6_lcl
+            elem%coh6Delam = coh6Delam_lcl
         
-        case ('delam8')
+        case ('coh8Delam')
             ! check no. of nodes, exit program if incorrect
             if ( size(connec) /= 8 ) then
               istat = STAT_FAILURE
-              emsg  = 'size of connec is not 8 for delam8 base element, &
-              & set, baseCoh_element_module'
+              emsg  = 'size of connec is not 8 for coh8Delam base element, &
+              & set, abstDelam_elem_module'
               return
             end if
             
-            ! allocate local delam8 base elem
-            allocate(delam8_lcl)
+            ! allocate local coh8Delam base elem
+            allocate(coh8Delam_lcl)
             ! call the set procedure of the base element
-            call set (delam8_lcl, connec, istat, emsg)
+            call set (coh8Delam_lcl, connec, istat, emsg)
             ! check istat, if istat is failure, clean up and exit program
             if (istat == STAT_FAILURE) then
-              deallocate(delam8_lcl)
+              deallocate(coh8Delam_lcl)
               return
             end if
             
@@ -166,11 +166,11 @@ use delam8_element_module, only : delam8_element
             ! set elem type
             elem%eltype = eltype_lcl
             ! allocate the appropriate base element
-            if (.not. allocated(elem%delam8)) allocate(elem%delam8)
+            if (.not. allocated(elem%coh8Delam)) allocate(elem%coh8Delam)
             ! deallocate the other base element
-            if (allocated(elem%delam6)) deallocate(elem%delam6)
+            if (allocated(elem%coh6Delam)) deallocate(elem%coh6Delam)
             ! copy definition from local variable
-            elem%delam8 = delam8_lcl
+            elem%coh8Delam = coh8Delam_lcl
         
         case default
             ! this should not be reached, flag an error and return
@@ -180,18 +180,18 @@ use delam8_element_module, only : delam8_element
       
       end select
 
-  end subroutine set_baseCoh_element
+  end subroutine set_abstDelam_elem
   
   
   
-  pure subroutine extract_baseCoh_element (elem, eltype, fstat, connec, &
+  pure subroutine extract_abstDelam_elem (elem, eltype, fstat, connec, &
   & ig_points, ig_angles, traction, separation, dm)
   ! extra modules needed to declare the type of some dummy args
-  use cohesive_material_module, only :cohesive_ig_point
-  use delam6_element_module,    only : extract
-  use delam8_element_module,    only : extract
+  use cohesive_material_module, only : cohesive_ig_point
+  use coh6Delam_elem_module,    only : extract
+  use coh8Delam_elem_module,    only : extract
 
-    type(baseCoh_element),                          intent(in)  :: elem
+    type(abstDelam_elem),                           intent(in)  :: elem
     character(len=ELTYPELENGTH),          optional, intent(out) :: eltype
     integer,                              optional, intent(out) :: fstat
     integer,                 allocatable, optional, intent(out) :: connec(:)
@@ -208,23 +208,23 @@ use delam8_element_module, only : delam8_element
 
     select case (trim(elem%eltype))
 
-      case ('delam6')
-        if (present(fstat))       call extract (elem%delam6, fstat=fstat)
-        if (present(connec))      call extract (elem%delam6, connec=connec)
-        if (present(ig_points))   call extract (elem%delam6, ig_points=ig_points)
-        if (present(ig_angles))   call extract (elem%delam6, ig_angles=ig_angles)
-        if (present(traction))    call extract (elem%delam6, traction=traction)
-        if (present(separation))  call extract (elem%delam6, separation=separation)
-        if (present(dm))          call extract (elem%delam6, dm=dm)
+      case ('coh6Delam')
+        if (present(fstat))       call extract (elem%coh6Delam, fstat=fstat)
+        if (present(connec))      call extract (elem%coh6Delam, connec=connec)
+        if (present(ig_points))   call extract (elem%coh6Delam, ig_points=ig_points)
+        if (present(ig_angles))   call extract (elem%coh6Delam, ig_angles=ig_angles)
+        if (present(traction))    call extract (elem%coh6Delam, traction=traction)
+        if (present(separation))  call extract (elem%coh6Delam, separation=separation)
+        if (present(dm))          call extract (elem%coh6Delam, dm=dm)
 
-      case ('delam8')
-        if (present(fstat))       call extract (elem%delam8, fstat=fstat)
-        if (present(connec))      call extract (elem%delam8, connec=connec)
-        if (present(ig_points))   call extract (elem%delam8, ig_points=ig_points)
-        if (present(ig_angles))   call extract (elem%delam8, ig_angles=ig_angles)
-        if (present(traction))    call extract (elem%delam8, traction=traction)
-        if (present(separation))  call extract (elem%delam8, separation=separation)
-        if (present(dm))          call extract (elem%delam8, dm=dm)
+      case ('coh8Delam')
+        if (present(fstat))       call extract (elem%coh8Delam, fstat=fstat)
+        if (present(connec))      call extract (elem%coh8Delam, connec=connec)
+        if (present(ig_points))   call extract (elem%coh8Delam, ig_points=ig_points)
+        if (present(ig_angles))   call extract (elem%coh8Delam, ig_angles=ig_angles)
+        if (present(traction))    call extract (elem%coh8Delam, traction=traction)
+        if (present(separation))  call extract (elem%coh8Delam, separation=separation)
+        if (present(dm))          call extract (elem%coh8Delam, dm=dm)
 
       case default
       ! this should not be reached
@@ -232,19 +232,19 @@ use delam8_element_module, only : delam8_element
     end select
 
 
-  end subroutine extract_baseCoh_element
+  end subroutine extract_abstDelam_elem
 
 
 
-  pure subroutine integrate_baseCoh_element (elem, nodes, material, theta1, theta2,&
+  pure subroutine integrate_abstDelam_elem (elem, nodes, material, theta1, theta2,&
   & Kmatrix, Fvector, istat, emsg, nofailure)
   ! extra modules needed to declare the type of some dummy args
   use fnode_module,             only : fnode
   use cohesive_material_module, only : cohesive_material
-  use delam6_element_module,    only : integrate
-  use delam8_element_module,    only : integrate
+  use coh6Delam_elem_module,    only : integrate
+  use coh8Delam_elem_module,    only : integrate
 
-      type(baseCoh_element),    intent(inout) :: elem
+      type(abstDelam_elem),     intent(inout) :: elem
       type(fnode),              intent(in)    :: nodes(:)
       type(cohesive_material),  intent(in)    :: material
       real(DP),                 intent(in)    :: theta1, theta2
@@ -269,43 +269,43 @@ use delam8_element_module, only : delam8_element
       ! here.
       select case(elem%eltype)
 
-        case('delam6')
+        case('coh6Delam')
 
             ! check no. of nodes, exit program if incorrect
             if ( size(nodes) /= 6 ) then
               istat = STAT_FAILURE
-              emsg  = 'size of nodes is not 6 for delam6 base element, &
-              & integrate, baseCoh_element_module'
+              emsg  = 'size of nodes is not 6 for coh6Delam base element, &
+              & integrate, abstDelam_elem_module'
               return
             end if
             
-            call integrate(elem%delam6, nodes, material, theta1, theta2, &
+            call integrate(elem%coh6Delam, nodes, material, theta1, theta2, &
             & Kmatrix, Fvector, istat, emsg, nofail)
 
-        case('delam8')
+        case('coh8Delam')
 
             ! check no. of nodes, exit program if incorrect
             if ( size(nodes) /= 8 ) then
               istat = STAT_FAILURE
-              emsg  = 'size of nodes is not 8 for delam8 base element, &
-              & integrate, baseCoh_element_module'
+              emsg  = 'size of nodes is not 8 for coh8Delam base element, &
+              & integrate, abstDelam_elem_module'
               return
             end if
             
-            call integrate(elem%delam8, nodes, material, theta1, theta2, &
+            call integrate(elem%coh8Delam, nodes, material, theta1, theta2, &
             & Kmatrix, Fvector, istat, emsg, nofail)
 
         case default
             ! this should not be reached
             istat = STAT_FAILURE
-            emsg  = 'unexpected elem type, integrate, baseCoh_element_module'
+            emsg  = 'unexpected elem type, integrate, abstDelam_elem_module'
             return
             
       end select
 
-  end subroutine integrate_baseCoh_element
+  end subroutine integrate_abstDelam_elem
 
 
   
 
-end module baseCoh_element_module
+end module abstDelam_elem_module

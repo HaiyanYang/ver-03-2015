@@ -1,4 +1,4 @@
-module fBrick_element_module
+module fBrickPly_elem_module
 !
 !  Purpose:
 !    define a floating-node brick element object, with breakable top & bottom
@@ -40,7 +40,7 @@ module fBrick_element_module
 !  nodes of E8 ::    <end nodes: 8, 5>  <fl. nodes: 23, 24>
 !
 !
-!  topological definition of INTACT element, type brick_element:
+!  topological definition of INTACT element, type brickPly_elem:
 !
 !  8___________________7
 !  |\                  |\
@@ -67,9 +67,9 @@ module fBrick_element_module
 !
 use parameter_module,       only : NDIM, DP, ZERO, INT_ALLOC_ARRAY
 use global_clock_module,    only : program_clock
-use brick_element_module,   only : brick_element
-use basePly_element_module, only : basePly_element
-use cohCrack_element_module,only : cohCrack_element
+use brickPly_elem_module,   only : brickPly_elem
+use abstPly_elem_module,    only : abstPly_elem
+use coh8Crack_elem_module,  only : coh8Crack_elem
 
 
 implicit none
@@ -101,7 +101,7 @@ integer, parameter :: NODES_ON_BOT_EDGES(4,NEDGE_SURF) =    &
 integer, parameter :: ENDNODES_ON_BOT_EDGES(2,NEDGE_SURF) = &
 & reshape([1,2,        2,3,        3,4,        4,1      ], [2,NEDGE_SURF])
 
-type, public :: fBrick_element
+type, public :: fBrickPly_elem
   private
 
   integer :: curr_status                  = 0
@@ -110,28 +110,28 @@ type, public :: fBrick_element
   integer :: edge_status_lcl(NEDGE_SURF)  = 0
   logical :: newpartition                 = .false.
   type(program_clock)                :: local_clock
-  type(brick_element),   allocatable :: intact_elem
-  type(basePly_element), allocatable :: subBulks(:)
-  type(cohCrack_element),allocatable :: cohCrack
+  type(brickPly_elem),   allocatable :: intact_elem
+  type(abstPly_elem),    allocatable :: subBulks(:)
+  type(coh8Crack_elem),  allocatable :: cohCrack
   type(INT_ALLOC_ARRAY), allocatable :: subBulks_nodes(:)
   type(INT_ALLOC_ARRAY), allocatable :: cohCrack_nodes
 
-end type fBrick_element
+end type fBrickPly_elem
 
 interface empty
-    module procedure empty_fBrick_element
+    module procedure empty_fBrickPly_elem
 end interface
 
 interface set
-    module procedure set_fBrick_element
+    module procedure set_fBrickPly_elem
 end interface
 
 interface integrate
-    module procedure integrate_fBrick_element
+    module procedure integrate_fBrickPly_elem
 end interface
 
 interface extract
-    module procedure extract_fBrick_element
+    module procedure extract_fBrickPly_elem
 end interface
 
 
@@ -145,32 +145,32 @@ contains
 
 
 
-pure subroutine empty_fBrick_element (elem)
+pure subroutine empty_fBrickPly_elem (elem)
 
-  type(fBrick_element), intent(inout) :: elem
+  type(fBrickPly_elem), intent(inout) :: elem
 
-  type(fBrick_element) :: elem_lcl
+  type(fBrickPly_elem) :: elem_lcl
 
   elem = elem_lcl
 
-end subroutine empty_fBrick_element
+end subroutine empty_fBrickPly_elem
 
 
 
-pure subroutine set_fBrick_element (elem, ply_angle, node_connec, istat, emsg)
+pure subroutine set_fBrickPly_elem (elem, ply_angle, node_connec, istat, emsg)
 ! Purpose:
 ! to set the element ready for first use
 use parameter_module,      only : MSGLENGTH, STAT_FAILURE, STAT_SUCCESS
-use brick_element_module,  only : set
+use brickPly_elem_module,  only : set
 
-  type(fBrick_element),     intent(inout) :: elem
+  type(fBrickPly_elem),     intent(inout) :: elem
   real(DP),                 intent(in)    :: ply_angle
   integer,                  intent(in)    :: node_connec(NNODE)
   integer,                  intent(out)   :: istat
   character(len=MSGLENGTH), intent(out)   :: emsg
 
   ! local copy of elem
-  type(fBrick_element) :: elem_lcl
+  type(fBrickPly_elem) :: elem_lcl
   ! global_connec of sub element
   integer, allocatable :: global_connec(:)
   ! location for emsg
@@ -178,7 +178,7 @@ use brick_element_module,  only : set
 
   istat  = STAT_SUCCESS
   emsg   = ''
-  msgloc = ' set, fBrick_element_module'
+  msgloc = ' set, fBrickPly_elem_module'
 
   ! check validity of inputs
 
@@ -216,19 +216,19 @@ use brick_element_module,  only : set
 
   if (allocated(global_connec)) deallocate(global_connec)
 
-end subroutine set_fBrick_element
+end subroutine set_fBrickPly_elem
 
 
 
-pure subroutine extract_fBrick_element (elem, curr_status, edge_status_lcl, &
+pure subroutine extract_fBrickPly_elem (elem, curr_status, edge_status_lcl, &
 & intact_elem, subBulks, cohCrack)
 
-  type(fBrick_element), intent(in)  :: elem
+  type(fBrickPly_elem), intent(in)  :: elem
   integer,    optional, intent(out) :: curr_status
   integer,    optional, intent(out) :: edge_status_lcl(NEDGE_SURF)
-  type(brick_element),   allocatable, optional, intent(out) :: intact_elem
-  type(basePly_element), allocatable, optional, intent(out) :: subBulks(:)
-  type(cohCrack_element),allocatable, optional, intent(out) :: cohCrack
+  type(brickPly_elem),  allocatable, optional, intent(out) :: intact_elem
+  type(abstPly_elem),   allocatable, optional, intent(out) :: subBulks(:)
+  type(coh8Crack_elem), allocatable, optional, intent(out) :: cohCrack
 
   if(present(curr_status)) curr_status=elem%curr_status
 
@@ -255,11 +255,11 @@ pure subroutine extract_fBrick_element (elem, curr_status, edge_status_lcl, &
       end if
   end if
 
-end subroutine extract_fBrick_element
+end subroutine extract_fBrickPly_elem
 
 
 
-pure subroutine integrate_fBrick_element (elem, nodes, edge_status, lam_mat, &
+pure subroutine integrate_fBrickPly_elem (elem, nodes, edge_status, lam_mat, &
 & coh_mat, K_matrix, F_vector, istat, emsg)
 use parameter_module,         only : DP, MSGLENGTH, STAT_SUCCESS, STAT_FAILURE,&
                               & ZERO,    INTACT, TRANSITION_ELEM,              &
@@ -270,7 +270,7 @@ use lamina_material_module,   only : lamina_material
 use cohesive_material_module, only : cohesive_material
 use global_clock_module,      only : GLOBAL_CLOCK, clock_in_sync
 
-  type(fBrick_element),     intent(inout) :: elem
+  type(fBrickPly_elem),     intent(inout) :: elem
   type(fnode),              intent(inout) :: nodes(NNODE)
   integer,                  intent(inout) :: edge_status(NEDGE)
   type(lamina_material),    intent(in)    :: lam_mat
@@ -281,7 +281,7 @@ use global_clock_module,      only : GLOBAL_CLOCK, clock_in_sync
 
   !:::: local variables ::::
   ! local copy of intent inout variables
-  type(fBrick_element)      :: el
+  type(fBrickPly_elem)      :: el
   type(fnode)               :: nds(NNODE)
   integer                   :: egstatus(NEDGE)
   integer                   :: elstatus
@@ -299,7 +299,7 @@ use global_clock_module,      only : GLOBAL_CLOCK, clock_in_sync
   egstatus        = 0
   elstatus        = 0
   nofailure       = .false.
-  msgloc          = ' integrate, fBrick_element module'
+  msgloc          = ' integrate, fBrickPly_elem module'
 
   ! copy intent inout arg. to its local alias
   el       = elem
@@ -460,7 +460,7 @@ use global_clock_module,      only : GLOBAL_CLOCK, clock_in_sync
     F_vector = ZERO
   end subroutine clean_up
 
-end subroutine integrate_fBrick_element
+end subroutine integrate_fBrickPly_elem
 
 
 
@@ -475,7 +475,7 @@ use fnode_module,          only : fnode, extract, update
 use global_toolkit_module, only : crack_elem_cracktip2d
 
   ! passed-in variables
-  type(fBrick_element),     intent(inout) :: elem
+  type(fBrickPly_elem),     intent(inout) :: elem
   type(fnode),              intent(inout) :: nodes(NNODE)
   integer,                  intent(inout) :: edge_status(NEDGE)
   integer,                  intent(out)   :: istat
@@ -817,13 +817,13 @@ use parameter_module,       only : DP, MSGLENGTH, STAT_SUCCESS, STAT_FAILURE, &
                           & TRANSITION_ELEM, REFINEMENT_ELEM,                 &
                           & CRACK_TIP_ELEM,  CRACK_WAKE_ELEM, MATRIX_CRACK_ELEM
 use fnode_module,           only : fnode, extract, update
-use brick_element_module,   only : extract
-use basePly_element_module, only : extract
-use cohCrack_element_module,only : extract
+use brickPly_elem_module,   only : extract
+use abstPly_elem_module,    only : extract
+use coh8Crack_elem_module,  only : extract
 use global_toolkit_module,  only : crack_elem_centroid2d, crack_elem_cracktip2d
 
   ! passed-in variables
-  type(fBrick_element),     intent(inout) :: elem
+  type(fBrickPly_elem),     intent(inout) :: elem
   type(fnode),              intent(inout) :: nodes(NNODE)
   integer,                  intent(inout) :: edge_status(NEDGE)
   integer,                  intent(out)   :: istat
@@ -1193,11 +1193,11 @@ use parameter_module, only : MSGLENGTH, STAT_SUCCESS, STAT_FAILURE,         &
                       & CRACK_WAKE_ELEM, MATRIX_CRACK_ELEM, CRACK_TIP_EDGE, &
                       & COH_CRACK_EDGE,  TRANSITION_EDGE
 use global_toolkit_module,  only : partition_quad_elem
-use basePly_element_module, only : set
-use cohCrack_element_module,only : set
+use abstPly_elem_module,    only : set
+use coh8Crack_elem_module,  only : set
 
   ! passed-in variables
-  type(fBrick_element),     intent(inout) :: el
+  type(fBrickPly_elem),     intent(inout) :: el
   integer,                  intent(out)   :: istat
   character(len=MSGLENGTH), intent(out)   :: emsg
 
@@ -1548,13 +1548,13 @@ use parameter_module, only : MSGLENGTH, STAT_SUCCESS, STAT_FAILURE,         &
 use fnode_module,             only : fnode
 use lamina_material_module,   only : lamina_material
 use cohesive_material_module, only : cohesive_material
-use brick_element_module,     only : integrate
-use basePly_element_module,   only : integrate
-use cohCrack_element_module,    only : integrate
+use brickPly_elem_module,     only : integrate
+use abstPly_elem_module,      only : integrate
+use coh8Crack_elem_module,    only : integrate
 use global_toolkit_module,    only : assembleKF
 
   ! - passed in variables
-  type(fBrick_element),     intent(inout) :: elem
+  type(fBrickPly_elem),     intent(inout) :: elem
   type(fnode),              intent(in)    :: nodes(NNODE)
   type(lamina_material),    intent(in)    :: lam_mat
   type(cohesive_material),  intent(in)    :: coh_mat
@@ -1790,7 +1790,7 @@ use global_toolkit_module,    only : assembleKF
 
   pure subroutine integrate_assemble_intact_elem (elem, nodes, lam_mat, &
   & K_matrix, F_vector, istat, emsg, nofail)
-    type(fBrick_element),     intent(inout) :: elem
+    type(fBrickPly_elem),     intent(inout) :: elem
     type(fnode),              intent(in)    :: nodes(NNODE)
     type(lamina_material),    intent(in)    :: lam_mat
     real(DP),                 intent(out)   :: K_matrix(NDOF,NDOF)
@@ -1823,7 +1823,7 @@ use global_toolkit_module,    only : assembleKF
 
   pure subroutine integrate_assemble_subBulks (elem, nodes, lam_mat, &
   & K_matrix, F_vector, istat, emsg, nofail)
-    type(fBrick_element),     intent(inout) :: elem
+    type(fBrickPly_elem),     intent(inout) :: elem
     type(fnode),              intent(in)    :: nodes(NNODE)
     type(lamina_material),    intent(in)    :: lam_mat
     real(DP),                 intent(out)   :: K_matrix(NDOF,NDOF)
@@ -1862,7 +1862,7 @@ use global_toolkit_module,    only : assembleKF
 
   pure subroutine integrate_assemble_cohCrack (elem, nodes, coh_mat, &
   & K_matrix, F_vector, istat, emsg, nofail)
-    type(fBrick_element),     intent(inout) :: elem
+    type(fBrickPly_elem),     intent(inout) :: elem
     type(fnode),              intent(in)    :: nodes(NNODE)
     type(cohesive_material),  intent(in)    :: coh_mat
     real(DP),                 intent(out)   :: K_matrix(NDOF,NDOF)
@@ -1900,4 +1900,4 @@ end subroutine integrate_assemble_subelems
 
 
 
-end module fBrick_element_module
+end module fBrickPly_elem_module

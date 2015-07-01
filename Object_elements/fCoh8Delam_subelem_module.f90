@@ -1,4 +1,4 @@
-module fDelam8sub_element_module
+module fCoh8Delam_subelem_module
 !
 !  Purpose:
 !    define a floating-node delam8 sub-element object, with a breakable top
@@ -48,7 +48,7 @@ module fDelam8sub_element_module
 
 ! load the modules and entities used for derived type declaration only
 use parameter_module,       only : NDIM, DP, ZERO, INT_ALLOC_ARRAY
-use baseCoh_element_module, only : baseCoh_element
+use abstDelam_elem_module,  only : abstDelam_elem
 
 implicit none
 
@@ -82,7 +82,7 @@ integer, parameter :: NODES_ON_BOT_EDGES(4,NEDGE_SURF) =    &
 & reshape([1,2,17,17,  2,3,18,18,  3,4,19,19,  4,1,20,20], [4,NEDGE_SURF])
 
 
-type, public :: fDelam8sub_element
+type, public :: fCoh8Delam_subelem
   private
   ! list of components of this type:
   ! node_connec         : nodes global connectivity
@@ -94,24 +94,24 @@ type, public :: fDelam8sub_element
   integer  :: node_connec(NNODE)            = 0
   integer  :: top_edge_status(NEDGE_SURF)   = 0
   real(DP) :: edge_lambda(NEDGE_SURF)       = ZERO
-  type(baseCoh_element), allocatable :: subelems(:)
+  type(abstDelam_elem),  allocatable :: subelems(:)
   type(INT_ALLOC_ARRAY), allocatable :: subelems_nodes(:)
-end type fDelam8sub_element
+end type fCoh8Delam_subelem
 
 interface empty
-    module procedure empty_fDelam8sub_element
+    module procedure empty_fCoh8Delam_subelem
 end interface
 
 interface set
-    module procedure set_fDelam8sub_element
+    module procedure set_fCoh8Delam_subelem
 end interface
 
 interface integrate
-    module procedure integrate_fDelam8sub_element
+    module procedure integrate_fCoh8Delam_subelem
 end interface
 
 interface extract
-    module procedure extract_fDelam8sub_element
+    module procedure extract_fCoh8Delam_subelem
 end interface
 
 
@@ -125,28 +125,28 @@ contains
 
 
 
-pure subroutine empty_fDelam8sub_element (elem)
+pure subroutine empty_fCoh8Delam_subelem (elem)
 
-  type(fDelam8sub_element), intent(inout) :: elem
+  type(fCoh8Delam_subelem), intent(inout) :: elem
 
-  type(fDelam8sub_element) :: elem_lcl
+  type(fCoh8Delam_subelem) :: elem_lcl
 
   elem = elem_lcl
 
-end subroutine empty_fDelam8sub_element
+end subroutine empty_fCoh8Delam_subelem
 
 
 
-pure subroutine extract_fDelam8sub_element (elem, subelems)
+pure subroutine extract_fCoh8Delam_subelem (elem, subelems)
 ! Purpose:
 ! to extract components of this element, generally used in output
 ! ** Note: **
 ! to output this element, subelem array needs to be extracted first, then
 ! extract the connec, fstat, dm, traction, separation, etc. from each sub elem
-use baseCoh_element_module, only : baseCoh_element
+use abstDelam_elem_module, only : abstDelam_elem
 
-  type(fDelam8sub_element),                     intent(in)  :: elem
-  type(baseCoh_element), allocatable, optional, intent(out) :: subelems(:)
+  type(fCoh8Delam_subelem),                    intent(in)  :: elem
+  type(abstDelam_elem), allocatable, optional, intent(out) :: subelems(:)
 
   if(present(subelems)) then
     if(allocated(elem%subelems)) then
@@ -155,11 +155,11 @@ use baseCoh_element_module, only : baseCoh_element
     end if
   end if
 
-end subroutine extract_fDelam8sub_element
+end subroutine extract_fCoh8Delam_subelem
 
 
 
-pure subroutine set_fDelam8sub_element (elem, node_connec, top_edge_status, &
+pure subroutine set_fCoh8Delam_subelem (elem, node_connec, top_edge_status, &
 & istat, emsg)
 ! Purpose:
 ! to set the element ready for first use
@@ -168,7 +168,7 @@ use parameter_module, only : MSGLENGTH, STAT_FAILURE, STAT_SUCCESS,&
                       & CRACK_TIP_EDGE, WEAK_CRACK_EDGE,           &
                       & COH_CRACK_EDGE, STRONG_CRACK_EDGE
 
-  type(fDelam8sub_element), intent(inout) :: elem
+  type(fCoh8Delam_subelem), intent(inout) :: elem
   integer,                  intent(in)    :: node_connec(NNODE)
   integer,                  intent(in)    :: top_edge_status(NEDGE_SURF)
   integer,                  intent(out)   :: istat
@@ -180,7 +180,7 @@ use parameter_module, only : MSGLENGTH, STAT_FAILURE, STAT_SUCCESS,&
 
   istat  = STAT_SUCCESS
   emsg   = ''
-  msgloc = ' set, fDelam8sub_element module'
+  msgloc = ' set, fCoh8Delam_subelem module'
   n_crackedges = 0
   
   ! check validity of inputs
@@ -217,12 +217,12 @@ use parameter_module, only : MSGLENGTH, STAT_FAILURE, STAT_SUCCESS,&
   elem%node_connec     = node_connec
   elem%top_edge_status = top_edge_status
 
-end subroutine set_fDelam8sub_element
+end subroutine set_fCoh8Delam_subelem
 
 
 
 
-pure subroutine integrate_fDelam8sub_element (elem, nodes, material, theta1, theta2, &
+pure subroutine integrate_fCoh8Delam_subelem (elem, nodes, material, theta1, theta2, &
 & K_matrix, F_vector, istat, emsg, nofailure)
 ! Purpose:
 ! to integrate this fDelam8 subelem and update its internal nodes in nodes array
@@ -230,7 +230,7 @@ use parameter_module, only : DP, MSGLENGTH, STAT_FAILURE, STAT_SUCCESS, ZERO
 use fnode_module,             only : fnode
 use cohesive_material_module, only : cohesive_material
 
-  type(fDelam8sub_element), intent(inout) :: elem
+  type(fCoh8Delam_subelem), intent(inout) :: elem
   type(fnode),              intent(inout) :: nodes(NNODE)
   type(cohesive_material),  intent(in)    :: material
   real(DP),                 intent(in)    :: theta1, theta2
@@ -240,7 +240,7 @@ use cohesive_material_module, only : cohesive_material
   logical,        optional, intent(in)    :: nofailure
 
   ! local variables
-  type(fDelam8sub_element) :: el
+  type(fCoh8Delam_subelem) :: el
   type(fnode) :: nodes_lcl(NNODE)
   logical :: nofail
 
@@ -306,7 +306,7 @@ use cohesive_material_module, only : cohesive_material
       F_vector = ZERO
     end subroutine zeroKF
 
-end subroutine integrate_fDelam8sub_element
+end subroutine integrate_fCoh8Delam_subelem
 
 
 
@@ -322,12 +322,12 @@ pure subroutine partition_element (el, nodes, istat, emsg)
 use parameter_module, only : MSGLENGTH, STAT_SUCCESS, STAT_FAILURE, &
                       & INT_ALLOC_ARRAY, DP, ELTYPELENGTH, ZERO,    &
                       & ONE, SMALLNUM, COH_CRACK_EDGE
-use fnode_module,           only : fnode, extract
-use baseCoh_element_module, only : set
-use global_toolkit_module,  only : distance, partition_quad_elem
+use fnode_module,          only : fnode, extract
+use abstDelam_elem_module, only : set
+use global_toolkit_module, only : distance, partition_quad_elem
 
   ! passed-in variables
-  type(fDelam8sub_element), intent(inout) :: el
+  type(fCoh8Delam_subelem), intent(inout) :: el
   type(fnode),              intent(in)    :: nodes(NNODE)
   integer,                  intent(out)   :: istat
   character(len=MSGLENGTH), intent(out)   :: emsg
@@ -370,7 +370,7 @@ use global_toolkit_module,  only : distance, partition_quad_elem
   ! initialize intent out and local variables
   istat           = STAT_SUCCESS
   emsg            = ''
-  msgloc          = ' partition_element, fDelam8sub_element_module'
+  msgloc          = ' partition_element, fCoh8Delam_subelem_module'
   crack_edges     = 0
   n_crackedges    = 0
   jcrackedge      = 0
@@ -582,7 +582,7 @@ pure subroutine update_internal_nodes (el, nodes)
 use parameter_module, only : ZERO, ONE, COH_CRACK_EDGE
 use fnode_module,     only : fnode, operator(+), operator(*)
 
-  type(fDelam8sub_element), intent(in) :: el
+  type(fCoh8Delam_subelem), intent(in) :: el
   type(fnode),           intent(inout) :: nodes(NNODE)
 
   integer     :: Icrackedge, Iinnode, Iendnode1, Iendnode2
@@ -630,11 +630,11 @@ use parameter_module, only : DP, MSGLENGTH, STAT_SUCCESS, STAT_FAILURE, ZERO, &
                       & NDIM
 use fnode_module,             only : fnode
 use cohesive_material_module, only : cohesive_material
-use baseCoh_element_module,   only : integrate
+use abstDelam_elem_module,    only : integrate
 use global_toolkit_module,    only : assembleKF
 
   ! - passed in variables
-  type(fDelam8sub_element), intent(inout) :: elem
+  type(fCoh8Delam_subelem), intent(inout) :: elem
   type(fnode),              intent(in)    :: nodes(NNODE)
   type(cohesive_material),  intent(in)    :: material
   real(DP),                 intent(in)    :: theta1, theta2
@@ -657,7 +657,7 @@ use global_toolkit_module,    only : assembleKF
   F_vector = ZERO
   istat  = STAT_SUCCESS
   emsg   = ''
-  msgloc = ', integrate_assemble_subelems, fDelam8sub_element_module'
+  msgloc = ', integrate_assemble_subelems, fCoh8Delam_subelem_module'
   nofail = .false.
   isub=0; j=0; k=0; l=0; n=0
 
@@ -740,7 +740,7 @@ pure subroutine get_Tmatrix (el, Tmatrixfull)
 ! internal nodal dofs are interpolated from the other nodal dofs.
 use parameter_module, only : DP, ZERO, ONE, COH_CRACK_EDGE
 
-  type(fDelam8sub_element), intent(in)  :: el
+  type(fCoh8Delam_subelem), intent(in)  :: el
   real(DP),    allocatable, intent(out) :: Tmatrixfull(:,:)
 
   ! local var.
@@ -812,4 +812,4 @@ end subroutine get_Tmatrix
 
 
 
-end module fDelam8sub_element_module
+end module fCoh8Delam_subelem_module

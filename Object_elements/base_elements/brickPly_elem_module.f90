@@ -1,4 +1,4 @@
-module brick_element_module
+module brickPly_elem_module
 !
 !  Purpose:
 !    define a brick element object with lamina material definition
@@ -75,7 +75,7 @@ integer, parameter :: NODES_ON_BOTTOM_EDGES(2, NEDGE_BOTTOM) = &
                     & reshape([ 1,2, 2,3, 3,4, 4,1 ], [2, NEDGE_BOTTOM])
 
 
-type, public :: brick_element
+type, public :: brickPly_elem
   private
   ! list of type components:
   ! fstat         : element failure status
@@ -100,19 +100,19 @@ end type
 
 
 interface empty
-  module procedure empty_brick_element
+  module procedure empty_brickPly_elem
 end interface
 
 interface set
-  module procedure set_brick_element
+  module procedure set_brickPly_elem
 end interface
 
 interface integrate
-  module procedure integrate_brick_element
+  module procedure integrate_brickPly_elem
 end interface
 
 interface extract
-  module procedure extract_brick_element
+  module procedure extract_brickPly_elem
 end interface
 
 
@@ -128,31 +128,31 @@ contains
 
 
 
-pure subroutine empty_brick_element (elem)
+pure subroutine empty_brickPly_elem (elem)
 ! Purpose:
 ! this subroutine is used to format the element for use
 ! it is used in the initialize_lib_elem procedure in the lib_elem module
 
-  type(brick_element), intent(inout) :: elem
+  type(brickPly_elem), intent(inout) :: elem
 
   ! local variable, derived type var. is initialized upon declaration
-  type(brick_element) :: elem_lcl
+  type(brickPly_elem) :: elem_lcl
 
   ! reset elem to the initial state
   elem = elem_lcl
 
-end subroutine empty_brick_element
+end subroutine empty_brickPly_elem
 
 
 
-pure subroutine set_brick_element (elem, connec, ply_angle, istat, emsg)
+pure subroutine set_brickPly_elem (elem, connec, ply_angle, istat, emsg)
 ! Purpose:
 ! this subroutine is used to set the components of the element
 ! it is used in the initialize_lib_elem procedure in the lib_elem module
 ! note that only some of the components need to be set during preproc,
 ! namely connec, ID_matlist, ply_angle
 
-  type(brick_element),      intent(inout) :: elem
+  type(brickPly_elem),      intent(inout) :: elem
   integer,                  intent(in)    :: connec(NNODE)
   real(DP),                 intent(in)    :: ply_angle
   integer,                  intent(out)   :: istat
@@ -165,25 +165,25 @@ pure subroutine set_brick_element (elem, connec, ply_angle, istat, emsg)
   if ( any(connec < 1) ) then
     istat = STAT_FAILURE
     emsg  = 'connec node indices must be >=1, set, &
-    &brick_element_module'
+    &brickPly_elem_module'
     return
   end if
 
   elem%connec     = connec
   elem%ply_angle  = ply_angle
 
-end subroutine set_brick_element
+end subroutine set_brickPly_elem
 
 
 
-pure subroutine extract_brick_element (elem, fstat, connec, ply_angle, &
+pure subroutine extract_brickPly_elem (elem, fstat, connec, ply_angle, &
 & ig_points, stress, strain, df)
 ! Purpose:
 ! to extract the components of this element
 ! note that the dummy args connec and ig_points are allocatable arrays
 ! because their sizes vary with different element types
 
-  type(brick_element),                          intent(in)  :: elem
+  type(brickPly_elem),                          intent(in)  :: elem
   integer,                            optional, intent(out) :: fstat
   integer,               allocatable, optional, intent(out) :: connec(:)
   real(DP),                           optional, intent(out) :: ply_angle
@@ -212,11 +212,11 @@ pure subroutine extract_brick_element (elem, fstat, connec, ply_angle, &
 
   if (present(df))          df     = elem%df
 
-end subroutine extract_brick_element
+end subroutine extract_brickPly_elem
 
 
 
-pure subroutine integrate_brick_element (elem, nodes, material, K_matrix, &
+pure subroutine integrate_brickPly_elem (elem, nodes, material, K_matrix, &
 & F_vector, istat, emsg, nofailure)
 ! Purpose:
 ! updates K matrix, F vector, integration point stress and strain,
@@ -235,7 +235,7 @@ use global_toolkit_module,       only : crack_elem_centroid2d, determinant3d, &
                                       & invert_self3d, beemat3d, lcl_strain3d,&
                                       & glb_dee3d, distance
 
-  type(brick_element),      intent(inout) :: elem
+  type(brickPly_elem),      intent(inout) :: elem
   type(fnode),              intent(in)    :: nodes(NNODE)
   type(lamina_material),    intent(in)    :: material
   real(DP),    allocatable, intent(out)   :: K_matrix(:,:), F_vector(:)
@@ -387,7 +387,7 @@ use global_toolkit_module,       only : crack_elem_centroid2d, determinant3d, &
       deallocate(xj)
     else
       istat = STAT_FAILURE
-      emsg  = 'x not allocated for node, brick_element_module'
+      emsg  = 'x not allocated for node, brickPly_elem_module'
       exit
     end if
     ! assign nodal displacement values (uj) to u vector
@@ -396,7 +396,7 @@ use global_toolkit_module,       only : crack_elem_centroid2d, determinant3d, &
       deallocate(uj)
     else
       istat = STAT_FAILURE
-      emsg  = 'u not allocated for node, brick_element_module'
+      emsg  = 'u not allocated for node, brickPly_elem_module'
       exit
     end if
   end do
@@ -565,7 +565,7 @@ use global_toolkit_module,       only : crack_elem_centroid2d, determinant3d, &
   ! unintentionally modified
   if (abs(ply_angle - elem%ply_angle) > SMALLNUM) then
     istat = STAT_FAILURE
-    emsg  = 'elem%ply_angle is unintentionally modified in brick_element module'
+    emsg  = 'elem%ply_angle is unintentionally modified in brickPly_elem module'
   end if
   if (istat == STAT_FAILURE) then
     call clean_up (K_matrix, F_vector, uj, xj)
@@ -608,7 +608,7 @@ use global_toolkit_module,       only : crack_elem_centroid2d, determinant3d, &
       
     end subroutine clean_up
 
-end subroutine integrate_brick_element
+end subroutine integrate_brickPly_elem
 
 
 
@@ -734,4 +734,4 @@ end subroutine init_shape
 
 
 
-end module brick_element_module
+end module brickPly_elem_module

@@ -1,4 +1,4 @@
-module cohCrack_element_module
+module coh8Crack_elem_module
 !
 !  Purpose:
 !    define a cohCrack element object for cohesive matrix crack in ply
@@ -56,7 +56,7 @@ private
 integer, parameter :: NNODE=8, NIGPOINT=4, NDOF=NDIM*NNODE
 
 
-type, public :: cohCrack_element
+type, public :: coh8Crack_elem
   private
   ! list of type components:
   ! fstat         : element failure status
@@ -79,19 +79,19 @@ end type
 
 
 interface empty
-  module procedure empty_cohCrack_element
+  module procedure empty_coh8Crack_elem
 end interface
 
 interface set
-  module procedure set_cohCrack_element
+  module procedure set_coh8Crack_elem
 end interface
 
 interface integrate
-  module procedure integrate_cohCrack_element
+  module procedure integrate_coh8Crack_elem
 end interface
 
 interface extract
-  module procedure extract_cohCrack_element
+  module procedure extract_coh8Crack_elem
 end interface
 
 
@@ -107,31 +107,31 @@ contains
 
 
 
-pure subroutine empty_cohCrack_element (elem)
+pure subroutine empty_coh8Crack_elem (elem)
 ! Purpose:
 ! this subroutine is used to format the element for use
 ! it is used in the initialize_lib_elem procedure in the lib_elem module
 
-  type(cohCrack_element), intent(inout) :: elem
+  type(coh8Crack_elem), intent(inout) :: elem
 
   ! local variable, derived type var. is initialized upon declaration
-  type(cohCrack_element) :: elem_lcl
+  type(coh8Crack_elem) :: elem_lcl
 
   ! reset elem to the initial state
   elem = elem_lcl
 
-end subroutine empty_cohCrack_element
+end subroutine empty_coh8Crack_elem
 
 
 
-pure subroutine set_cohCrack_element (elem, connec, istat, emsg)
+pure subroutine set_coh8Crack_elem (elem, connec, istat, emsg)
 ! Purpose:
 ! this subroutine is used to set the components of the element
 ! it is used in the initialize_lib_elem procedure in the lib_elem module
 ! note that only some of the components need to be set during preproc,
 ! namely connec, ID_matlist
 
-  type(cohCrack_element),   intent(inout)   :: elem
+  type(coh8Crack_elem),   intent(inout)   :: elem
   integer,                intent(in)      :: connec(NNODE)
   integer,                  intent(out)   :: istat
   character(len=MSGLENGTH), intent(out)   :: emsg
@@ -143,24 +143,24 @@ pure subroutine set_cohCrack_element (elem, connec, istat, emsg)
   if ( any(connec < 1) ) then
     istat = STAT_FAILURE
     emsg  = 'connec node indices must be >=1, set, &
-    &cohCrack_element_module'
+    &coh8Crack_elem_module'
     return
   end if
   
   elem%connec    = connec
 
-end subroutine set_cohCrack_element
+end subroutine set_coh8Crack_elem
 
 
 
-pure subroutine extract_cohCrack_element (elem, fstat, connec, ig_points, &
+pure subroutine extract_coh8Crack_elem (elem, fstat, connec, ig_points, &
 & traction, separation, dm)
 ! Purpose:
 ! to extract the components of this element
 ! note that the dummy args connec and ig_points are allocatable arrays
 ! because their sizes vary with different element types
 
-  type(cohCrack_element),                           intent(in)  :: elem
+  type(coh8Crack_elem),                           intent(in)  :: elem
   integer,                              optional, intent(out) :: fstat
   integer,                 allocatable, optional, intent(out) :: connec(:)
   type(cohesive_ig_point), allocatable, optional, intent(out) :: ig_points(:)
@@ -186,11 +186,11 @@ pure subroutine extract_cohCrack_element (elem, fstat, connec, ig_points, &
 
   if (present(dm))          dm          = elem%dm
 
-end subroutine extract_cohCrack_element
+end subroutine extract_coh8Crack_elem
 
 
 
-pure subroutine integrate_cohCrack_element (elem, nodes, material, &
+pure subroutine integrate_coh8Crack_elem (elem, nodes, material, &
 & K_matrix, F_vector, istat, emsg, nofailure)
 ! Purpose:
 ! updates K matrix, F vector, integration point stress and strain,
@@ -206,7 +206,7 @@ use global_toolkit_module,       only : cross_product3d, normalize_vect, &
                                  & determinant2d
   ! most args are self-explanatory
   ! fdir: fibre direction
-  type(cohCrack_element),     intent(inout) :: elem
+  type(coh8Crack_elem),     intent(inout) :: elem
   type(fnode),              intent(in)    :: nodes(NNODE)
   type(cohesive_material),  intent(in)    :: material
   real(DP),    allocatable, intent(out)   :: K_matrix(:,:), F_vector(:)
@@ -368,7 +368,7 @@ use global_toolkit_module,       only : cross_product3d, normalize_vect, &
       deallocate(xj)
     else
       istat = STAT_FAILURE
-      emsg  = 'x not allocated for node, cohCrack_element_module'
+      emsg  = 'x not allocated for node, coh8Crack_elem_module'
       exit
     end if
     ! assign nodal displacement values (uj) to u vector
@@ -377,7 +377,7 @@ use global_toolkit_module,       only : cross_product3d, normalize_vect, &
       deallocate(uj)
     else
       istat = STAT_FAILURE
-      emsg  = 'u not allocated for node, cohCrack_element_module'
+      emsg  = 'u not allocated for node, coh8Crack_elem_module'
       exit
     end if
   end do
@@ -596,7 +596,7 @@ use global_toolkit_module,       only : cross_product3d, normalize_vect, &
 
     end subroutine clean_up
 
-end subroutine integrate_cohCrack_element
+end subroutine integrate_coh8Crack_elem
 
 
 
@@ -696,4 +696,4 @@ end subroutine init_shape
 
 
 
-end module cohCrack_element_module
+end module coh8Crack_elem_module

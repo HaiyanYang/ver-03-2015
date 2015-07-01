@@ -1,4 +1,4 @@
-module basePly_element_module
+module abstPly_elem_module
 !
 !  Purpose:
 !    define an 'abstract element' object to interface with the 
@@ -15,13 +15,13 @@ module basePly_element_module
 use parameter_module, only : NST => NST_STANDARD, DP, ELTYPELENGTH, &
                       & MSGLENGTH, STAT_SUCCESS, STAT_FAILURE
 
-use wedge_element_module, only : wedge_element
-use brick_element_module, only : brick_element
+use wedgePly_elem_module, only : wedgePly_elem
+use brickPly_elem_module, only : brickPly_elem
 
   implicit none
   private
 
-  type, public :: basePly_element
+  type, public :: abstPly_elem
     ! encapsulate components of this type
     private
     ! list of type components:
@@ -29,24 +29,24 @@ use brick_element_module, only : brick_element
     ! wedge  : allocated if eltype = 'wedge'
     ! brick  : allocated if eltype = 'brick'
     character(len=ELTYPELENGTH)      :: eltype = ''
-    type(wedge_element), allocatable :: wedge      ! wedge sub elements
-    type(brick_element), allocatable :: brick      ! brick sub elements
+    type(wedgePly_elem), allocatable :: wedge      ! wedge sub elements
+    type(brickPly_elem), allocatable :: brick      ! brick sub elements
   end type
 
   interface empty
-      module procedure empty_basePly_element
+      module procedure empty_abstPly_elem
   end interface
 
   interface set
-      module procedure set_basePly_element
+      module procedure set_abstPly_elem
   end interface
 
   interface integrate
-      module procedure integrate_basePly_element
+      module procedure integrate_abstPly_elem
   end interface
 
   interface extract
-      module procedure extract_basePly_element
+      module procedure extract_abstPly_elem
   end interface
 
 
@@ -62,27 +62,27 @@ use brick_element_module, only : brick_element
 
 
 
-  pure subroutine empty_basePly_element (elem)
+  pure subroutine empty_abstPly_elem (elem)
 
-      type(basePly_element), intent(inout) :: elem
+      type(abstPly_elem), intent(inout) :: elem
 
       elem%eltype = ''
 
       if(allocated(elem%wedge)) deallocate(elem%wedge)
       if(allocated(elem%brick)) deallocate(elem%brick)
 
-  end subroutine empty_basePly_element
+  end subroutine empty_abstPly_elem
 
 
 
-  pure subroutine set_basePly_element (elem, eltype, connec, ply_angle, &
+  pure subroutine set_abstPly_elem (elem, eltype, connec, ply_angle, &
   & istat, emsg)
   ! Purpose:
   ! this is an interface used to set the contained base element according to
   ! eltype:
-  ! - if eltype is brick, the input dummy args are passed to set_brick_element
+  ! - if eltype is brick, the input dummy args are passed to set_brickPly_elem
   ! to define the elem's brick component; elem's wedge component is dealloc.
-  ! - if eltype is wedge, the input dummy args are passed to set_wedge_element
+  ! - if eltype is wedge, the input dummy args are passed to set_wedgePly_elem
   ! to define the elem's wedge component; elem's brick component is dealloc.
   ! ** note:
   ! - size of connec is checked here against eltype to ensure compatibility
@@ -90,10 +90,10 @@ use brick_element_module, only : brick_element
   ! left for the called eltype's set procedure for checking
   ! - local copies of elem's components are used for set operation;
   ! they are copied to actual elem's components only before successful return
-  use wedge_element_module, only : wedge_element, set
-  use brick_element_module, only : brick_element, set
+  use wedgePly_elem_module, only : wedgePly_elem, set
+  use brickPly_elem_module, only : brickPly_elem, set
 
-    type(basePly_element),       intent(inout) :: elem
+    type(abstPly_elem),       intent(inout) :: elem
     character(len=*),            intent(in)    :: eltype
     integer,                     intent(in)    :: connec(:)
     real(DP),                    intent(in)    :: ply_angle
@@ -102,8 +102,8 @@ use brick_element_module, only : brick_element
 
     ! local var., local copies of intent inout arg. components
     character(len=ELTYPELENGTH) :: eltype_lcl
-    type(wedge_element), allocatable :: wedge_lcl
-    type(brick_element), allocatable :: brick_lcl
+    type(wedgePly_elem), allocatable :: wedge_lcl
+    type(brickPly_elem), allocatable :: brick_lcl
 
     ! initialize intent out and local variables (non derived type)
     istat = STAT_SUCCESS
@@ -119,7 +119,7 @@ use brick_element_module, only : brick_element
           if ( size(connec) /= 6 ) then
             istat = STAT_FAILURE
             emsg  = 'size of connec is not 6 for wedge base element, &
-            & set, basePly_element_module'
+            & set, abstPly_elem_module'
             return
           end if
 
@@ -150,7 +150,7 @@ use brick_element_module, only : brick_element
           if ( size(connec) /= 8 ) then
             istat = STAT_FAILURE
             emsg  = 'size of connec is not 8 for brick base element, &
-            & set, basePly_element_module'
+            & set, abstPly_elem_module'
             return
           end if
 
@@ -179,7 +179,7 @@ use brick_element_module, only : brick_element
       case default
           ! this should not be reached, flag an error and return
           istat = STAT_FAILURE
-          emsg  = 'unsupported eltype in set, basePly element module'
+          emsg  = 'unsupported eltype in set, abstPly element module'
           return
 
 
@@ -188,18 +188,18 @@ use brick_element_module, only : brick_element
     if (allocated(wedge_lcl)) deallocate(wedge_lcl)
     if (allocated(brick_lcl)) deallocate(brick_lcl)
 
-  end subroutine set_basePly_element
+  end subroutine set_abstPly_elem
 
 
 
-  pure subroutine extract_basePly_element (elem, eltype, fstat, connec, &
+  pure subroutine extract_abstPly_elem (elem, eltype, fstat, connec, &
   & ply_angle, ig_points, stress, strain, df)
   ! extra modules needed to declare the type of some dummy args
   use lamina_material_module, only : lamina_ig_point
-  use wedge_element_module,   only : extract
-  use brick_element_module,   only : extract
+  use wedgePly_elem_module,   only : extract
+  use brickPly_elem_module,   only : extract
 
-    type(basePly_element),                        intent(in)  :: elem
+    type(abstPly_elem),                        intent(in)  :: elem
     character(len=ELTYPELENGTH),        optional, intent(out) :: eltype
     integer,                            optional, intent(out) :: fstat
     integer,               allocatable, optional, intent(out) :: connec(:)
@@ -240,19 +240,19 @@ use brick_element_module, only : brick_element
     end select
 
 
-  end subroutine extract_basePly_element
+  end subroutine extract_abstPly_elem
 
 
 
-  pure subroutine integrate_basePly_element (elem, nodes, material, Kmatrix, &
+  pure subroutine integrate_abstPly_elem (elem, nodes, material, Kmatrix, &
   & Fvector, istat, emsg, nofailure)
   ! extra modules needed to declare the type of some dummy args
   use fnode_module,           only : fnode
   use lamina_material_module, only : lamina_material
-  use wedge_element_module,   only : integrate
-  use brick_element_module,   only : integrate
+  use wedgePly_elem_module,   only : integrate
+  use brickPly_elem_module,   only : integrate
 
-      type(basePly_element),    intent(inout) :: elem
+      type(abstPly_elem),    intent(inout) :: elem
       type(fnode),              intent(in)    :: nodes(:)
       type(lamina_material),    intent(in)    :: material
       real(DP), allocatable,    intent(out)   :: Kmatrix(:,:), Fvector(:)
@@ -282,7 +282,7 @@ use brick_element_module, only : brick_element
             if ( size(nodes) /= 6 ) then
               istat = STAT_FAILURE
               emsg  = 'size of nodes is not 6 for wedge base element, &
-              & integrate, basePly_element_module'
+              & integrate, abstPly_elem_module'
               return
             end if
             
@@ -295,7 +295,7 @@ use brick_element_module, only : brick_element
             if ( size(nodes) /= 8 ) then
               istat = STAT_FAILURE
               emsg  = 'size of nodes is not 8 for brick base element, &
-              & integrate, basePly_element_module'
+              & integrate, abstPly_elem_module'
               return
             end if
             
@@ -304,14 +304,14 @@ use brick_element_module, only : brick_element
 
         case default
             istat = STAT_FAILURE
-            emsg  = 'unexpected elem type, integrate, basePly_element_module'
+            emsg  = 'unexpected elem type, integrate, abstPly_elem_module'
             return
             
       end select
 
-  end subroutine integrate_basePly_element
+  end subroutine integrate_abstPly_elem
 
 
 
 
-end module basePly_element_module
+end module abstPly_elem_module
