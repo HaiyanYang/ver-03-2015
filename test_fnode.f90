@@ -1,5 +1,5 @@
 include 'globals/parameter_module.f90'
-include 'globals/fnode_module.f90'
+include 'object_node/fnode_module.f90'
 
 program test_fnode
 ! Purpose:

@@ -1,22 +1,24 @@
 include 'globals/parameter_module.f90'
 include 'globals/global_clock_module.f90'
-include 'globals/xnode_module.f90'
-!include 'globals/global_node_list_module.f90'
-!include 'globals/global_material_list_module.f90'
 include 'globals/global_toolkit_module.f90'
-include 'materials/lamina_material_module.f90'
-include 'materials/cohesive_material_module.f90'
-include 'elements/base_elements/brick_element_module.f90'
-include 'elements/base_elements/wedge_element_module.f90'
-include 'elements/base_elements/delam6_element_module.f90'
-include 'elements/base_elements/delam8_element_module.f90'
-include 'elements/base_elements/cohCrack_element_module.f90'
-include 'elements/basePly_element_module.f90'
-include 'elements/baseCoh_element_module.f90'
-include 'elements/fDelam8sub_element_module.f90'
-include 'elements/fDelam8_element_module.f90'
-include 'elements/fBrick_element_module.f90'
-include 'elements/fBrickLam_element_module.f90'
+include 'object_materials/lamina_material_module.f90'
+include 'object_materials/cohesive_material_module.f90'
+include 'object_node/fnode_module.f90'
+include 'object_elements/base_elements/brickPly_elem_module.f90'
+include 'object_elements/base_elements/wedgePly_elem_module.f90'
+include 'object_elements/base_elements/coh8Crack_elem_module.f90'
+include 'object_elements/base_elements/coh6Delam_elem_module.f90'
+include 'object_elements/base_elements/coh8Delam_elem_module.f90'
+include 'object_elements/base_elements/abstPly_elem_module.f90'
+include 'object_elements/base_elements/abstDelam_elem_module.f90'
+include 'object_elements/fBrickPly_elem_module.f90'
+include 'object_elements/fCoh8Delam_subelem_module.f90'
+include 'object_elements/fCoh8Delam_elem_module.f90'
+include 'object_elements/fBrickLam_elem_module.f90'
+include 'datalists/material_list_module.f90'
+include 'datalists/node_list_module.f90'
+include 'datalists/edge_list_module.f90'
+include 'datalists/elem_list_module.f90'
 
 program compile_base_elements
 ! Purpose:
@@ -28,18 +30,22 @@ program compile_base_elements
 !    ========  ====================  ========================================
 !    09/04/15  B. Y. Chen            Original code
 !
-!
-use brick_element_module
-use wedge_element_module
-use delam6_element_module
-use delam8_element_module
-use cohCrack_element_module
-use basePly_element_module
-use baseCoh_element_module
-use fDelam8sub_element_module
-use fDelam8_element_module
-use fBrick_element_module
-use fBrickLam_element_module
+
+use brickPly_elem_module
+use wedgePly_elem_module
+use coh6Delam_elem_module
+use coh8Delam_elem_module
+use coh8Crack_elem_module
+use abstPly_elem_module
+use abstDelam_elem_module
+use fCoh8Delam_subelem_module
+use fCoh8Delam_elem_module
+use fBrickPly_elem_module
+use fBrickLam_elem_module
+use material_list_module
+use node_list_module
+use edge_list_module
+use elem_list_module
 
 implicit none
 

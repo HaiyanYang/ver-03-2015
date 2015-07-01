@@ -20,10 +20,6 @@ type(program_clock) :: local_clock
 ! initialize local variables
 ! all derived types have been initialized in definition
 
-! define inputs
-local_clock%step_number = 2
-local_clock%increment_number = 10
-
 ! call all public procedures, test their correctness
 call empty (global_clock)
 

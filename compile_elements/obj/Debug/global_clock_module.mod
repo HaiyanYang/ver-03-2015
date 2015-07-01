@@ -1,8 +1,8 @@
 GFORTRAN module version '10' created from C:\Users\mpecb\Documents\GitHub\ver-03-2015\compile_elements.f90
-MD5:4d710cf4aa98af63a74fcf2802aad8df -- If you edit this, you'll get what you deserve.
+MD5:55d872558d023c42c2c6f26676db626a -- If you edit this, you'll get what you deserve.
 
-(() () () () () () () () () () () () () () () () () () () () () () ()
-() () () ())
+(() () () () () () () () () () () () () () () () () () () () () () () ()
+() () ())
 
 ()
 
@@ -38,7 +38,7 @@ UNKNOWN-INTENT MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE PURE) (UNKNOWN 0
 0 0 0 UNKNOWN ()) 13 0 (14) () 0 () () () 0 0)
 4 'set_program_clock' 'global_clock_module' '' 1 ((PROCEDURE
 UNKNOWN-INTENT MODULE-PROC DECL UNKNOWN 0 0 SUBROUTINE PURE) (UNKNOWN 0
-0 0 0 UNKNOWN ()) 15 0 (16 17 18 19 20) () 0 () () () 0 0)
+0 0 0 UNKNOWN ()) 15 0 (16 17 18) () 0 () () () 0 0)
 9 'global_clock' '' '' 8 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
 DUMMY) (DERIVED 3 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
 10 'local_clock' '' '' 8 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
@@ -51,11 +51,6 @@ DUMMY) (DERIVED 3 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
 DUMMY) (INTEGER 4 0 0 0 INTEGER ()) 0 0 () () 0 () () () 0 0)
 18 'curr_inc' '' '' 15 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
 DUMMY) (INTEGER 4 0 0 0 INTEGER ()) 0 0 () () 0 () () () 0 0)
-19 'istat' '' '' 15 ((VARIABLE OUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
-DUMMY) (INTEGER 4 0 0 0 INTEGER ()) 0 0 () () 0 () () () 0 0)
-20 'emsg' '' '' 15 ((VARIABLE OUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0 DUMMY)
-(CHARACTER 1 0 0 0 CHARACTER ((CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0
-'256'))) 0 0 () () 0 () () () 0 0)
 )
 
 ('Program_clock' 0 3 'clock_in_sync' 0 7 'global_clock' 0 11

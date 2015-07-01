@@ -54,29 +54,13 @@ end subroutine empty_program_clock
 
 
 
-pure subroutine set_program_clock (GLOBAL_CLOCK, curr_step, curr_inc, &
-& istat, emsg)
+pure subroutine set_program_clock (GLOBAL_CLOCK, curr_step, curr_inc)
 ! Purpose:
 ! this module sets the current global clock values
-use parameter_module, only : MSGLENGTH, STAT_SUCCESS, STAT_FAILURE
 
   type(program_clock), intent(inout) :: GLOBAL_CLOCK
   integer,             intent(in)    :: curr_step, curr_inc
-  integer,                  optional, intent(out) :: istat
-  character(len=MSGLENGTH), optional, intent(out) :: emsg
   
-  if (present(istat) .and. present(emsg)) then
-    istat = STAT_SUCCESS
-    emsg  = ''
-    ! check validity of inputs
-    if (curr_step < 1 .or. curr_inc < 1) then
-      istat = STAT_FAILURE
-      emsg  = 'current step or increment no. is < 1, set, global_clock_module'
-      return
-    end if
-  end if
-  
-  ! update if inputs are valid
   GLOBAL_CLOCK%step_number      = curr_step
   GLOBAL_CLOCK%increment_number = curr_inc
 
