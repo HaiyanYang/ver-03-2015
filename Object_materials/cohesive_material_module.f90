@@ -233,128 +233,18 @@ contains
 
 
 
-  pure subroutine set_cohesive (this, modulus, strength, toughness, &
-  & istat, emsg)
+  pure subroutine set_cohesive (this, modulus, strength, toughness)
   ! Purpose :
   ! to set this object's components during preprocessing before analysis;
-  ! property check subroutine, error status and message are needed to
-  ! flag an error when the input properties are unacceptable
 
-    ! - istat       : status variable of this procedure   to output
-    ! - emsg        : error message                       to output
     type(cohesive_material),  intent(inout) :: this
     type(cohesive_modulus),   intent(in)    :: modulus
     type(cohesive_strength),  intent(in)    :: strength
     type(cohesive_toughness), intent(in)    :: toughness
-    integer,                  intent(out)   :: istat
-    character(len=MSGLENGTH), intent(out)   :: emsg
 
-    ! local copy of intent(inout) variable
-    type(cohesive_material) :: this_lcl
-
-    ! initialize intent(out) & local variables
-    istat = STAT_SUCCESS  ! default
-    emsg  = ''
-
-    this_lcl%modulus   = modulus
-    this_lcl%strength  = strength
-    this_lcl%toughness = toughness
-
-    ! check this_mat properties
-    call check_mat_prop (this_lcl, istat, emsg)
-    if (istat == STAT_FAILURE) return
-
-    ! update to dummy arg if inputs are valid
-    this = this_lcl
-
-
-    contains
-
-
-      pure subroutine check_mat_prop (this, istat, emsg)
-      ! Purpose:
-      ! to check the validity of the input material properties
-
-        type(cohesive_material),  intent(in)  :: this
-        integer,                  intent(out) :: istat
-        character(len=MSGLENGTH), intent(out) :: emsg
-
-        ! initialize intent out variables
-        istat = STAT_SUCCESS
-        emsg  = ''
-
-        ! elastic moduli must be positive non-zero
-        if (this%modulus%Dnn < SMALLNUM) then
-          istat = STAT_FAILURE
-          emsg  = 'cohesive Dnn must be greater than zero, cohesive_material_module'
-          return
-        end if
-
-        if (this%modulus%Dtt < SMALLNUM) then
-          istat = STAT_FAILURE
-          emsg  = 'cohesive Dtt must be greater than zero, cohesive_material_module'
-          return
-        end if
-
-        if (this%modulus%Dll < SMALLNUM) then
-          istat = STAT_FAILURE
-          emsg  = 'cohesive Dll must be greater than zero, cohesive_material_module'
-          return
-        end if
-
-
-        ! strengths must be positive non-zero
-        if (this%strength%tau_nc < SMALLNUM) then
-          istat = STAT_FAILURE
-          emsg  = 'cohesive tau_nc must be greater than zero, &
-          &cohesive_material_module'
-          return
-        end if
-
-        if (this%strength%tau_tc < SMALLNUM) then
-          istat = STAT_FAILURE
-          emsg  = 'cohesive tau_tc must be greater than zero, &
-          &cohesive_material_module'
-          return
-        end if
-
-        if (this%strength%tau_lc < SMALLNUM) then
-          istat = STAT_FAILURE
-          emsg  = 'cohesive tau_lc must be greater than zero, &
-          &cohesive_material_module'
-          return
-        end if
-
-
-        ! matrix toughnesses and mixed-mode ratio must be positive non-zero
-        if (this%toughness%Gnc < SMALLNUM) then
-          istat = STAT_FAILURE
-          emsg  = 'cohesive Gnc must be greater than zero, cohesive_material_module'
-          return
-        end if
-
-        if (this%toughness%Gtc < SMALLNUM) then
-          istat = STAT_FAILURE
-          emsg  = 'cohesive Gtc must be greater than zero, cohesive_material_module'
-          return
-        end if
-
-        if (this%toughness%Glc < SMALLNUM) then
-          istat = STAT_FAILURE
-          emsg  = 'cohesive Glc must be greater than zero, cohesive_material_module'
-          return
-        end if
-
-        if (this%toughness%alpha < SMALLNUM) then
-          istat = STAT_FAILURE
-          emsg  = 'cohesive alpha must be greater than zero, cohesive_material_module'
-          return
-        end if
-
-
-      end subroutine check_mat_prop
-
-
+    this%modulus   = modulus
+    this%strength  = strength
+    this%toughness = toughness
 
   end subroutine set_cohesive
 

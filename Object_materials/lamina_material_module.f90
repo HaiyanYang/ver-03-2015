@@ -233,136 +233,18 @@ contains
 
 
 
-  pure subroutine set_lamina (this, modulus, strength, fibreToughness, &
-  & istat, emsg)
+  pure subroutine set_lamina (this, modulus, strength, fibreToughness)
   ! Purpose:
-  ! to set this lamina object's components during preprocessing before analysis;
-  ! property check subroutine, error status and message are needed to
-  ! flag an error when the input properties are unacceptable
+  ! to set this lamina object's components during preprocessing before analysis
 
-    ! - istat       : status variable of this procedure   to output
-    ! - emsg        : error message                       to output
     type(lamina_material),       intent(inout) :: this
     type(lamina_modulus),        intent(in)    :: modulus
     type(lamina_strength),       intent(in)    :: strength
     type(lamina_fibreToughness), intent(in)    :: fibreToughness
-    integer,                     intent(out)   :: istat
-    character(len=MSGLENGTH),    intent(out)   :: emsg
 
-    ! local copy of intent(inout) variable
-    type(lamina_material) :: this_lcl
-
-    ! initialize intent(out) & local variables
-    istat = STAT_SUCCESS  ! default
-    emsg  = ''
-
-    this_lcl%modulus        = modulus
-    this_lcl%strength       = strength
-    this_lcl%fibreToughness = fibreToughness
-
-    ! check this_mat properties
-    call check_mat_prop (this_lcl, istat, emsg)
-    if (istat == STAT_FAILURE) return
-
-    ! update to dummy arg if inputs are valid
-    this = this_lcl
-
-    contains
-
-
-      pure subroutine check_mat_prop (this, istat, emsg)
-      ! Purpose:
-      ! to check the validity of the input material properties
-
-        type(lamina_material),    intent(in)  :: this
-        integer,                  intent(out) :: istat
-        character(len=MSGLENGTH), intent(out) :: emsg
-
-        ! initialize intent out variables
-        istat = STAT_SUCCESS
-        emsg  = ''
-
-        ! elastic moduli must be positive non-zero
-        if (this%modulus%E1 < SMALLNUM) then
-          istat = STAT_FAILURE
-          emsg  = 'lamina E1 must be greater than zero, lamina_material_module'
-          return
-        end if
-
-        if (this%modulus%E2 < SMALLNUM) then
-          istat = STAT_FAILURE
-          emsg  = 'lamina E2 must be greater than zero, lamina_material_module'
-          return
-        end if
-
-        if (this%modulus%G12 < SMALLNUM) then
-          istat = STAT_FAILURE
-          emsg  = 'lamina G12 must be greater than zero, lamina_material_module'
-          return
-        end if
-
-        if (this%modulus%G23 < SMALLNUM) then
-          istat = STAT_FAILURE
-          emsg  = 'lamina G23 must be greater than zero, lamina_material_module'
-          return
-        end if
-
-        ! check on nu12 and nu23 are omitted; they can take on both + and - values
-
-        ! strengths must be positive non-zero
-        if (this%strength%Xt < SMALLNUM) then
-          istat = STAT_FAILURE
-          emsg  = 'lamina Xt must be greater than zero, lamina_material_module'
-          return
-        end if
-
-        if (this%strength%Xc < SMALLNUM) then
-          istat = STAT_FAILURE
-          emsg  = 'lamina Xc must be greater than zero, lamina_material_module'
-          return
-        end if
-
-        if (this%strength%Yt < SMALLNUM) then
-          istat = STAT_FAILURE
-          emsg  = 'lamina Yt must be greater than zero, lamina_material_module'
-          return
-        end if
-
-        if (this%strength%Yc < SMALLNUM) then
-          istat = STAT_FAILURE
-          emsg  = 'lamina Yc must be greater than zero, lamina_material_module'
-          return
-        end if
-
-        if (this%strength%Sl < SMALLNUM) then
-          istat = STAT_FAILURE
-          emsg  = 'lamina Sl must be greater than zero, lamina_material_module'
-          return
-        end if
-
-        if (this%strength%St < SMALLNUM) then
-          istat = STAT_FAILURE
-          emsg  = 'lamina St must be greater than zero, lamina_material_module'
-          return
-        end if
-
-        ! fibre toughnesses must be positive non-zero
-        if (this%fibreToughness%GfcT < SMALLNUM) then
-          istat = STAT_FAILURE
-          emsg  = 'lamina GfcT must be greater than zero, lamina_material_module'
-          return
-        end if
-
-        if (this%fibreToughness%GfcC < SMALLNUM) then
-          istat = STAT_FAILURE
-          emsg  = 'lamina GfcC must be greater than zero, lamina_material_module'
-          return
-        end if
-
-
-      end subroutine check_mat_prop
-
-
+    this%modulus        = modulus
+    this%strength       = strength
+    this%fibreToughness = fibreToughness
 
   end subroutine set_lamina
 
