@@ -148,9 +148,9 @@ class assembly:
         self.elsets=elsets
         
         
-class xlayup:
+class layup:
 
-    def __init__(self, angle, ratio):
-        self.angle=angle
-        self.ratio=ratio
+    def __init__(self, angle, nplies):
+        self.angle  = angle
+        self.nplies = nplies
 
