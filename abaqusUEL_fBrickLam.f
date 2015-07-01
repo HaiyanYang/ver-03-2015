@@ -6,9 +6,9 @@
 
 
 !------ include FNM modules --------------------------
-include 'globals/global_param_module.f90'
+include 'globals/parameter_module.f90'
 include 'globals/global_clock_module.f90'
-include 'globals/global_tools_module.f90'
+include 'globals/global_toolkit_module.f90'
 include 'object_materials/lamina_material_module.f90'
 include 'object_materials/cohesive_material_module.f90'
 include 'object_node/fnode_module.f90'
