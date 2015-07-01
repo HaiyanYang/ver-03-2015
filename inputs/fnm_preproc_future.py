@@ -1,6 +1,6 @@
 ################################################################
 ################# Preprocessing for the FNM ####################
-##  writing input_nodes, input_edges and input_elems modules           ##
+##  writing input_nodes, input_edges and input_elems          ##
 ################################################################
 ##
 ##
@@ -171,129 +171,23 @@ for lheader, line in enumerate(lines):
 for ln in range(lheader+1:lenlines):
     line=lines[ln]
     
+    # copy the comment lines
     if(line[0:2]=='**'):
         fnminp.write(line)
         
+    # read Part definitions
     elif(len(line)>=5 and line[0:5]=='*Part'):
-        pname=line(12:)
+        # read part name
+        pname = line(12:)
+        # create a new part in parts list
         parts.append(part(name=pname, nodes=[], elems=[]))
+        # copy this line 
         fnminp.write(line)
+        # read nodes
         
-        isnode=False
-        iselem=False
-        cycle=False
+        # read elems
         
-        for ip in range(ln+1:lenlines):
-            
-            pline=lines[ip]
-            
-            cycle=False
-            
-            if
-        
-
-#isheader=True
-#isnode=False
-#iselem=False
-#cycle=False
-#
-#for ln, line in enumerate(lines):
-#    cycle=False
-#    
-#    if(len(line)>=5 and line[0:5]=='*Node'):
-#        isheader=False
-#        isnode=True
-#        cycle=True
-#
-#    elif(len(line)>=8 and line[0:8]=='*Element'):
-#        isnode=False
-#        iselem=True
-#        cycle=True
-#        
-#        if ('C3D8' in line) or ('SC8' in line):
-#            eltype.append('xlam')
-#            elcount.append(0)
-#        else:
-#            print 'warning: abaqus element type in line:', ln, 'is not supported in fnm.'
-#            print 'supported abaqus element types are: C3D8(R), SC8(R)'
-#
-#    elif(len(line)>=9 and line[0:9]=='*End Part'):
-#        iselem=False
-#      
-#    if not cycle:
-#        if isheader:
-#            fnminp.write(line)
-#        elif isnode:
-#        # store nodes first
-#            l = []
-#            for t in line.split(','):
-#                try:
-#                    l.append(float(t))
-#                except ValueError:
-#                    pass
-#
-#            if ndim==2:
-#                # nodes.append(node(x=l[1], y=l[2], z=0.0))
-#                print 'error: ndim = 2 not supported!' 
-#            else:
-#                nodes.append(node(x=l[1], y=l[2], z=l[3]))  
-#
-#            # append the ndedg row to the correct length (nnode)
-#            ndedg.append([]) 
-#            
-#            # append the ndedg col to the correct length (nnode)
-#            for i in range(len(ndedg)):
-#                ndedg[i]=[0]*len(ndedg)
-#            
-#        elif iselem:
-#        # build edges, store elements' nodecnc and edgecnc
-#            
-#            # increase the elem count of the latest elem type
-#            elcount[-1]+=1
-#        
-#            l = []
-#            for t in line.split(','):
-#                try:
-#                    l.append(int(t))
-#                except ValueError:
-#                    pass
-# 
-#            id=l[0]
-#            nds=l[1:]
-#            
-#            elems.append(element(index=id,nodes=nds,edges=[]))
-#            
-#            if ndim==2:
-#                print 'error: ndim = 2 not supported!'             
-#            else:
-#            # in 3D FNM for composites, only edges parallel to shell plane are breakable
-#                for j in range(2):
-#                    for i in range(len(nds)/2):
-#                        row=nds[i+j*len(nds)/2]-1
-#                        
-#                        if i==len(nds)/2-1:
-#                            col=nds[j*len(nds)/2]-1
-#                        else:
-#                            col=nds[i+1+j*len(nds)/2]-1
-#                            
-#                        if ndedg[row][col]==0:
-#                        # this pair of nodes hasn't been assigned to an edge
-#                            fn1=len(nodes)                          # indices of 2 fl. nodes on this new edge
-#                            fn2=fn1+1
-#                            for nf in range(2):                     # create floating nodes on this edge
-#                                nodes.append(node(0.0,0.0,0.0))
-#                                
-#                            edges.append(edge(nodes=[row+1,col+1,fn1+1,fn2+1]))     # create this edge
-#                            ndedg[row][col]=len(edges)              # fill the new edge index in the ndedg matrix
-#                            ndedg[col][row]=-(len(edges))           # nodes in rev. order makes the same edge in rev. dir.
-#                            elems[-1].edges.append(ndedg[row][col]) # append this edge no. in this elem
-#                        else:
-#                        # this pair of nodes has been assigned to an edge
-#                            elems[-1].edges.append(ndedg[row][col]) # append this edge no. in this elem            
-#            
-#        else:
-#            break
-#            #fnminp.write(line)
+        break
 
 
 #***************************************************************        
