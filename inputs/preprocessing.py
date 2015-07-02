@@ -69,21 +69,16 @@ fnminp = open(fnminputfile,'w')
 #***************************************************************
 #       define usefule variables
 #***************************************************************
-header  = []    # list of header lines
-parts   = []    # list of all parts in the model
-nodes   = []    # list of all nodes in a part
-edges   = []    # list of all breakable edges in a part
-elems   = []    # list of all elements in a part
-node_edge = []    # matrix of node_i-to-node_j edge no. in a part
-bcd     = []    # list of all edges with b.c.d
 
-rawlayup = []    # layup of the laminate in its basic format (list of fibre angles of all plies)
-blklayup = []    # layup of ply blocks, used in xlam element; an xlayup class is needed
+
+
 
 
 #***************************************************************
 #       ask for layup from user
 #***************************************************************
+rawlayup = []    # layup of the laminate in its basic format (list of fibre angles of all plies)
+blklayup = []    # layup of ply blocks, used in xlam element; an xlayup class is needed
 
 # ask for a list of ply angles
 rawlayup = input('layup of laminate is (fibre angle (int/float) of each ply, separated by comma):')
@@ -99,7 +94,6 @@ for plyangle in rawlayup:
         blklayup[-1].nplies += 1
     else:
         blklayup.append( layup(angle=plyangle, nplies=1) )
-
 
 # put layup info in a string for later output purpose
 layupstr=''
@@ -118,6 +112,10 @@ print("The layup is: "+layupstr)
 #       Read input file
 #       store nodes, elements, find edges; store bcd nodes
 #***************************************************************
+header  = []    # list of header lines
+parts   = []    # list of all parts in the model
+NtN     = []    # matrix of Node-to-Node edges
+bcd     = []    # list of all edges with b.c.d
 
 # Store all lines first
 All_lines = abqinp.readlines()
@@ -130,13 +128,116 @@ header.extend(All_lines[0:5])
 
 # find the line no. of *Part and store in jparts
 jparts = [j for j,line in enumerate(All_lines) if '*Part' in line]
+#if (len(jparts)>1):
+#    print("ERROR: more than one part is not yet supported!")
+#    sys.exit()
 
 # read parts and store in respective lists
 for jp in jparts:
-  # read Part name
-  pname = All_lines[jp][12:]
-  # create a new part in parts list
-  parts.append(part(name=pname, nodes=[], elems=[]))
+
+    # read Part name
+    pname = All_lines[jp][12:]
+    
+    # create a new part in parts list
+    parts.append(part(name=pname, nodes=[], edges=[], elems=[]))
+    
+    # find the line of *Node and *Element
+    jnode = next(j for j in range(jp,lenAll) if '*Node' in All_lines[j])
+    jelem = next(j for j in range(jp,lenAll) if '*Element' in All_lines[j])
+    
+    # read nodes of this part 
+    for jn in range(jnode+1,lenAll):
+        nline = All_lines[jn]
+        # break out of for loop if end of node section is reached
+        if('*' in nline):
+            break
+        # read the coords of this node into a list of float numbers
+        coords = []
+        for t in nline.split(','):
+            try:
+                coords.append(float(t))
+            except ValueError:
+                pass
+        # store the coords in nodes list of this part
+        parts[-1].nodes.append(node(x=coords[1], y=coords[2], z=coords[3]))
+        # update the node-to-node (NtN) matrix row length
+        NtN.append([])
+    ##check node correctness
+    #for nd in parts[-1].nodes:
+    #    print(str(nd.x)+','+str(nd.y)+','+str(nd.z))
+    
+    # append the NtN matrix column to the correct length (nnode)
+    for r in range(len(NtN)):
+        NtN[r] = [0]*len(NtN)
+        
+    # read elems of this part
+    for je in range(jelem+1,lenAll):
+        eline = All_lines[je]
+        # break out of for loop if end of elem section is reached
+        if('*' in eline):
+            break
+        # read the index and real nodes of this elem into a list of int numbers
+        el = []
+        for t in eline.split(','):
+            try:
+                el.append(int(t))
+            except ValueError:
+                pass
+        id  = el[0]  # elem index
+        nds = el[1:] # elem real nodes
+        # store the index and real nodes in elem list of this part
+        parts[-1].elems.append(element(index=id, rnodes=nds, edges=[]))
+        # form edges
+        # in 3D FNM for composites, only edges parallel to shell plane are breakable
+        # j = 0: bottom edges; 
+        # j = 1: top edges
+        halfnds = len(nds)/2
+        for j in range(2):
+            # j = 0: loop over nodes on bot surf
+            # j = 1: loop over nodes on top surf
+            for i in range(halfnds):
+                # ith node on surf j
+                row = nds[ j*halfnds + i ] - 1
+                # (i+1)th node on surf j; 
+                # if i is the last node, i+1 is the first node
+                if i == halfnds-1:
+                    col = nds[ j*halfnds ] - 1
+                else:
+                    col = nds[ j*halfnds + i + 1 ] - 1
+                # fill in the NtN matrix:
+                # fill in the edge index composed of the two end nodes
+                if NtN[row][col]==0:
+                # this pair of nodes hasn't formed an edge
+                # a new edge will be formed
+                    # indices of 2 fl. nodes on this new edge
+                    # they are two new nodes to be added in the part's node list
+                    fn1 = len(parts[-1].nodes)
+                    fn2 = fn1 + 1
+                    parts[-1].nodes.append( node(0.0,0.0,0.0) )
+                    parts[-1].nodes.append( node(0.0,0.0,0.0) )
+                    # form a new edge and append to existing list of edges 
+                    # the new edge has 4 nodes: 2 real, 2 floating
+                    parts[-1].edges.append(edge(nodes=[row+1,col+1,fn1+1,fn2+1]))
+                    # fill the new edge index in the NtN matrix
+                    # nodes in rev. order makes the same edge in rev. dir.
+                    NtN[row][col] =  len(parts[-1].edges)
+                    NtN[col][row] = -len(parts[-1].edges)
+                    # append this edge no. in this elem
+                    parts[-1].elems[-1].edges.append(NtN[row][col]) 
+                else:
+                # this pair of nodes has already formed an edge
+                    # append this edge no. in this elem 
+                    parts[-1].elems[-1].edges.append(NtN[row][col])           
+    
+    #check elem correctness
+    for el in parts[-1].elems:
+        print(str(el.index)+','+str(el.rnodes)+','+str(el.edges))
+    
+      
+      
+      
+      
+      
 
 
 #for i,line in enumerate(All_lines):   

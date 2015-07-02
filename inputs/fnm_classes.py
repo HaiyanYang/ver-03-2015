@@ -71,86 +71,87 @@ class cohesive:
 #***************************************************************
 #****************** Define geometry classes ********************
 #***************************************************************
-
-class node:
-
-    def __init__(self, x, y, z):
-        self.x=x
-        self.y=y
-        self.z=z
-
-
-class edge:
-
-    def __init__(self, nodes):
-        self.nodes=nodes
-
-
-class element:
-
-    def __init__(self, index, nodes, edges):
-        self.index=index
-        self.nodes=nodes
-        self.edges=edges
-
-   
-class nset:
-
-    def __init__(self, name, nodes, instance=''):
-        self.name=name
-        self.nodes=nodes
-        self.instance=instance
-
-
-class elset:
-
-    def __init__(self, name, elems, instance=''):
-        self.name=name
-        self.elems=elems
-        self.instance=instance
-    
-        
-class part:
-
-    def __init__(self, name, nodes, elems, nsets=[], elsets=[]):
-        self.name=name
-        self.nodes=nodes
-        self.elems=elems
-        self.nsets=nsets
-        self.elsets=elsets
-
-
-class bcd:
-
-    def __init__(self, name, type, nsets, firstdof=0, lastdof=0, value=0.):
-        self.name=name
-        self.type=type
-        self.nsets=nsets
-        self.firstdof=firstdof
-        self.lastdof=lastdof
-        self.value=value
-    
-    
-class instance:
-
-    def __init__(self, name, part, translation=[0.,0.,0.]):
-        self.name=name
-        self.part=part
-        self.translation=translation
-
-    
-class assembly:
-
-    def __init__(self, name, instances, nsets, elsets):
-        self.name=name
-        self.instances=instances
-        self.nsets=nsets
-        self.elsets=elsets
-        
-        
 class layup:
 
     def __init__(self, angle, nplies):
         self.angle  = angle
         self.nplies = nplies
+
+
+class node:
+
+    def __init__(self, x, y, z):
+        self.x = x
+        self.y = y
+        self.z = z
+
+
+class edge:
+
+    def __init__(self, nodes):
+        self.nodes = nodes
+
+
+class element:
+
+    def __init__(self, index, rnodes, edges):
+        self.index  = index
+        self.rnodes = rnodes
+        self.edges  = edges
+
+   
+class nset:
+
+    def __init__(self, name, nodes, instance=''):
+        self.name     = name
+        self.nodes    = nodes
+        self.instance = instance
+
+
+class elset:
+
+    def __init__(self, name, elems, instance=''):
+        self.name     = name
+        self.elems    = elems
+        self.instance = instance
+    
+        
+class part:
+
+    def __init__(self, name, nodes, edges, elems, nsets=[], elsets=[]):
+        self.name   = name
+        self.nodes  = nodes
+        self.edges  = edges
+        self.elems  = elems
+        self.nsets  = nsets
+        self.elsets = elsets
+
+
+class bcd:
+
+    def __init__(self, name, type, nsets, firstdof=0, lastdof=0, value=0.):
+        self.name     = name
+        self.type     = type
+        self.nsets    = nsets
+        self.firstdof = firstdof
+        self.lastdof  = lastdof
+        self.value    = value
+    
+    
+class instance:
+
+    def __init__(self, name, part, translation=[0.,0.,0.]):
+        self.name = name
+        self.part = part
+        self.translation = translation
+
+    
+class assembly:
+
+    def __init__(self, name, instances, nsets, elsets):
+        self.name      = name
+        self.instances = instances
+        self.nsets     = nsets
+        self.elsets    = elsets
+        
 
