@@ -306,7 +306,7 @@ for ja in jassemblies:
         if ('generate' in All_lines[jns]):
             nline = All_lines[jns][0:-11]
         # add this nset in the list of nsets in this assembly
-        assemblies[-1].nsets.append( nset( name=nline, nodes=[] ) )
+        assemblies[-1].nsets.append( nset( name=nline, rnodes=[], edges=[] ) )
         # read nodes in the nset
         # if generate is used, then calculate all nodes;
         # otherwise, read all nodes directly
@@ -325,7 +325,7 @@ for ja in jassemblies:
             except IndexError:
                 itv = 1
             for n in range(nds,ndf+1,itv):
-                assemblies[-1].nsets[-1].nodes.append(n)
+                assemblies[-1].nsets[-1].rnodes.append(n)
         else:
             # read the lines of nodes in this nset
             nl = [] # list of node to be filled
@@ -339,17 +339,30 @@ for ja in jassemblies:
                         nl.append(int(t))
                     except ValueError:
                         pass
-            assemblies[-1].nsets[-1].nodes.extend(nl)
+            assemblies[-1].nsets[-1].rnodes.extend(nl)
         # find the edges involved in this nset, 
         # and include the fl. nodes in the nset
-        # find the part involved in this nset
-        
-        # use the part's NtN matrix to find its edges involved
-        
-        # use the part's edges list to find its fl. nodes involved
-        
-        # append the fl. nodes in this nset
-        
+        # extract this nset from assembly
+        nst = assemblies[-1].nsets[-1]
+        # find the part involved in this nset using part name
+        for prt in parts:
+            if (prt.name in nst.name):
+                # loop over all node pairs in this nset
+                for n1 in range(len(nst.rnodes)-1):
+                    for n2 in range(n1+1,len(nst.rnodes)):
+                        rnd = nst.rnodes[n1]-1
+                        cnd = nst.rnodes[n2]-1
+                        # if this node pair forms an edge
+                        if (prt.NtN[rnd][cnd]!=0):
+                            # get this edge number
+                            eg = abs(prt.NtN[rnd][cnd])
+                            #print(' node '+str(rnd)+' node '+str(cnd)+' forms edge '+str(eg))
+                            # store this edge in the nset
+                            nst.edges.append(eg)
+                # after finding all the edges, break out of for loop
+                break
+        # update this nset in assembly
+        assemblies[-1].nsets[-1] = nst 
     
     # read elsets in this assembly (NOT YET SUPPORTED)
 
@@ -358,7 +371,9 @@ for ja in jassemblies:
     #print(assemblies[-1].instances[-1].name)
     #for m in assemblies[-1].nsets:
     #    print(m.name)
-    #    print(str(m.nodes))
+    #    print(str(m.rnodes))
+    #    print(str(m.edges))
+
 
 #==================================================
 # read (fixed) boundary section:
@@ -372,7 +387,7 @@ if '** ----------------------------------------------------------------' in line
 # find the lines with *boundary
 jbcds = [j for j in range(0,jdash) if '*Boundary' in All_lines[j]]
 
-# loop over all bcds
+# loop over all bcds, store them without modification
 for jb in jbcds:
     for k in range(jb+1,jdash):
         bline = All_lines[k]
@@ -381,78 +396,69 @@ for jb in jbcds:
         bcds.append(bline)
         # find the nsets involved in this bline (future)
         # find the edges involved in this bline (future)
-    
-
+#print(bcds)
 
 
 #==================================================
 # read step
-# only a single step is supported
+# store all the lines from jdash(inc.)
 #==================================================
+step = []
+step.extend(All_lines[jdash:])
+#print(step)
 
 
 
+nplyblk = len(blklayup)
+nndr_p  = len(parts[0].rnodes)
+nedge_p = len(parts[0].edges) 
+nelem_p = len(parts[0].elems)
+nndf_p  = 2*nedge_p
+nndi_p  = nedge_p
+nndt_p  = nndr_p + nndf_p + nndi_p
 
 #***************************************************************
-#       write input_nodes_module.f90 common codes
-#***************************************************************    
-input_nodes.write('subroutine input_nodes()          \n')
-input_nodes.write('                                  \n')
-input_nodes.write('  integer :: nnode=0              \n')   
-input_nodes.write('  integer :: i=0                  \n')
+#       write input_nodes.f90
+#***************************************************************   
+input_nodes.write('subroutine input_nodes()              \n')
+input_nodes.write('use node_list_module, only: node_list \n')
+input_nodes.write('use fnode_module,     only: update    \n')
+input_nodes.write('                                      \n')
+input_nodes.write('  integer :: nnode=0                  \n')   
+input_nodes.write('  integer :: i=0                      \n')
+input_nodes.write('\n')
+input_nodes.write('  nnode='+str(nplyblk*nndt_p)+'       \n')
+input_nodes.write('  allocate(node_list(nnode))          \n')
+# duplicate the real and fl. nodes 
+for iply in range(nplyblk):   
+    for cntr0, nd in enumerate(parts[0].nodes):
+        cntr = cntr0 + 1 + iply * ( nndr_p + nndf_p )
+        fnminp.write(str(cntr)+', '+str(nd.x)+', '+str(nd.y)+', '+str(nd.z)+'\n')
+        input_nodes.write('  call update(node_list('+str(cntr)+'),x=['+str(nd.x)+'_dp,'+str(nd.y)+'_dp,'+str(nd.z)+'_dp],u=[zero,zero,zero])\n')
+
 input_nodes.write('\n')
 
-
-
-
 #***************************************************************
-#       write input_edges_module.f90 common codes
+#       write input_edges.f90 common codes
 #***************************************************************
 input_edges.write('subroutine input_edges()          \n')
 input_edges.write('                                  \n')
 input_edges.write('  integer :: nedge=0              \n')
 input_edges.write('  integer :: i=0                  \n')
 input_edges.write('\n')
-
-
-
-
 #***************************************************************
-#       write input_elems_module.f90 common codes
+#       write input_elems.f90 common codes
 #***************************************************************    
 input_elems.write('subroutine input_elems()          \n')
 input_elems.write('                                  \n') 
-input_elems.write('  integer :: nelem=0, nxlam=0     \n')
+input_elems.write('  integer :: nelem=0              \n')
 input_elems.write('  integer :: i=0                  \n')
 input_elems.write('\n')
 
 
 
 
-##***************************************************************        
-##       Write Nodes
-##***************************************************************
-#nplyblk=len(blklayup)
-#plynnd=len(nodes)
-#plynedge=len(edges)
-#
-#fnminp.write('*Node\n')
-#input_nodes.write('        nnode='+str(nplyblk*plynnd)+'   \n')
-#input_nodes.write('        allocate(input_nodes(nnode))   \n')
-#
-#
-#for iply in range(nplyblk):
-#    
-#    for cntr0, nd in enumerate(nodes):
-#        cntr=cntr0+1+iply*plynnd
-#        if ndim==2:
-#            #fnminp.write(str(cntr)+', '+str(nd.x)+', '+str(nd.y)+'\n')
-#            #input_nodes.write('        call update(input_nodes('+str(cntr)+'),x=['+str(nd.x)+'_dp,'+str(nd.y)+'_dp],u=[zero,zero])\n')
-#            print 'error: ndim = 2 not supported!' 
-#        else:
-#            fnminp.write(str(cntr)+', '+str(nd.x)+', '+str(nd.y)+', '+str(nd.z)+'\n')
-#            input_nodes.write('        call update(input_nodes('+str(cntr)+'),x=['+str(nd.x)+'_dp,'+str(nd.y)+'_dp,'+str(nd.z)+'_dp],u=[zero,zero,zero])\n')
-#
+
 #
 ##***************************************************************        
 ##       Write Edges

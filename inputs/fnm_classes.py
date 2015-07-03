@@ -102,9 +102,10 @@ class element:
    
 class nset:
 
-    def __init__(self, name, nodes, instance=''):
+    def __init__(self, name, rnodes, edges, instance=''):
         self.name     = name
-        self.nodes    = nodes
+        self.rnodes   = rnodes
+        self.edges    = edges
         self.instance = instance
 
 
@@ -128,15 +129,15 @@ class part:
         self.elsets = elsets
 
 
-class bcd:
-
-    def __init__(self, name, type, nsets, firstdof=0, lastdof=0, value=0.):
-        self.name     = name
-        self.type     = type
-        self.nsets    = nsets
-        self.firstdof = firstdof
-        self.lastdof  = lastdof
-        self.value    = value
+#class bcd:
+#
+#    def __init__(self, name, type, nsets, firstdof=0, lastdof=0, value=0.):
+#        self.name     = name
+#        self.type     = type
+#        self.nsets    = nsets
+#        self.firstdof = firstdof
+#        self.lastdof  = lastdof
+#        self.value    = value
     
 class instance:
 
