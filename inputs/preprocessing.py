@@ -26,29 +26,33 @@ from fnm_classes import*
 
 import math
 # operating system module
-import os
+import os, sys
 # shutil module has functions for different kinds of copying
 import shutil
+
+
 
 
 #***************************************************************
 #   fetch Abaqus input files
 #***************************************************************
-
-jobname = raw_input('abaqus job name:')
-
+jobname      = raw_input('abaqus job name:')
 abqinputfile = jobname+'.inp'         # abaqus input file
 fnminputfile = 'fnm-'+jobname+'.inp'  # fnm uel input file
+
 
 
 
 #***************************************************************
 #   define model information
 #***************************************************************
+# non-useful variables defined to conform with abaqus formats:
+# nprops: no. of input material properties used in uel code (min 1)
+# nsvars: no. of sol. dpdnt var. used and ouput by uel code (min 1)
+nprops = 1
+nsvars = 1
 
-# non-useful variables defined to conform with abaqus formats
-nprops = 1        # no. of input material properties used in uel code (min 1)
-nsvars = 1        # no. of sol. dpdnt var. used and ouput by uel code to be determined (min 1)
+
 
 
 #***************************************************************
@@ -59,6 +63,8 @@ input_edges = open('input_edges.f90','w')  # list of all edges
 input_elems = open('input_elems.f90','w')  # list of all elems
 
 
+
+
 #***************************************************************
 #       open input files for I/O
 #***************************************************************
@@ -66,34 +72,34 @@ abqinp = open(abqinputfile,'r')
 fnminp = open(fnminputfile,'w')
 
 
-#***************************************************************
-#       define usefule variables
-#***************************************************************
-
-
-
 
 
 #***************************************************************
 #       ask for layup from user
 #***************************************************************
-rawlayup = []    # layup of the laminate in its basic format (list of fibre angles of all plies)
-blklayup = []    # layup of ply blocks, used in xlam element; an xlayup class is needed
+# rawlayup: layup of the laminate in a list of all plies
+# blklayup: layup of the laminate in a list of plyblocks
+rawlayup = []
+blklayup = []
 
 # ask for a list of ply angles
-rawlayup = input('layup of laminate is (fibre angle (int/float) of each ply, separated by comma):')
-
+rawlayup = \
+input('Enter fibre angles (int/float) of all plies, \
+separated by comma, end with comma:')
 # check if it is a list and if all elements in the list are numbers
-while ((not isinstance(rawlayup, (list,tuple))) or (not all(isinstance(item, (int,float)) for item in rawlayup))):
-    rawlayup=input('layup of laminate is (fibre angle (int/float) of each ply, separated by comma):')      
+while ( (not isinstance(rawlayup, (list,tuple))) or \
+ (not all(isinstance(item, (int,float)) for item in rawlayup)) ):
+    rawlayup = \
+    input('Enter fibre angles (int/float) of all plies, \
+    separated by comma, end with comma::')      
     
 # find blocked plies and update blklayup
-blklayup.append( layup(angle=rawlayup[0], nplies=0) ) # initiate blklayup
+blklayup.append( plyblk(angle=rawlayup[0], nplies=0) ) # initiate blklayup
 for plyangle in rawlayup:
     if (plyangle == blklayup[-1].angle):
         blklayup[-1].nplies += 1
     else:
-        blklayup.append( layup(angle=plyangle, nplies=1) )
+        blklayup.append( plyblk(angle=plyangle, nplies=1) )
 
 # put layup info in a string for later output purpose
 layupstr=''
@@ -108,14 +114,10 @@ print("The layup is: "+layupstr)
 
 
 
+
 #***************************************************************
-#       Read input file
-#       store nodes, elements, find edges; store bcd nodes
+#       Read Abaqus input file
 #***************************************************************
-header  = []    # list of header lines
-parts   = []    # list of all parts in the model
-NtN     = []    # matrix of Node-to-Node edges
-bcd     = []    # list of all edges with b.c.d
 
 # Store all lines first
 All_lines = abqinp.readlines()
@@ -123,27 +125,47 @@ All_lines = abqinp.readlines()
 # Find the length of all lines
 lenAll = len(All_lines)
 
-# store header
+
+#==================================================
+# READ HEADER SECTION:
+#==================================================
+header  = []    # list of header lines
 header.extend(All_lines[0:5])
+
+
+#==================================================
+# READ PARTS SECTION: 
+# - store part's real nodes, elems & its real nodes
+# - find all breakable edges & create fl. nodes for each edge 
+# - add fl. nodes to part's node list & elem's node list
+# - add edges to part's edge list & elem's edge list
+# (this piece of code works for input file with multiple parts)
+# ** NOTE **: 
+# - for now, only ONE type of elem is supported; all elems will be FNM-ized
+# - for now, only reads nodes and elems. nset, elset & surfaces can be included
+#   in the future 
+#==================================================
+parts   = []    # list of all parts in the model
+NtN     = []    # matrix of Node-to-Node edges (auxilliary)
 
 # find the line no. of *Part and store in jparts
 jparts = [j for j,line in enumerate(All_lines) if '*Part' in line]
-#if (len(jparts)>1):
-#    print("ERROR: more than one part is not yet supported!")
-#    sys.exit()
+if (len(jparts)>1):
+    print("ERROR: more than one part is not yet supported!")
+    sys.exit()
 
-# read parts and store in respective lists
 for jp in jparts:
 
     # read Part name
-    pname = All_lines[jp][12:]
+    pname = All_lines[jp][12:].rstrip()
     
     # create a new part in parts list
-    parts.append(part(name=pname, nodes=[], edges=[], elems=[]))
+    parts.append(part(name=pname, nodes=[], NtN=[], edges=[], elems=[]))
     
     # find the line of *Node and *Element
-    jnode = next(j for j in range(jp,lenAll) if '*Node' in All_lines[j])
-    jelem = next(j for j in range(jp,lenAll) if '*Element' in All_lines[j])
+    # ** NOTE: only ONE type of elem is supported; all elems will be FNM-ized
+    jnode = next( j for j in range(jp,lenAll) if '*Node'    in All_lines[j] )
+    jelem = next( j for j in range(jp,lenAll) if '*Element' in All_lines[j] )
     
     # read nodes of this part 
     for jn in range(jnode+1,lenAll):
@@ -229,31 +251,144 @@ for jp in jparts:
                     # append this edge no. in this elem 
                     parts[-1].elems[-1].edges.append(NtN[row][col])           
     
-    #check elem correctness
-    for el in parts[-1].elems:
-        print(str(el.index)+','+str(el.rnodes)+','+str(el.edges))
+    # store NtN matrix to the part component NtN
+    parts[-1].NtN = NtN
     
-      
-      
-      
-      
-      
+    ##check elem correctness
+    #for el in parts[-1].elems:
+    #    print(str(el.index)+','+str(el.rnodes)+','+str(el.edges))
+    ##check NtN
+    #print(str(parts[-1].NtN))
 
 
-#for i,line in enumerate(All_lines):   
-#    # read Part definitions
-#    if(len(line)>=5 and line[0:5]=='*Part'):
-#        # read part name
-#        pname = line(12:)
-#        # create a new part in parts list
-#        parts.append(part(name=pname, nodes=[], elems=[]))
-#        # read nodes and elems
-#        jnode = All_lines.index('*Node')
-#        jelem = All_lines.index('*Element')
-#            
-#        # read elems
-#        
-#        break
+#==================================================
+# read assembly section:
+# - only a single assembly is supported
+# - only a single instance is supported
+# - multiple nsets are supported
+# - 'generate' operation in nset is supported
+# - no translation or similar operations on a instance is supported
+# - elset is currently not yet supported
+#==================================================
+assemblies = [] # list of all assemblies in the model
+
+# find the line no. of *Assembly and store in jassemblies
+jassemblies = [j for j,line in enumerate(All_lines) if '*Assembly' in line]
+if (len(jassemblies)>1):
+    print("ERROR: more than one assembly is not yet supported!")
+    sys.exit()
+
+for ja in jassemblies:
+
+    # read assembly name
+    aname = All_lines[ja].rstrip()
+    
+    # create a new assembly in the assembly list
+    assemblies.append(assembly(name=aname, instances=[], nsets=[], elsets=[]))
+    
+    # find the lines of *Instance, *Nset and *Elset
+    jinstances = [ j for j in range(ja,lenAll) if '*Instance' in All_lines[j] ]
+    jnsets     = [ j for j in range(ja,lenAll) if '*Nset'     in All_lines[j] ]
+    jelsets    = [ j for j in range(ja,lenAll) if '*Elset'    in All_lines[j] ]
+    if (len(jinstances)>1):
+        print("ERROR: more than one instance in an assembly is not yet supported!")
+        sys.exit()
+        
+    # read instances in this assembly
+    for jin in jinstances:
+        # add this instance in the list of instances in this assembly
+        assemblies[-1].instances.append( instance( name=All_lines[jin].rstrip() ) )
+        
+    # read nsets in this assembly
+    for jns in jnsets:
+        nline = All_lines[jns].rstrip()
+        # remove 'generate' in the line if present
+        if ('generate' in All_lines[jns]):
+            nline = All_lines[jns][0:-11]
+        # add this nset in the list of nsets in this assembly
+        assemblies[-1].nsets.append( nset( name=nline, nodes=[] ) )
+        # read nodes in the nset
+        # if generate is used, then calculate all nodes;
+        # otherwise, read all nodes directly
+        if ('generate' in All_lines[jns]):
+            nline = All_lines[jns+1]
+            nl = []
+            for t in nline.split(','):
+                try:
+                    nl.append(int(t))
+                except ValueError:
+                    pass
+            nds = nl[0] # start node
+            ndf = nl[1] # final node
+            try:
+                itv = nl[2] # interval
+            except IndexError:
+                itv = 1
+            for n in range(nds,ndf+1,itv):
+                assemblies[-1].nsets[-1].nodes.append(n)
+        else:
+            # read the lines of nodes in this nset
+            nl = [] # list of node to be filled
+            for n in range(jns+1,lenAll):
+                nline = All_lines[n]
+                # break out of loop if end of section encountered
+                if ('*' in nline):
+                    break
+                for t in nline.split(','):
+                    try:
+                        nl.append(int(t))
+                    except ValueError:
+                        pass
+            assemblies[-1].nsets[-1].nodes.extend(nl)
+        # find the edges involved in this nset, 
+        # and include the fl. nodes in the nset
+        # find the part involved in this nset
+        
+        # use the part's NtN matrix to find its edges involved
+        
+        # use the part's edges list to find its fl. nodes involved
+        
+        # append the fl. nodes in this nset
+        
+    
+    # read elsets in this assembly (NOT YET SUPPORTED)
+
+    ## check assembly correctness
+    #print(assemblies[-1].name)
+    #print(assemblies[-1].instances[-1].name)
+    #for m in assemblies[-1].nsets:
+    #    print(m.name)
+    #    print(str(m.nodes))
+
+#==================================================
+# read (fixed) boundary section:
+#==================================================
+bcds  = []    # list of all boundary conditions
+
+# find the separation line '** -------------'
+jdash = next(j for j,line in enumerate(All_lines) \
+if '** ----------------------------------------------------------------' in line)
+
+# find the lines with *boundary
+jbcds = [j for j in range(0,jdash) if '*Boundary' in All_lines[j]]
+
+# loop over all bcds
+for jb in jbcds:
+    for k in range(jb+1,jdash):
+        bline = All_lines[k]
+        if ('*' in bline):
+            break
+        bcds.append(bline)
+        # find the nsets involved in this bline (future)
+        # find the edges involved in this bline (future)
+    
+
+
+
+#==================================================
+# read step
+# only a single step is supported
+#==================================================
 
 
 
@@ -267,6 +402,9 @@ input_nodes.write('  integer :: nnode=0              \n')
 input_nodes.write('  integer :: i=0                  \n')
 input_nodes.write('\n')
 
+
+
+
 #***************************************************************
 #       write input_edges_module.f90 common codes
 #***************************************************************
@@ -277,6 +415,8 @@ input_edges.write('  integer :: i=0                  \n')
 input_edges.write('\n')
 
 
+
+
 #***************************************************************
 #       write input_elems_module.f90 common codes
 #***************************************************************    
@@ -285,6 +425,8 @@ input_elems.write('                                  \n')
 input_elems.write('  integer :: nelem=0, nxlam=0     \n')
 input_elems.write('  integer :: i=0                  \n')
 input_elems.write('\n')
+
+
 
 
 ##***************************************************************        

@@ -71,7 +71,7 @@ class cohesive:
 #***************************************************************
 #****************** Define geometry classes ********************
 #***************************************************************
-class layup:
+class plyblk:
 
     def __init__(self, angle, nplies):
         self.angle  = angle
@@ -118,9 +118,10 @@ class elset:
         
 class part:
 
-    def __init__(self, name, nodes, edges, elems, nsets=[], elsets=[]):
+    def __init__(self, name, nodes, NtN, edges, elems, nsets=[], elsets=[]):
         self.name   = name
         self.nodes  = nodes
+        self.NtN    = NtN
         self.edges  = edges
         self.elems  = elems
         self.nsets  = nsets
@@ -137,13 +138,17 @@ class bcd:
         self.lastdof  = lastdof
         self.value    = value
     
-    
 class instance:
 
-    def __init__(self, name, part, translation=[0.,0.,0.]):
+    def __init__(self, name, translation=[]):
         self.name = name
-        self.part = part
-        self.translation = translation
+        self.translation = translation    
+#class instance:
+#
+#    def __init__(self, name, part, translation=[0.,0.,0.]):
+#        self.name = name
+#        self.part = part
+#        self.translation = translation
 
     
 class assembly:
