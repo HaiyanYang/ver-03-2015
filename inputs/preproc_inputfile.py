@@ -546,25 +546,41 @@ elnndtt_l = elnndrf_l + elnndin_l
 elnedge_l = elnedge_p * nplyblk
 
 fnm_elems.write('subroutine fnm_elems()                                     \n')
+fnm_elems.write('use parameter_module,      only: DP                        \n')
 fnm_elems.write('use elem_list_module,      only: elem_list,&               \n') 
 fnm_elems.write('                      & elem_node_connec, elem_edge_connec \n')
-fnm_elems.write('use fBrickLam_elem_module, only: set                       \n') 
+fnm_elems.write('use fBrickLam_elem_module, only: plyblock_layup, set       \n') 
 fnm_elems.write('                                                           \n') 
 fnm_elems.write('  integer :: nelem   = 0                                   \n') 
 fnm_elems.write('  integer :: elnnode = 0                                   \n') 
-fnm_elems.write('  integer :: elnedge = 0                                   \n') 
+fnm_elems.write('  integer :: elnedge = 0                                   \n')  
+fnm_elems.write('  integer :: nplyblk = 0                                   \n')
 fnm_elems.write('  integer, allocatable :: nodecnc(:), edgecnc(:)           \n')
+fnm_elems.write('  type(plyblock_layup), allocatable :: layup(:)            \n')
 fnm_elems.write('                                                           \n')
 fnm_elems.write('  nelem   ='+str(nelemtt)+'                                \n')
 fnm_elems.write('  elnnode ='+str(elnndtt_l)+'                              \n')
 fnm_elems.write('  elnedge ='+str(elnedge_l)+'                              \n')
+fnm_elems.write('  nplyblk ='+str(nplyblk)+'                                \n')
 fnm_elems.write('  allocate(elem_list(nelem))                               \n')
 fnm_elems.write('  allocate(elem_node_connec(elnnode,nelem))                \n')
 fnm_elems.write('  allocate(elem_edge_connec(elnedge,nelem))                \n')
 fnm_elems.write('  allocate(nodecnc(elnnode))                               \n')
 fnm_elems.write('  allocate(edgecnc(elnedge))                               \n')
+fnm_elems.write('  allocate(layup(nplyblk))                                 \n')
 fnm_elems.write('  nodecnc = 0                                              \n')
 fnm_elems.write('  edgecnc = 0                                              \n')
+fnm_elems.write('                                                           \n')
+# write layup array
+for jpb in range(nplyblk):
+    angle  = str(blklayup[jpb].angle)
+    nplies = str(blklayup[jpb].nplies)
+    if '.' in angle:
+        angle = angle+'_DP'
+    else:
+        angle = angle+'._DP'
+    fnm_elems.write(' layup('+str(jpb+1)+')=plyblock_layup(angle='+angle+',nplies='+nplies+') \n')
+fnm_elems.write('                                                           \n')
 
 for jel in range(nelemtt):
     elnds_p = []
@@ -588,10 +604,12 @@ for jel in range(nelemtt):
         for jit in range(nplyblk-1):
             elnds_l.extend( [ x + nnode_p * nplyblk + nedge_p * jit for x in elegs_p ] )
             
-    #**** write elem's nodal connec to uel&fnm_elems ****
+    #**** write elem's nodal and edge connec to uel&fnm_elems ****
+    
+    #** node cnc 
     # start the line with elem index jel+1
-    eline = [str(jel+1)+',']  # dataline for uel_elems
-    fline = ['']              # dataline for fnm_elems
+    eline = [str(jel+1)+',']  # node cnc dataline for uel_elems
+    fline = ['']              # node cnc dataline for fnm_elems
     # add the node no. to the line one by one
     for k in elnds_l:
         # if the uel line gets too long, continue on next line
@@ -604,21 +622,45 @@ for jel in range(nelemtt):
             fline.append('')
         # add the node no. to the line
         fline[-1] = fline[-1]+str(k)+','
-    # write the line of elem node connec
     # remove the last comma from the eline
     eline[-1] = eline[-1][:-1]
+    # remove the last comma from the fline
+    fline[-1] = fline[-1][:-1]
+    
+    #** edge cnc
+    gline = ['']  # edge cnc dataline for fnm_elems
+    # add the node no. to the line one by one
+    for k in elegs_l:
+        # if the fnm line gets too long, continue on the next line
+        if (len(gline[-1]+str(k)) >= maxinplinelength):
+            gline.append('')
+        # add the node no. to the line
+        gline[-1] = gline[-1]+str(k)+','
+    # remove the last comma from the fline
+    gline[-1] = gline[-1][:-1]
+    
+    # write the line of elem node connec
     for l in eline:
         uel_elems.write(l+'\n')
         
-    #**** set this elem in fnm_elems subroutine ****
-    # remove the last comma from the fline
-    fline[-1] = fline[-1][:-1]
+    # set this elem in fnm_elems subroutine
+    fnm_elems.write('\n')
+    # write nodecnc array
     fnm_elems.write('  nodecnc=[ &\n')
     for l in fline:
         fnm_elems.write('& '+l+' &\n')
     fnm_elems.write('& ]\n')
+    # write edgecnc array
+    fnm_elems.write('  edgecnc=[ &\n')
+    for l in gline:
+        fnm_elems.write('& '+l+' &\n')
+    fnm_elems.write('& ]\n')
     fnm_elems.write('  call set(elem_list('+str(jel+1)+'), NPLYBLKS='+str(nplyblk)+',& \n')
-    fnm_elems.write('& node_connec=nodecnc, layup=plyblock_layup(angle=,nplies=),    & \n')
+    fnm_elems.write('& node_connec=nodecnc, layup=layup)\n')
+    # write elem_node_connec array
+    fnm_elems.write('  elem_node_connec(:,'+str(jel+1)+')=nodecnc(:)\n')
+    # write elem_edge_connec array
+    fnm_elems.write('  elem_edge_connec(:,'+str(jel+1)+')=edgecnc(:)\n')
     fnm_elems.write('\n')
 
 fnm_elems.write('end subroutine fnm_elems\n')
