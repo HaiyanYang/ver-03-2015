@@ -10,11 +10,11 @@ test4:
 
 
 test3:
-- one C3D8 element and one COH3D8 element
+- two C3D8 elements (separate)
 
 
 test2:
-- single COH3D8 element
+- two C3D8 elements (connected)
 
 
 test1: 

@@ -1,4 +1,4 @@
-subroutine input_materials()         
+subroutine fnm_materials()         
 use material_list_module,     only: UDSinglePly_material,&
                                   & matrixCrack_material,&
                                   & interface_material
@@ -60,4 +60,4 @@ use cohesive_material_module, only: set, cohesive_modulus, &
   & Glc    =0.631_dp,& 
   & alpha  =1.0_dp)) 
 
-end subroutine input_materials          
+end subroutine fnm_materials          

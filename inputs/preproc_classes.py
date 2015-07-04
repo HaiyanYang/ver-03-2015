@@ -73,9 +73,10 @@ class cohesive:
 #***************************************************************
 class plyblk:
 
-    def __init__(self, angle, nplies):
+    def __init__(self, angle, nplies, thickness):
         self.angle  = angle
         self.nplies = nplies
+        self.thickness = thickness
 
 
 class node:
@@ -94,10 +95,10 @@ class edge:
 
 class element:
 
-    def __init__(self, index, rnodes, edges):
-        self.index  = index
-        self.rnodes = rnodes
-        self.edges  = edges
+    def __init__(self, index, nodes, edges):
+        self.index = index
+        self.nodes = nodes
+        self.edges = edges
 
    
 class nset:

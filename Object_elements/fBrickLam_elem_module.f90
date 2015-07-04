@@ -119,8 +119,7 @@ end subroutine extract_fBrickLam_elem
 
 
 
-pure subroutine set_fBrickLam_elem (elem, NPLYBLKS, node_connec, layup, &
-& istat, emsg)
+pure subroutine set_fBrickLam_elem (elem, NPLYBLKS, node_connec, layup)
 use parameter_module, only : DP, MSGLENGTH, STAT_SUCCESS, STAT_FAILURE
 use fBrickPly_elem_module,  only : set
 use fCoh8Delam_elem_module, only : set
@@ -129,12 +128,11 @@ use fCoh8Delam_elem_module, only : set
   integer,  intent(in)  :: NPLYBLKS
   integer,  intent(in)  :: node_connec( NPLYBLKS   * NNODE_PLYBLK + &
                                      & (NPLYBLKS-1)* NNDIN_INTERF )
-  type(plyblock_layup),     intent(in)  :: layup(NPLYBLKS)
-  integer,                  intent(out) :: istat
-  character(len=MSGLENGTH), intent(out) :: emsg
+  type(plyblock_layup), intent(in) :: layup(NPLYBLKS)
 
   type(fBrickLam_elem)  :: el
-  character(len=MSGLENGTH) :: msgloc
+  integer                  :: istat
+  character(len=MSGLENGTH) :: emsg, msgloc
   integer                  :: nndtotal, jstart, jend
   integer                  :: i, j
 
@@ -146,17 +144,7 @@ use fCoh8Delam_elem_module, only : set
   jend   = 0
   i = 0; j = 0
 
-  ! check input validity
-  if ( NPLYBLKS < 1 ) then
-    istat = STAT_FAILURE
-    emsg  = 'NPLYBLKS must be >=1,'//trim(msgloc)
-    return
-  end if
-  if ( any(node_connec < 1) ) then
-    istat = STAT_FAILURE
-    emsg  = 'node connec indices must be >=1,'//trim(msgloc)
-    return
-  end if
+  ! check input validity: leave it for preproc
 
   ! set local copy el first, copy it to elem in the end
 

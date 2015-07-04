@@ -275,15 +275,18 @@ contains
   ! component values, respectively. status and error messages are needed to 
   ! flag an error when inputs are not valid
   
-    type(fnode),              intent(inout) :: this_fnode
-    integer,                  intent(out)   :: istat
-    character(len=MSGLENGTH), intent(out)   :: emsg
-    real(DP),       optional, intent(in)    :: x(:), u(:), du(:), v(:), a(:)
-    real(DP),       optional, intent(in)    :: dof(:), ddof(:)
+    type(fnode),                        intent(inout) :: this_fnode
+    integer,                  optional, intent(out)   :: istat
+    character(len=MSGLENGTH), optional, intent(out)   :: emsg
+    real(DP),                 optional, intent(in)    :: x(:), u(:)
+    real(DP),                 optional, intent(in)    :: du(:), v(:), a(:)
+    real(DP),                 optional, intent(in)    :: dof(:), ddof(:)
     
+    integer                   :: istatl
+    character(len=MSGLENGTH)  :: emsgl
     ! initialize intent(out) & local variables
-    istat = STAT_SUCCESS  ! default
-    emsg  = ''
+    istatl = STAT_SUCCESS  ! default
+    emsgl  = ''
     
     if (present(x)) then
       if (allocated(this_fnode%x)) then
@@ -320,14 +323,14 @@ contains
     if(present(du)) then
       ! check if du dimension matches u dimension
       if(.not.allocated(this_fnode%u)) then
-        emsg = "u must be allocated before du in update_fnode, fnode module"
-        istat = STAT_FAILURE
-        return
+        emsgl = "u must be allocated before du in update_fnode, fnode module"
+        istatl = STAT_FAILURE
+        goto 10
       else if(size(du)/=size(this_fnode%u)) then
-        emsg = "du size must be consistent with u size in update_fnode,&
+        emsgl = "du size must be consistent with u size in update_fnode,&
         &fnode module"
-        istat = STAT_FAILURE
-        return
+        istatl = STAT_FAILURE
+        goto 10
       end if           
       ! update du values
       if(allocated(this_fnode%du)) then
@@ -348,14 +351,14 @@ contains
     if(present(v)) then
       ! check if v dimension matches u dimension
       if(.not.allocated(this_fnode%u)) then
-        emsg = "u must be allocated before v in update_fnode, fnode module"
-        istat = STAT_FAILURE
-        return
+        emsgl = "u must be allocated before v in update_fnode, fnode module"
+        istatl = STAT_FAILURE
+        goto 10
       else if(size(v)/=size(this_fnode%u)) then
-        emsg = "v size must be consistent with u size in update_fnode, &
+        emsgl = "v size must be consistent with u size in update_fnode, &
         &fnode module"
-        istat = STAT_FAILURE
-        return
+        istatl = STAT_FAILURE
+        goto 10
       end if           
       ! update v values
       if(allocated(this_fnode%v)) then
@@ -376,14 +379,14 @@ contains
     if(present(a)) then
       ! check if a dimension matches v dimension
       if(.not.allocated(this_fnode%v)) then
-        emsg = "v must be allocated before a in update_fnode, fnode module"
-        istat = STAT_FAILURE
-        return
+        emsgl = "v must be allocated before a in update_fnode, fnode module"
+        istatl = STAT_FAILURE
+        goto 10
       else if(size(a)/=size(this_fnode%v)) then
-        emsg = "a size must be consistent with v size in update_fnode, &
+        emsgl = "a size must be consistent with v size in update_fnode, &
         &fnode module"
-        istat = STAT_FAILURE
-        return
+        istatl = STAT_FAILURE
+        goto 10
       end if           
       ! update a values
       if(allocated(this_fnode%a)) then
@@ -420,14 +423,14 @@ contains
     if(present(ddof)) then
       ! check if ddof dimension matches dof dimension
       if(.not.allocated(this_fnode%dof)) then
-        emsg = "dof must be allocated before ddof in update_fnode, fnode module"
-        istat = STAT_FAILURE
-        return
+        emsgl = "dof must be allocated before ddof in update_fnode, fnode module"
+        istatl = STAT_FAILURE
+        goto 10
       else if(size(ddof)/=size(this_fnode%dof)) then
-        emsg = "ddof size must be consistent with dof size in update_fnode, &
+        emsgl = "ddof size must be consistent with dof size in update_fnode, &
         &fnode module"
-        istat = STAT_FAILURE
-        return
+        istatl = STAT_FAILURE
+        goto 10
       end if           
       ! update ddof values
       if(allocated(this_fnode%ddof)) then
@@ -443,6 +446,10 @@ contains
         this_fnode%ddof=ddof           
       end if
     end if
+
+10  continue    
+    if (present(istat)) istat = istatl
+    if (present(emsg))  emsg  = emsgl
 
   end subroutine update_fnode 
   
