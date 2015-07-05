@@ -31,25 +31,39 @@ import os, sys
 import shutil
 
 
-maxinplinelength = 120
+#***************************************************************
+#   define parameters
+#***************************************************************
+# ndim    : dimension; currently only support 3D
+# nprops  : no. of input material properties used in uel code (min 1)
+# nsvars  : no. of sol. dpdnt var. used and ouput by uel code (min 1)
+# uelcode : code for the user element fBrickLam, used in uel input file
+# uellinelength : line length in writing uel input file (max. =256)
+# fnmlinelength : line length in writing fnm input file (max. =132)
+ndim    = 3
+nprops  = 1
+nsvars  = 1
+uelcode = 308
+uellinelength = 240
+fnmlinelength = 120
 
 #***************************************************************
-#   fetch Abaqus input files
+#   fetch original input file and open uel files
 #***************************************************************
+# ask for job name
 jobname      = raw_input('abaqus job name:')
-abqinputfile = jobname+'.inp'         # abaqus input file
-uelinputfile = 'uel_'+jobname+'.inp'  # fnm uel input file
+# abaqus original input file
+abqinputfile = jobname+'.inp'    
+# uel input file     
+uelinputfile = 'uel_'+jobname+'.inp'  
+# uel nodes and elems files, to be included in uel input file
 uelnodesfile = 'uel_nodes.inp'
 uelelemsfile = 'uel_elems.inp'
-
-#***************************************************************
-#   define model information
-#***************************************************************
-# non-useful variables defined to conform with abaqus formats:
-# nprops: no. of input material properties used in uel code (min 1)
-# nsvars: no. of sol. dpdnt var. used and ouput by uel code (min 1)
-nprops = 1
-nsvars = 1
+# open files
+abq_input = open(abqinputfile,'r')
+uel_input = open(uelinputfile,'w')
+uel_nodes = open(uelnodesfile,'w')
+uel_elems = open(uelelemsfile,'w')
 
 #***************************************************************
 #   Open Fortran modules to be written during pre-processing
@@ -57,15 +71,6 @@ nsvars = 1
 fnm_nodes = open('fnm_nodes.f90','w')  # list of all nodes
 fnm_edges = open('fnm_edges.f90','w')  # list of all edges
 fnm_elems = open('fnm_elems.f90','w')  # list of all elems
-
-#***************************************************************
-#   open input files for I/O
-#***************************************************************
-abq_input = open(abqinputfile,'r')
-uel_input = open(uelinputfile,'w')
-uel_nodes = open(uelnodesfile,'w')
-uel_elems = open(uelelemsfile,'w')
-
 
 
 #***************************************************************
@@ -95,25 +100,14 @@ while ( not ( isinstance(plythick, float) and plythick > 0 ) ):
     input('Enter the thickness of a single ply (positive real number):')
    
 # find blocked plies and update blklayup
-blklayup.append( plyblk(angle=rawlayup[0], nplies=0, thickness=0.0) ) # initiate blklayup
+# initiate blklayup
+blklayup.append( plyblk(angle=rawlayup[0], nplies=0, thickness=0.0) )
 for plyangle in rawlayup:
     if (plyangle == blklayup[-1].angle):
         blklayup[-1].nplies += 1
         blklayup[-1].thickness += plythick
     else:
         blklayup.append( plyblk(angle=plyangle, nplies=1, thickness=plythick) )
-
-# put layup info in a string for later output purpose
-layupstr=''
-for lp in blklayup:
-    if ('.' in str(lp.angle)):
-        layupstr = layupstr+str(lp.angle)+'_dp,'
-    else:
-        layupstr = layupstr+str(lp.angle)+'._dp,'        
-    layupstr = layupstr+str(lp.nplies)+','
-# print blocked layup 
-print("The layup is: "+layupstr)
-
 
 
 
@@ -613,12 +607,12 @@ for jel in range(nelemtt):
     # add the node no. to the line one by one
     for k in elnds_l:
         # if the uel line gets too long, continue on next line
-        if (len(eline[-1]+str(k)) >= maxinplinelength):
+        if (len(eline[-1]+str(k)) >= uellinelength):
             eline.append('')
         # add the node no. to the line
         eline[-1] = eline[-1]+str(k)+','
         # if the fnm line gets too long, continue on the next line
-        if (len(fline[-1]+str(k)) >= maxinplinelength):
+        if (len(fline[-1]+str(k)) >= fnmlinelength):
             fline.append('')
         # add the node no. to the line
         fline[-1] = fline[-1]+str(k)+','
@@ -632,7 +626,7 @@ for jel in range(nelemtt):
     # add the node no. to the line one by one
     for k in elegs_l:
         # if the fnm line gets too long, continue on the next line
-        if (len(gline[-1]+str(k)) >= maxinplinelength):
+        if (len(gline[-1]+str(k)) >= fnmlinelength):
             gline.append('')
         # add the node no. to the line
         gline[-1] = gline[-1]+str(k)+','
@@ -664,178 +658,105 @@ for jel in range(nelemtt):
     fnm_elems.write('\n')
 
 fnm_elems.write('end subroutine fnm_elems\n')
-#
-#
-## determine no. of nodes and uel element integer type
-## uel element integer type:
-##   1st digit: ndim
-##   2nd digit: 0: bulk elem; 1: coh elem; 2: x(brick/wedge) elem; 3: xlam elem
-##   3rd onwards: no. of real nodes
-#if ndim == 2:
-#        print 'error: fnm 2D elem type not supported for use!'
-#elif ndim == 3:      
-#    if elt == 'xlam':
-#        nndrl=8*nplyblk         # no. of (real)nodes in the element. (here, 8 for linear brick elmt)
-#        nedge=8*nplyblk         # no. of breakable edges in this element
-#        nndfl=2*nedge
-#        nnode=nndrl+nndfl
-#        eltuel=338
-#    else:
-#        print 'error: fnm 3D elem type not supported for use!'
-#
-## write user element definition in abaqus fnm input file
-#uel_input.write('*USER ELEMENT, TYPE=U'+str(eltuel)+', NODES='+str(nnode)+', COORDINATES='+str(ndim)+
-#    ', PROPERTIES='+str(nprops)+', VARIABLES='+str(nsvars)+'\n')
-#if ndim==2:
-#    #uel_input.write('1,2\n')
-#    print 'error: ndim = 2 not supported!' 
-#else:
-#    uel_input.write('1,2,3\n')
-#  
-## allocate fnm_elems in fnm fnm_elems module
-#fnm_elems.write('        n'+elt+'='+str(elcount[eli])+'     \n')
-#fnm_elems.write('        allocate(lib_'+elt+'(n'+elt+'))   \n')
-#
-## write elem nodal connec in abaqus fnm input file
-#uel_input.write('*Element, type=U'+str(eltuel)+', elset=uel_'+elt+'\n')
-#
-## find start and end elem indices for elements of the same type
-#if eli == 0:
-#    elstart=0
-#else:
-#    elstart=sum(elcount[:eli])
-#    
-#elend=elstart+elcount[eli]
-#
-#
-## write elem nodal connec of elements of the same type
-#for cntr0, el in enumerate(elems[elstart:elend]):
-#    cntr = cntr0+1    # index of this elem in its own type library lib_elt
-#    
-#    # elem line to be printed in abaqus fnm input file
-#    eline = str(el.index)+','
-#    
-#    # elem node and edge cnc to be printed in fnm fnm_elems module (in string format)
-#    nodecnc = ''
-#    edgecnc = ''
-#    
-#    # elem ply node and edge cnc stored in lists
-#    plynodelist = []
-#    plyedgelist = []
-#    
-#    # include real nodes in lists
-#    for k in el.nodes:
-#        eline   = eline+str(k)+','
-#        nodecnc = nodecnc+str(k)+','
-#        plynodelist.append(k)
-#        
-#    # include edge fl. nodes for x-version elements
-#    if (elt[0] == 'x'):    
-#        for m in el.edges:
-#            # update edge cnc and plyedgelist
-#            edgecnc = edgecnc+str(abs(m))+','
-#            plyedgelist.append(abs(m))
-#            # update edge fl. nodes in eline, nodecnc and plynodelist
-#            if m>0:     # elem edge's endnodes are in the same order as the definition of the edge
-#                eline   = eline+str(edges[m-1].nodes[2])+','+str(edges[m-1].nodes[3])+','
-#                nodecnc = nodecnc+str(edges[m-1].nodes[2])+','+str(edges[m-1].nodes[3])+','
-#                plynodelist.append(edges[m-1].nodes[2])
-#                plynodelist.append(edges[m-1].nodes[3])
-#            elif m<0:   # elem edge's endnodes are in the reverse order as the definition of the edge
-#                eline   = eline+str(edges[-m-1].nodes[3])+','+str(edges[-m-1].nodes[2])+','
-#                nodecnc = nodecnc+str(edges[-m-1].nodes[3])+','+str(edges[-m-1].nodes[2])+','
-#                plynodelist.append(edges[-m-1].nodes[3])
-#                plynodelist.append(edges[-m-1].nodes[2])
-#            else:
-#                print 'warning: edges in elem ',cntr,' are empty'
-#    
-#    # duplicate elem nodes and edges according to blklayup
-#    for ip in range(1,nplyblk):
-#        eline = eline+'\n'    # print in a newline to avoid line being too long
-#        for nd in plynodelist:
-#            # add nodes for the ip_th ply into eline and nodecnc strings
-#            eline   = eline+str(nd+ip*plynnd)+','
-#            nodecnc = nodecnc+str(nd+ip*plynnd)+','
-#        for eg in plyedgelist:
-#            # add edges for the ip_th ply into edgecnc string
-#            edgecnc = edgecnc+str(eg+ip*plynedge)+','
-#        
-#
-#    
-#    # wrap up eline (omit the last comma and append \n) and print in abaqus fnm input file
-#    uel_input.write(eline[:-1]+'\n')
-#    
-#    
-#    # write node cnc and edge cnc (for x version elems only) to the respective type arrays in fnm fnm_elems module
-#    if (elt == 'xlam'):
-#        # write elem type and keys (key to its type library lib_xlam is cntr; key to its glb library fnm_elems is el.index)
-#        fnm_elems.write('        call prepare(lib_'+elt+'('+str(cntr)+'),key='+str(el.index)+', & \n')
-#        # write elem associated material keys (three matkeys are needed, for ply, matrix crack and delamination respectively)
-#        fnm_elems.write('& bulkmat='+str(ply_mkey)+', cohmat='+str(mcrack_mkey)+', interfmat='+str(delam_mkey)+', & \n')    # update matkeys later accord. to mat section assignment
-#        # write elem nodal connectivity
-#        if len(nodecnc) <= 100:
-#            fnm_elems.write('& nodecnc=['+nodecnc[:-1]+'], & \n')
-#        else:
-#            iclist=[0]
-#            ic0=-1
-#            for ic, c in enumerate(nodecnc):
-#                ic0=ic0+1
-#                if ic0 >= 80 and c==',':
-#                    iclist.append(ic)
-#                    ic0=-1
-#            fnm_elems.write('& nodecnc=[ & \n')
-#            for i, ic in enumerate(iclist[:-1]):
-#                istart=ic
-#                iend=iclist[i+1]
-#                fnm_elems.write('& '+nodecnc[istart:iend]+' & \n')
-#            fnm_elems.write('& '+nodecnc[iend:-1]+'], & \n')
-#            
-#        # write elem edge connectivity
-#        if len(edgecnc) <= 100:
-#            fnm_elems.write('& edgecnc=['+edgecnc[:-1]+'], & \n')
-#        else:
-#            iclist=[0]
-#            ic0=-1
-#            for ic, c in enumerate(edgecnc):
-#                ic0=ic0+1
-#                if ic0 >= 80 and c==',':
-#                    iclist.append(ic)
-#                    ic0=-1
-#            fnm_elems.write('& edgecnc=[ & \n')
-#            for i, ic in enumerate(iclist[:-1]):
-#                istart=ic
-#                iend=iclist[i+1]
-#                fnm_elems.write('& '+edgecnc[istart:iend]+' & \n')
-#            fnm_elems.write('& '+edgecnc[iend:-1]+'], & \n')
-#            
-#        # write elem layup
-#        fnm_elems.write('& layup=reshape(['+layupstr[:-1]+'],[2,'+str(nplyblk)+']) )\n') # need to write layup into strings of corresponding format
-#        
-#    else:
-#        print 'unsupported fnm elem type:', elt, 'for preprocessing!'
-#        print 'currently supported fnm elem types: xlam'
-#        #fnm_elems.write('        call prepare(lib_'+elt+'('+str(cntr)+'),key='+str(el.index)+', & \n')
-#        #fnm_elems.write('& connec=['+nodecnc[:-1]+'], & \n')
-#        #fnm_elems.write('& matkey=1 ) \n')   # update matkey later accord. to mat section assignment
-#    
-#    # write elem type and typekey (elem index in its own type array) 
-#    fnm_elems.write('        call update(fnm_elems('+str(el.index)+'),elname="'+elt+'",eltype="'+elt+'",typekey='+str(cntr)+') \n')
-#    fnm_elems.write('\n')
-#
-## print the mandatory uel property line (not needed for calculation)
-#uel_input.write('*UEL PROPERTY, elset=uel_'+elt+'\n')
-#uel_input.write('1\n')
-#
-#
-##***************************************************************        
-##       Write the rest
-##***************************************************************
-#
-#for line in lines[ln:]:
-#    uel_input.write(line)
+
+
+#***************************************************************
+#       write uel input file
+#*************************************************************** 
+#**** write HEADER ****
+for hline in header:
+    uel_input.write(str(hline[0:]))
+
+#**** write PART   ****
+# part name 
+uel_input.write('*Part, name='+parts[0].name+'\n')
+# part nodes
+uel_input.write('*NODE,INPUT=uel_nodes.inp    \n')
+# user element definition
+uel_input.write('*USER ELEMENT, TYPE=U'+str(uelcode)+\
+', NODES='+str(elnndtt_l)+', COORDINATES='+str(ndim)+\
+', PROPERTIES='+str(nprops)+', VARIABLES='+str(nsvars)+'\n')
+uel_input.write('1,2,3\n')
+# elements and fnm elset
+uel_input.write('*ELEMENT, TYPE=U'+str(uelcode)+', ELSET=fnm, INPUT=uel_elems.inp \n')
+# write the mandatory uel property line (not needed for calculation)
+uel_input.write('*UEL PROPERTY, ELSET=fnm\n')
+uel_input.write('1\n')
+uel_input.write('*End Part\n')
+
+#**** write ASSEMBLY ****
+assbl = assemblies[0]
+# assembly name line
+uel_input.write(assbl.name+'\n')
+# assembly instance lines
+for inst in assbl.instances:
+    uel_input.write(inst.name+'\n')
+    uel_input.write('*End Instance\n')
+# assembly nsets
+for nst in assbl.nsets:
+    # write the nst name
+    uel_input.write(nst.name+'\n')
+    # nst dataline for uel_input, to be filled
+    nstline = ['']
+    # find the part this nst is based on
+    for prt in parts:
+        if (prt.name in nst.name):
+            nstprt = prt
+    # if all the real nodes in this nst are on the bot surface, then
+    # only store the bot plyblk nodes, DO NOT include the other plies
+    if all(n in botnds for n in nst.rnodes):
+        pstart = 0
+        pend   = 1
+    # if all the real nodes in this nst are on the top surface, then
+    # only store the top plyblk nodes, DO NOT include the other plies
+    elif all(n in topnds for n in nst.rnodes):
+        pstart = nplyblk-1
+        pend   = nplyblk
+    else:
+        pstart = 0
+        pend   = nplyblk
+    # find nst nodes in plyblks
+    for jpb in range(pstart,pend):
+        # add the real nodes to the list one by one
+        for n in nst.rnodes:
+            # find the corresponding node on the jpb-th plyblk
+            k = n + jpb * nnode_p
+            # if the uel line gets too long, continue on the next line
+            if (len(nstline[-1]+str(k)) >= uellinelength):
+                nstline.append('')
+            # add the node no. to the line
+            nstline[-1] = nstline[-1]+str(k)+','
+        # add the fl. nodes to the list one by one
+        for eg in nst.edges:
+            k1 = nstprt.edges[eg-1].nodes[2] + jpb * nnode_p
+            k2 = nstprt.edges[eg-1].nodes[3] + jpb * nnode_p
+            # if the uel line gets too long, continue on the next line
+            if (len(nstline[-1]+str(k1)+str(k2)) >= uellinelength):
+                nstline.append('')
+            # add the nodes to the line
+            nstline[-1] = nstline[-1]+str(k1)+','+str(k2)+','
+    # remove the last comma from the line
+    nstline[-1] = nstline[-1][:-1]
+    # write all original nodes of the nset
+    for nstl in nstline:
+        uel_input.write(nstl+'\n')
+# end assembly writing
+uel_input.write('*End Assembly\n')
+
+#**** write fixed BCDs ****
+for bline in bcds:
+    uel_input.write('*Boundary\n')
+    uel_input.write(str(bline[0:]))
+
+#**** write step ****
+for sline in step:
+    uel_input.write(str(sline[0:]))
 
 
 
+#*************************************************************** 
+# close all open files
+#*************************************************************** 
 #   close input files
 abq_input.close()
 uel_input.close()
