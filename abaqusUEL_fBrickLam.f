@@ -39,7 +39,7 @@ include 'outputs/output_module.f90'
 subroutine uexternaldb(lop,lrestart,time,dtime,kstep,kinc)
 use parameter_module,    only: DP, DIRLENGTH, MSG_FILE, EXIT_FUNCTION
 use global_clock_module, only: GLOBAL_CLOCK, set_program_clock
-use initialization_module
+use input_module
 use output_module
 
   implicit none
@@ -64,18 +64,17 @@ use output_module
   
   ! start of the analysis
   case (0)
-      ! initialize global clock and libraries
-      call initialize_glb_clock
-      call initialize_lib_node
-      call initialize_lib_edge
-      call initialize_lib_elem
-      call initialize_lib_mat 
-      call initialize_lib_bcd
+      ! initialize global clock and list of nodes, edges, elems and materials
+      call set_program_clock(GLOBAL_CLOCK, curr_step=kstep, curr_inc=kinc)
+      call set_fnm_nodes
+      call set_fnm_edges
+      call set_fnm_elems
+      call set_fnm_materials
       ! get output directory (global variable defined in output module)
       outdir = ''
       call getoutdir(workdir, lenworkdir)
-      if (  dirlength < lenworkdir+len('/outputs/')  ) then
-        write(MSG_FILE,*)'increase dirlength parameter to:',lenworkdir+len('/outputs/')
+      if (  DIRLENGTH < lenworkdir+len('/outputs/')  ) then
+        write(MSG_FILE,*)'increase DIRLENGTH parameter to:',lenworkdir+len('/outputs/')
         call EXIT_FUNCTION
       end if
       outdir = trim(workdir)//'/outputs/'
@@ -167,13 +166,13 @@ use global_material_module, only: UDSinglePly_material, matrixCrack_material, &
     call update(global_node_list(node_cnc(j)),u=uj(:,j))
   end do
 
-  ! extract info needed for integration
+  ! extract nodes and edge status from global node and edge lists
   nodes       = global_node_list(node_cnc)
   edge_status = global_edge_list(edge_cnc)
 
   ! integrate this element
   call integrate (elem, nodes, edge_status, UDSinglePly_material, &
-  &  matrixCrack_material, interface_material, K_matrix, F_vector, istat, emsg)
+  &  matrixCrack_material, interface_material, Kmat, Fvec, istat, emsg)
   if (istat == STAT_FAILURE) then
     emsg = emsg//trim(msgloc)
     write(MSG_FILE,*) emsg
@@ -182,7 +181,7 @@ use global_material_module, only: UDSinglePly_material, matrixCrack_material, &
     call EXIT_FUNCTION
   end if
 
-  ! update intent inout global lists
+  ! update to global lists
   global_elem_list(jelem)    = elem
   global_node_list(node_cnc) = nodes
   global_edge_list(edge_cnc) = edge_status
@@ -191,6 +190,7 @@ use global_material_module, only: UDSinglePly_material, matrixCrack_material, &
   amatrx   =  Kmat
   rhs(:,1) = -Fvec(:)
 
+  ! clean up memory used in local dynamic arrays
   call cleanup (Kmat, Fvec, edge_status, node_cnc, edge_cnc)
   return
   
@@ -211,12 +211,20 @@ end subroutine uel
 
 
 
-subroutine cleanup_all()
 
-  call empty_lib_mat
-  call empty_lib_node
-  call empty_lib_edge
-  call empty_lib_elem
-  call empty_lib_bcd
+
+!---------------------------------------------------------!
+!   subroutine to clean up all the datalist
+!---------------------------------------------------------!
+subroutine cleanup_all()
+use material_list_module, only: empty_material_list
+use node_list_module,     only: empty_node_list
+use edge_list_module,     only: empty_edge_list
+use elem_list_module,     only: empty_elem_list
+
+  call empty_material_list
+  call empty_node_list
+  call empty_edge_list
+  call empty_elem_list
 
 end subroutine cleanup_all

@@ -440,7 +440,7 @@ nnodein = nedge_p
 nnodett = nplyblk * nnode_p + (nplyblk-1) * nnodein
 
 # write fnm_nodes.f90 header
-fnm_nodes.write('subroutine fnm_nodes()                \n')
+fnm_nodes.write('subroutine set_fnm_nodes()            \n')
 fnm_nodes.write('use parameter_module, only: DP, ZERO  \n')
 fnm_nodes.write('use node_list_module, only: node_list \n')
 fnm_nodes.write('use fnode_module,     only: update    \n')
@@ -499,7 +499,7 @@ if (nplyblk > 1):
             u=[ZERO,ZERO,ZERO])\n')
             
 fnm_nodes.write('\n')
-fnm_nodes.write('end subroutine fnm_nodes\n')
+fnm_nodes.write('end subroutine set_fnm_nodes\n')
 
 #***************************************************************
 #       write edges
@@ -507,7 +507,7 @@ fnm_nodes.write('end subroutine fnm_nodes\n')
 # find the total no. of edges in this mesh
 nedgett = nplyblk * nedge_p
 # write fnm_edges.f90
-fnm_edges.write('subroutine fnm_edges()            \n')
+fnm_edges.write('subroutine set_fnm_edges()            \n')
 fnm_edges.write('use edge_list_module, only: edge_list \n')
 fnm_edges.write('                                  \n')
 fnm_edges.write('  integer :: nedge=0              \n')
@@ -516,7 +516,7 @@ fnm_edges.write('  nedge='+str(nedgett)+'          \n')
 fnm_edges.write('  allocate(edge_list(nedge))      \n')
 fnm_edges.write('  edge_list = 0                   \n')
 fnm_edges.write('                                  \n')
-fnm_edges.write('end subroutine fnm_edges\n')
+fnm_edges.write('end subroutine set_fnm_edges      \n')
 
 #***************************************************************
 #       write elems
@@ -539,7 +539,7 @@ elnndtt_l = elnndrf_l + elnndin_l
 # find the no. of edges in an elem of the laminate
 elnedge_l = elnedge_p * nplyblk
 
-fnm_elems.write('subroutine fnm_elems()                                     \n')
+fnm_elems.write('subroutine set_fnm_elems()                                 \n')
 fnm_elems.write('use parameter_module,      only: DP                        \n')
 fnm_elems.write('use elem_list_module,      only: elem_list,&               \n') 
 fnm_elems.write('                      & elem_node_connec, elem_edge_connec \n')
@@ -657,7 +657,7 @@ for jel in range(nelemtt):
     fnm_elems.write('  elem_edge_connec(:,'+str(jel+1)+')=edgecnc(:)\n')
     fnm_elems.write('\n')
 
-fnm_elems.write('end subroutine fnm_elems\n')
+fnm_elems.write('end subroutine set_fnm_elems\n')
 
 
 #***************************************************************
