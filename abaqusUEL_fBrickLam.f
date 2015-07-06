@@ -39,8 +39,8 @@ include 'outputs/output_module.f90'
 subroutine uexternaldb(lop,lrestart,time,dtime,kstep,kinc)
 use parameter_module,    only: DP, DIRLENGTH, MSG_FILE, EXIT_FUNCTION
 use global_clock_module, only: GLOBAL_CLOCK, set_program_clock
-use input_module
-use output_module
+use input_module,        only: set_fnm_nodes, set_fnm_edges, set_fnm_elems, set_fnm_materials
+use output_module,       only: outdir, output
 
   implicit none
 

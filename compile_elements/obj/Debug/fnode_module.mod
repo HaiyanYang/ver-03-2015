@@ -1,5 +1,5 @@
 GFORTRAN module version '10' created from C:\Users\mpecb\Documents\GitHub\ver-03-2015\compile_elements.f90
-MD5:3ce4413ef79b608b7522622c32b69008 -- If you edit this, you'll get what you deserve.
+MD5:17e0a9dff6ea775504ac10ff9047d001 -- If you edit this, you'll get what you deserve.
 
 (() () (2) (3) (4) () () () () () () () () () () () () () () () () ()
 () () () () ())
@@ -123,10 +123,10 @@ DEFERRED () ()) 0 () () () 0 0)
 47 'this_fnode' '' '' 46 ((VARIABLE INOUT UNKNOWN-PROC UNKNOWN UNKNOWN 0
 0 DUMMY) (DERIVED 8 0 0 0 DERIVED ()) 0 0 () () 0 () () () 0 0)
 48 'istat' '' '' 46 ((VARIABLE OUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
-DUMMY) (INTEGER 4 0 0 0 INTEGER ()) 0 0 () () 0 () () () 0 0)
-49 'emsg' '' '' 46 ((VARIABLE OUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0 DUMMY)
-(CHARACTER 1 0 0 0 CHARACTER ((CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0
-'256'))) 0 0 () () 0 () () () 0 0)
+OPTIONAL DUMMY) (INTEGER 4 0 0 0 INTEGER ()) 0 0 () () 0 () () () 0 0)
+49 'emsg' '' '' 46 ((VARIABLE OUT UNKNOWN-PROC UNKNOWN UNKNOWN 0 0
+OPTIONAL DUMMY) (CHARACTER 1 0 0 0 CHARACTER ((CONSTANT (INTEGER 4 0 0 0
+INTEGER ()) 0 '256'))) 0 0 () () 0 () () () 0 0)
 50 'x' '' '' 46 ((VARIABLE IN UNKNOWN-PROC UNKNOWN UNKNOWN 0 0 DIMENSION
 OPTIONAL DUMMY) (REAL 8 0 0 0 REAL ()) 0 0 () (1 0 ASSUMED_SHAPE (
 CONSTANT (INTEGER 4 0 0 0 INTEGER ()) 0 '1') ()) 0 () () () 0 0)
