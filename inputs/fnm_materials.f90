@@ -1,4 +1,5 @@
 subroutine set_fnm_materials()     
+use parameter_module,         only: DP 
 use material_list_module,     only: UDSinglePly_material,&
                                   & matrixCrack_material,&
                                   & interface_material

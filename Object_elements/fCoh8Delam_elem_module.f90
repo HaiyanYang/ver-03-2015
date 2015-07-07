@@ -204,8 +204,6 @@ use coh8Delam_elem_module,  only : set
   integer,                  intent(out)   :: istat
   character(len=MSGLENGTH), intent(out)   :: emsg
 
-  ! local copy of elem
-  type(fCoh8Delam_elem) :: elem_lcl
   ! global_connec of sub element
   integer, allocatable  :: global_connec(:)
   ! location for emsg
@@ -223,17 +221,17 @@ use coh8Delam_elem_module,  only : set
   end if
 
   ! update to elem_lcl first
-  elem_lcl%node_connec = node_connec
+  elem%node_connec = node_connec
 
   ! allocate intact elem
-  allocate(elem_lcl%intact_elem)
+  allocate(elem%intact_elem)
   allocate(global_connec(NNDRL))
 
   ! populate the global connec of intact element
   global_connec(:) = node_connec(INTACT_ELEM_NODES(:))
 
   ! set the intact element
-  call set (elem_lcl%intact_elem, connec=global_connec, istat=istat, emsg=emsg)
+  call set (elem%intact_elem, connec=global_connec, istat=istat, emsg=emsg)
 
   ! if an error is encountered in set, clean up and exit program
   if (istat == STAT_FAILURE) then
@@ -241,9 +239,6 @@ use coh8Delam_elem_module,  only : set
     emsg = emsg//trim(msgloc)
     return
   end if
-
-  ! update to dummy arg. elem before successful return
-  elem = elem_lcl
 
   if (allocated(global_connec)) deallocate(global_connec)
 
@@ -268,8 +263,6 @@ use fCoh8Delam_subelem_module, only : set
   integer,                  intent(out)   :: istat
   character(len=MSGLENGTH), intent(out)   :: emsg
 
-  ! local copy of elem
-  type(fCoh8Delam_elem)    :: el
   character(len=MSGLENGTH) :: msgloc
   integer                  :: n_crackedges
 
@@ -303,47 +296,44 @@ use fCoh8Delam_subelem_module, only : set
     return
   end if
 
-  ! copy elem to its local copy
-  el = elem
-
   ! update to elem component if checkings are passed
   select case (trim(adjustl(top_or_bottom)))
 
     case ('top')
         ! return if top subelem is already set
-        if (el%top_subelem_set) return
+        if (elem%top_subelem_set) return
 
         ! deallocate intact elem
-        if (allocated(el%intact_elem)) deallocate(el%intact_elem)
+        if (allocated(elem%intact_elem)) deallocate(elem%intact_elem)
 
         ! allocate top sub elem
-        allocate(el%top_subelem)
+        allocate(elem%top_subelem)
 
         ! set top sub elem; note that the top sub elem's top edges are just
         ! this elem's top edges, without any change of order
-        call set (el%top_subelem, node_connec=el%node_connec(TOP_SUBELEM_NODES),&
+        call set (elem%top_subelem, node_connec=elem%node_connec(TOP_SUBELEM_NODES),&
         & top_edge_status=ply_edge_status, istat=istat, emsg=emsg)
         if (istat == STAT_FAILURE) then
           emsg = emsg//trim(msgloc)
           return
         end if
 
-        el%top_subelem_set = .true.
+        elem%top_subelem_set = .true.
 
     case ('bottom')
         ! return if bot subelem is already set
-        if (el%bot_subelem_set) return
+        if (elem%bot_subelem_set) return
 
         ! deallocate intact elem
-        if (allocated(el%intact_elem)) deallocate(el%intact_elem)
+        if (allocated(elem%intact_elem)) deallocate(elem%intact_elem)
 
         ! allocate top sub elem
-        allocate(el%bot_subelem)
+        allocate(elem%bot_subelem)
 
         ! set top sub elem; note that the bot sub elem's top edges are
         ! this elem's bot edges but with permutated order (see illustration at top
         ! of this module, in comment)
-        call set (el%bot_subelem, node_connec=el%node_connec(BOT_SUBELEM_NODES),&
+        call set (elem%bot_subelem, node_connec=elem%node_connec(BOT_SUBELEM_NODES),&
         & top_edge_status=ply_edge_status([3, 2, 1, 4]), istat=istat, &
         & emsg=emsg)
         if (istat == STAT_FAILURE) then
@@ -351,7 +341,7 @@ use fCoh8Delam_subelem_module, only : set
           return
         end if
 
-        el%bot_subelem_set = .true.
+        elem%bot_subelem_set = .true.
 
     case default
         istat = STAT_FAILURE
@@ -360,9 +350,6 @@ use fCoh8Delam_subelem_module, only : set
         return
 
   end select
-
-  ! copy definition to input arg. before successful return
-  elem = el
 
 end subroutine update_fCoh8Delam_elem
 
@@ -429,9 +416,7 @@ use global_toolkit_module,     only : assembleKF
   logical,        optional, intent(in)    :: nofailure
 
   !:::: local variables ::::
-  ! local copy of intent inout variables
-  type(fCoh8Delam_elem) :: el
-  type(fnode)           :: nds(NNODE), subelem_nds(20)
+  type(fnode)           :: subelem_nds(20)
   ! sub elem K and F
   real(DP), allocatable :: Ki(:,:), Fi(:)
   ! local copy of optional input arg.
@@ -448,9 +433,6 @@ use global_toolkit_module,     only : assembleKF
   nofail   = .false.
   msgloc   = ' integrate, fCoh8Delam_elem module'
 
-  ! copy intent inout variables to their local copies
-  el  = elem
-  nds = nodes
   ! copy optional input to its local copy
   if(present(nofailure)) nofail = nofailure
 
@@ -459,10 +441,10 @@ use global_toolkit_module,     only : assembleKF
   ! if intact_elem is present, then the top/bot edges are intact,
   ! just integrate the intact elem would do
   ! :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::!
-  if (allocated(el%intact_elem)) then
+  if (allocated(elem%intact_elem)) then
 
       ! integrate the intact elem
-      call integrate (el%intact_elem, nodes=nds(INTACT_ELEM_NODES),          &
+      call integrate (elem%intact_elem, nodes=nodes(INTACT_ELEM_NODES),          &
       & material=material, theta1=theta1, theta2=theta2,                     &
       & K_matrix=Ki, F_vector=Fi, istat=istat, emsg=emsg, nofailure=nofail)
       if (istat==STAT_FAILURE) then
@@ -484,10 +466,6 @@ use global_toolkit_module,     only : assembleKF
         return
       end if
 
-      ! update the intent inout dummy args before successful return
-      ! note that the nodes are not changed by intact elem, so no need to update
-      elem = el
-
       ! clean up local alloc. array before successful return
       call clean_up(Ki, Fi)
 
@@ -501,13 +479,13 @@ use global_toolkit_module,     only : assembleKF
   ! half its K and F: K_el = half * (K_top+K_bot), F_el = half * (F_top+F_bot)
   ! :::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::!
 
-  if (el%top_subelem_set) then
+  if (elem%top_subelem_set) then
       
-      ! MUST copy nds to subelem_nds first, before passing to integrate
+      ! MUST copy nodes to subelem_nds first, before passing to integrate
       ! fortran does not allow vector subscript for intent out/inout argument
-      subelem_nds = nds(TOP_SUBELEM_NODES)
+      subelem_nds = nodes(TOP_SUBELEM_NODES)
       ! integrate the top subelem
-      call integrate (el%top_subelem, nodes=subelem_nds, material=material, &
+      call integrate (elem%top_subelem, nodes=subelem_nds, material=material, &
       & theta1=theta1, theta2=theta2, K_matrix=Ki, F_vector=Fi,             &
       & istat=istat, emsg=emsg, nofailure=nofail)
       if (istat==STAT_FAILURE) then
@@ -515,8 +493,8 @@ use global_toolkit_module,     only : assembleKF
         call clean_up(Ki, Fi)
         return
       end if
-      ! copy back to nds
-      nds(TOP_SUBELEM_NODES) = subelem_nds
+      ! copy back to nodes
+      nodes(TOP_SUBELEM_NODES) = subelem_nds
 
       ! assemble the top sub elem K and F
       call assembleKF(K_matrix, F_vector, Ki, Fi, TOP_SUBELEM_NODES, NDIM, &
@@ -533,13 +511,13 @@ use global_toolkit_module,     only : assembleKF
   end if
 
 
-  if (el%bot_subelem_set) then
+  if (elem%bot_subelem_set) then
 
-      ! MUST copy nds to subelem_nds first, before passing to integrate
+      ! MUST copy nodes to subelem_nds first, before passing to integrate
       ! fortran does not allow vector subscript for intent out/inout argument
-      subelem_nds = nds(BOT_SUBELEM_NODES)
+      subelem_nds = nodes(BOT_SUBELEM_NODES)
       ! integrate the bot subelem
-      call integrate (el%bot_subelem, nodes=subelem_nds, material=material, &
+      call integrate (elem%bot_subelem, nodes=subelem_nds, material=material, &
       & theta1=theta1, theta2=theta2, K_matrix=Ki, F_vector=Fi,             &
       & istat=istat, emsg=emsg, nofailure=nofail)
       if (istat==STAT_FAILURE) then
@@ -547,8 +525,8 @@ use global_toolkit_module,     only : assembleKF
         call clean_up(Ki, Fi)
         return
       end if
-      ! copy back to nds
-      nds(BOT_SUBELEM_NODES) = subelem_nds
+      ! copy back to nodes
+      nodes(BOT_SUBELEM_NODES) = subelem_nds
 
       ! assemble the bot sub elem K and F
       call assembleKF(K_matrix, F_vector, Ki, Fi, BOT_SUBELEM_NODES, NDIM, &
@@ -565,17 +543,11 @@ use global_toolkit_module,     only : assembleKF
   end if
 
 
-  if (el%top_subelem_set .and. el%bot_subelem_set) then
+  if (elem%top_subelem_set .and. elem%bot_subelem_set) then
       ! half the elem's K and F
       K_matrix = HALF * K_matrix
       F_vector = HALF * F_vector
   end if
-
-
-  ! update the intent inout dummy args before successful return
-  ! note that only the internal nodes are changed, and they are stored last
-  elem = el
-  nodes(NNODE-NNDIN+1 : NNODE) = nds(NNODE-NNDIN+1 : NNODE)
 
   ! clean up before successful return
   call clean_up(Ki, Fi)

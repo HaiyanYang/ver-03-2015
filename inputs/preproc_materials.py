@@ -80,6 +80,7 @@ fnm_materials = open('fnm_materials.f90','w')
 #       write input_materials_module.f90
 #***************************************************************
 fnm_materials.write('subroutine set_fnm_materials()     \n')
+fnm_materials.write('use parameter_module,         only: DP \n')
 fnm_materials.write('use material_list_module,     only: UDSinglePly_material,&\n')
 fnm_materials.write('                                  & matrixCrack_material,&\n')
 fnm_materials.write('                                  & interface_material\n')

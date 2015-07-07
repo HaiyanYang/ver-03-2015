@@ -11,10 +11,10 @@ use fBrickLam_elem_module, only: plyblock_layup, set
   integer, allocatable :: nodecnc(:), edgecnc(:)           
   type(plyblock_layup), allocatable :: layup(:)            
                                                            
-  nelem   =2                                
-  elnnode =56                              
-  elnedge =16                              
-  nplyblk =2                                
+  nelem   =1                                
+  elnnode =24                              
+  elnedge =8                              
+  nplyblk =1                                
   allocate(elem_list(nelem))                               
   allocate(elem_node_connec(elnnode,nelem))                
   allocate(elem_edge_connec(elnedge,nelem))                
@@ -25,32 +25,17 @@ use fBrickLam_elem_module, only: plyblock_layup, set
   edgecnc = 0                                              
                                                            
  layup(1)=plyblock_layup(angle=0._DP,nplies=1) 
- layup(2)=plyblock_layup(angle=90._DP,nplies=1) 
                                                            
 
   nodecnc=[ &
-& 1,2,4,3,7,8,10,9,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,41,42,44,43,47,48,50,49,53,54,55,56,57,58,59,60,61,62, &
-& 63,64,65,66,67,68,81,82,83,84,85,86,87,88 &
+& 1,2,4,3,5,6,8,7,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24 &
 & ]
   edgecnc=[ &
-& 1,2,3,4,5,6,7,8,15,16,17,18,19,20,21,22 &
+& 1,2,3,4,5,6,7,8 &
 & ]
-  call set(elem_list(1), NPLYBLKS=2,& 
+  call set(elem_list(1), NPLYBLKS=1,& 
 & node_connec=nodecnc, layup=layup)
   elem_node_connec(:,1)=nodecnc(:)
   elem_edge_connec(:,1)=edgecnc(:)
-
-
-  nodecnc=[ &
-& 3,4,6,5,9,10,12,11,20,19,29,30,31,32,33,34,28,27,35,36,37,38,39,40,43,44,46,45,49,50,52,51,60,59,69,70,71,72,73,74,68, &
-& 67,75,76,77,78,79,80,77,89,90,91,73,92,93,94 &
-& ]
-  edgecnc=[ &
-& 3,9,10,11,7,12,13,14,17,23,24,25,21,26,27,28 &
-& ]
-  call set(elem_list(2), NPLYBLKS=2,& 
-& node_connec=nodecnc, layup=layup)
-  elem_node_connec(:,2)=nodecnc(:)
-  elem_edge_connec(:,2)=edgecnc(:)
 
 end subroutine set_fnm_elems

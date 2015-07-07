@@ -19,6 +19,7 @@ include 'datalists/material_list_module.f90'
 include 'datalists/node_list_module.f90'
 include 'datalists/edge_list_module.f90'
 include 'datalists/elem_list_module.f90'
+include 'inputs/input_module.f90'
 
 program compile_base_elements
 ! Purpose:
@@ -30,7 +31,10 @@ program compile_base_elements
 !    ========  ====================  ========================================
 !    09/04/15  B. Y. Chen            Original code
 !
-
+use parameter_module
+use fnode_module
+use lamina_material_module
+use cohesive_material_module
 use brickPly_elem_module
 use wedgePly_elem_module
 use coh6Delam_elem_module
@@ -46,9 +50,27 @@ use material_list_module
 use node_list_module
 use edge_list_module
 use elem_list_module
+use input_module
 
 implicit none
 
+  real(DP),allocatable    :: Kmat(:,:), Fvec(:)
+  integer                 :: istat
+  character(len=MSGLENGTH):: emsg
 
+  istat     = STAT_SUCCESS
+  emsg      = ''
+
+  call set_fnm_materials()
+  call set_fnm_nodes()
+  call set_fnm_edges()
+  call set_fnm_elems()
+
+! integrate the element
+  call integrate(elem_list(1),node_list,edge_list,UDSinglePly_material, &
+  &  matrixCrack_material, interface_material, Kmat, Fvec, istat, emsg)
+
+  print*, istat
+  print*, emsg
 
 end program compile_base_elements

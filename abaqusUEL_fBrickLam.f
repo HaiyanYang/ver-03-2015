@@ -38,7 +38,7 @@ include 'outputs/output_module.f90'
 !---------------------------------------------------------!
 subroutine uexternaldb(lop,lrestart,time,dtime,kstep,kinc)
 use parameter_module,    only: DP, DIRLENGTH, MSG_FILE, EXIT_FUNCTION
-use global_clock_module, only: GLOBAL_CLOCK, set_program_clock
+use global_clock_module, only: GLOBAL_CLOCK, set
 use input_module,        only: set_fnm_nodes, set_fnm_edges, set_fnm_elems, set_fnm_materials
 use output_module,       only: outdir, output
 
@@ -68,12 +68,6 @@ use output_module,       only: outdir, output
   
   ! start of the analysis
   case (0)
-      ! initialize global clock and list of nodes, edges, elems and materials
-      call set_program_clock(GLOBAL_CLOCK, curr_step=kstep, curr_inc=kinc)
-      call set_fnm_nodes
-      call set_fnm_edges
-      call set_fnm_elems
-      call set_fnm_materials
       ! get output directory (global variable defined in output module)
       outdir = ''
       call getoutdir(workdir, lenworkdir)
@@ -82,10 +76,29 @@ use output_module,       only: outdir, output
         call EXIT_FUNCTION
       end if
       outdir = trim(workdir)//'/outputs/'
+
+
+      
+      ! initialize global clock and list of nodes, edges, elems and materials
+      call set(GLOBAL_CLOCK, curr_step=0, curr_inc=0)
+      
+      call set_fnm_nodes
+      
+      call set_fnm_edges
+      
+      call set_fnm_elems
+      
+      ! open a file 
+      open(110, file=trim(outdir)//'record.dat', status="replace", action="write")
+      write(110,'(1X, a)')'reach here'
+      close(110)
+      
+      call set_fnm_materials
+      
   
   ! start of increment
   case (1)
-      call set_program_clock(GLOBAL_CLOCK, curr_step=kstep, curr_inc=kinc)
+      call set(GLOBAL_CLOCK, curr_step=kstep, curr_inc=kinc)
     
   ! end of increment
   case (2)
@@ -101,6 +114,7 @@ use output_module,       only: outdir, output
   ! end of analysis
   case (3)
       call cleanup_all
+      
   
   end select
 
@@ -121,12 +135,13 @@ subroutine uel(rhs,amatrx,svars,energy,ndofel,nrhs,nsvars, &
 ! load FNM modules
 use parameter_module,     only: NDIM, DP, ZERO, MSG_FILE, MSGLENGTH, STAT_SUCCESS, &
                                 & STAT_FAILURE, EXIT_FUNCTION
-use fnode_module,         only: fnode
+use fnode_module,         only: fnode, update
 use node_list_module,     only: node_list
 use edge_list_module,     only: edge_list
 use elem_list_module,     only: elem_list, elem_node_connec, elem_edge_connec
 use material_list_module, only: UDSinglePly_material, matrixCrack_material, &
                                 & interface_material
+use fBrickLam_elem_module,only: fBrickLam_elem, integrate
 
   ! use Abaqus default implict type declaration for passed-in variables only
   include 'aba_param.inc'
@@ -143,7 +158,7 @@ use material_list_module, only: UDSinglePly_material, matrixCrack_material, &
   character(len=MSGLENGTH):: msgloc
   real(DP),allocatable    :: Kmat(:,:), Fvec(:)
   real(DP)                :: uj(NDIM,nnode)
-  type(fBrickLam_element) :: elem
+  type(fBrickLam_elem)    :: elem
   type(fnode)             :: nodes(nnode)
   integer                 :: node_cnc(nnode)
   integer                 :: nedge
@@ -161,54 +176,54 @@ use material_list_module, only: UDSinglePly_material, matrixCrack_material, &
   nedge     = 0
   j         = 0
   
-  ! check input validity during first run
-  if (kstep == 1 .and. kinc == 1) then
-    ! check lflag(1)
-    ! for static analysis, lflag(1)=1, 2
-    if (.not. (lflags(1)==1 .or. lflags(1)==2)) then
-      istat = STAT_FAILURE
-      emsg  = 'this uel is only for static analysis'//trim(msgloc)
-      goto 10
-    end if
-    ! check lflag(3)
-    if (lflags(3) /= 1) then
-      istat = STAT_FAILURE
-      emsg  = 'this uel is only for normal increment'//trim(msgloc)
-      goto 10
-    end if
-    ! check NRHS
-    ! for static analysis, nrhs = 1
-    ! for modified riks static analysis, nrhs = 2
-    if (nrhs /= 1) then
-      istat = STAT_FAILURE
-      emsg  = 'this uel is NOT for riks method'//trim(msgloc)
-      goto 10
-    end if
-    ! check mcrd
-    if (mcrd /= NDIM) then
-      istat = STAT_FAILURE
-      emsg  = 'uel mcrd does not match param NDIM'//trim(msgloc)
-      goto 10
-    end if
-    ! check nnode
-    if (nnode /= size(elem_node_connec(:,jelem))) then
-      istat = STAT_FAILURE
-      emsg  = 'uel nnode does not match elem_node_connec size'//trim(msgloc)
-      goto 10
-    end if
-    ! check ndofel
-    if (ndofel /= NDIM*nnode) then
-      istat = STAT_FAILURE
-      emsg  = 'uel ndofel does not match NDIM*NNODE'//trim(msgloc)
-      goto 10
-    end if
-
-10  if (istat == STAT_FAILURE) then
-      write(MSG_FILE,*) emsg
-      call cleanup_all
-      call EXIT_FUNCTION
-    end if
-  end if
+!~  ! check input validity during first run
+!~  if (kstep == 1 .and. kinc == 1) then
+!~    ! check lflag(1)
+!~    ! for static analysis, lflag(1)=1, 2
+!~    if (.not. (lflags(1)==1 .or. lflags(1)==2)) then
+!~      istat = STAT_FAILURE
+!~      emsg  = 'this uel is only for static analysis'//trim(msgloc)
+!~      goto 10
+!~    end if
+!~    ! check lflag(3)
+!~    if (lflags(3) /= 1) then
+!~      istat = STAT_FAILURE
+!~      emsg  = 'this uel is only for normal increment'//trim(msgloc)
+!~      goto 10
+!~    end if
+!~    ! check NRHS
+!~    ! for static analysis, nrhs = 1
+!~    ! for modified riks static analysis, nrhs = 2
+!~    if (nrhs /= 1) then
+!~      istat = STAT_FAILURE
+!~      emsg  = 'this uel is NOT for riks method'//trim(msgloc)
+!~      goto 10
+!~    end if
+!~    ! check mcrd
+!~    if (mcrd /= NDIM) then
+!~      istat = STAT_FAILURE
+!~      emsg  = 'uel mcrd does not match param NDIM'//trim(msgloc)
+!~      goto 10
+!~    end if
+!~    ! check nnode
+!~    if (nnode /= size(elem_node_connec(:,jelem))) then
+!~      istat = STAT_FAILURE
+!~      emsg  = 'uel nnode does not match elem_node_connec size'//trim(msgloc)
+!~      goto 10
+!~    end if
+!~    ! check ndofel
+!~    if (ndofel /= NDIM*nnode) then
+!~      istat = STAT_FAILURE
+!~      emsg  = 'uel ndofel does not match NDIM*NNODE'//trim(msgloc)
+!~      goto 10
+!~    end if
+!~
+!~10  if (istat == STAT_FAILURE) then
+!~      write(MSG_FILE,*) emsg
+!~      call cleanup_all
+!~      call EXIT_FUNCTION
+!~    end if
+!~  end if
 
   
   ! extract this element from global elem list, using the element key jelem

@@ -38,13 +38,15 @@ import shutil
 # nprops  : no. of input material properties used in uel code (min 1)
 # nsvars  : no. of sol. dpdnt var. used and ouput by uel code (min 1)
 # uelcode : code for the user element fBrickLam, used in uel input file
-# uellinelength : line length in writing uel input file (max. =256)
+# uellinecount  : max no. of entries in a data line in uel input file (16)
+# uellinelength : line length in writing uel input file (max. =80 in *Element)
 # fnmlinelength : line length in writing fnm input file (max. =132)
 ndim    = 3
 nprops  = 1
 nsvars  = 1
 uelcode = 308
-uellinelength = 240
+uellinecount  = 14
+uellinelength = 70
 fnmlinelength = 120
 
 #***************************************************************
@@ -455,7 +457,7 @@ for ipb in range(nplyblk):
     # calculate the bot and top real node z-coordinate
     # zbot = 0 if this is the 1st plyblk
     if (ipb == 0):
-        zbot = 0
+        zbot = 0.0
     # zbot = thickness of last plyblk
     else:
         zbot = zbot + blklayup[ipb-1].thickness
@@ -604,13 +606,17 @@ for jel in range(nelemtt):
     # start the line with elem index jel+1
     eline = [str(jel+1)+',']  # node cnc dataline for uel_elems
     fline = ['']              # node cnc dataline for fnm_elems
+    cntr  = 0                 # line entry count  for uel_elems
     # add the node no. to the line one by one
     for k in elnds_l:
         # if the uel line gets too long, continue on next line
-        if (len(eline[-1]+str(k)) >= uellinelength):
+        if (len(eline[-1]+str(k)) >= uellinelength) or \
+        (cntr >= uellinecount):
             eline.append('')
-        # add the node no. to the line
+            cntr = 0
+        # add the node no. to the line and update line count
         eline[-1] = eline[-1]+str(k)+','
+        cntr      = cntr + 1
         # if the fnm line gets too long, continue on the next line
         if (len(fline[-1]+str(k)) >= fnmlinelength):
             fline.append('')
@@ -696,8 +702,9 @@ for inst in assbl.instances:
 for nst in assbl.nsets:
     # write the nst name
     uel_input.write(nst.name+'\n')
-    # nst dataline for uel_input, to be filled
+    # nst dataline for uel_input, to be filled, and line count initiated
     nstline = ['']
+    cntr    = 0
     # find the part this nst is based on
     for prt in parts:
         if (prt.name in nst.name):
@@ -722,19 +729,25 @@ for nst in assbl.nsets:
             # find the corresponding node on the jpb-th plyblk
             k = n + jpb * nnode_p
             # if the uel line gets too long, continue on the next line
-            if (len(nstline[-1]+str(k)) >= uellinelength):
+            if (len(nstline[-1]+str(k)) >= uellinelength) or \
+               (cntr >= uellinecount):
                 nstline.append('')
-            # add the node no. to the line
+                cntr = 0
+            # add the node no. to the line and update line count
             nstline[-1] = nstline[-1]+str(k)+','
+            cntr        = cntr + 1
         # add the fl. nodes to the list one by one
         for eg in nst.edges:
             k1 = nstprt.edges[eg-1].nodes[2] + jpb * nnode_p
             k2 = nstprt.edges[eg-1].nodes[3] + jpb * nnode_p
             # if the uel line gets too long, continue on the next line
-            if (len(nstline[-1]+str(k1)+str(k2)) >= uellinelength):
+            if (len(nstline[-1]+str(k1)+str(k2)) >= uellinelength) or \
+               (cntr >= uellinecount):
                 nstline.append('')
+                cntr = 0
             # add the nodes to the line
             nstline[-1] = nstline[-1]+str(k1)+','+str(k2)+','
+            cntr        = cntr + 2
     # remove the last comma from the line
     nstline[-1] = nstline[-1][:-1]
     # write all original nodes of the nset
@@ -780,3 +793,5 @@ cwd = os.getcwd()
 pwd = os.path.dirname(cwd)
 # copy fnm input file to parent directory of preprocessing directory (which is assumed to be the working directory)
 shutil.copy (uelinputfile,pwd)
+shutil.copy (uelnodesfile,pwd)
+shutil.copy (uelelemsfile,pwd)

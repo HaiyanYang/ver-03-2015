@@ -11,6 +11,7 @@ use abstDelam_elem_module,      only: abstDelam_elem, extract
 use fBrickPly_elem_module,      only: fBrickPly_elem, extract
 use fCoh8Delam_subelem_module,  only: fCoh8Delam_subelem, extract
 use fCoh8Delam_elem_module,     only: fCoh8Delam_elem, extract
+use fBrickLam_elem_module,      only: extract
 
 implicit none
 private
@@ -45,7 +46,7 @@ subroutine output(kstep,kinc,outdir)
   integer                     :: outunit  ! output file unit
   character(len=DIRLENGTH)    :: outfile  ! output file name
   character(len=DIRLENGTH)    :: outnum   ! output increment number (embedded in the outfile name)
-  character(len=FMTLENGTH)    :: FMATKINC, FMATNNODE, FMATFLOAT
+  character(len=FMTLENGTH)    :: FMATKINC, FMATNNODE, FMATNELEM, FMATFSTAT, FMATFLOAT
 
   ! no. of nodes & elem in the mesh
   integer                     :: nnode, nelem
@@ -82,10 +83,13 @@ subroutine output(kstep,kinc,outdir)
   type(fCoh8Delam_subelem), allocatable :: bot_interf
   type(abstDelam_elem),     allocatable :: subinterfs(:)
   
-  ! stress and strain vectors
+  ! stress and strain tensor variables
   real(DP) :: str(6)
   real(DP) :: str0(6)
-  real(DP) :: scalar
+  
+  ! integer and real scalar variables
+  integer  :: intvar
+  real(DP) :: realvar
   
   ! counters
   integer  :: i, j, l, m, n, nfl
@@ -121,7 +125,8 @@ subroutine output(kstep,kinc,outdir)
   nsize     = 0
   str       = ZERO
   str0      = ZERO
-  scalar    = ZERO
+  intvar    = 0
+  realvar   = ZERO
 
   nfl=0; i=0; j=0; l=0; m=0; n=0
   
@@ -130,6 +135,7 @@ subroutine output(kstep,kinc,outdir)
   FMATKINC  = 'i5.5' ! for increment no.
   FMATNNODE = 'i10'  ! for node no.
   FMATNELEM = 'i10'  ! for elem no.
+  FMATFSTAT = 'i2'   ! for fstat variable format (2 digits would suffice)
   FMATFLOAT = 'ES10.3' ! scientific notation, repeat=1, width=10, digits=3
 
   ! write the increment number as a character and store in outnum
@@ -144,14 +150,14 @@ subroutine output(kstep,kinc,outdir)
   open(newunit(outunit), file=outfile, status="replace", action="write")
   
   ! write header
-  write(outunit,'1X, (a)')'# vtk DataFile Version 3.1'
-  write(outunit,'1X, (a)')'for Floating Node Method output'
+  write(outunit,'(1X, a)')'# vtk DataFile Version 3.1'
+  write(outunit,'(1X, a)')'for Floating Node Method output'
   
   ! write vtk format
-  write(outunit,'1X, (a)')'ASCII'      
+  write(outunit,'(1X, a)')'ASCII'      
   
   ! write vtk data type
-  write(outunit,'1X, (a)')'DATASET UNSTRUCTURED_GRID'      
+  write(outunit,'(1X, a)')'DATASET UNSTRUCTURED_GRID'      
   
 
 
@@ -328,7 +334,7 @@ subroutine output(kstep,kinc,outdir)
                       !**** write sub bulks, type: abstPly
                       nsubBulk = size(subBulks)
                       do n = 1, nsubBulk
-                        call wabstply(subBulk(n),wflag)
+                        call wabstply(subBulks(n),wflag)
                       end do
                       deallocate(subBulks)
                       !**** write coh crack, type: cohCrack
@@ -408,11 +414,11 @@ subroutine output(kstep,kinc,outdir)
           call extract(brickply, strain=str)
           call wtensor(str)
         case('fstat')
-          call extract(brickply, fstat=scalar)
-          call wscalar(scalar)
+          call extract(brickply, fstat=intvar)
+          call wscalar(intvar)
         case('df')
-          call extract(brickply, df=scalar)
-          call wscalar(scalar)
+          call extract(brickply, df=realvar)
+          call wscalar(realvar)
         case('dm')
           call wscalar(ZERO)
         end select  
@@ -443,19 +449,19 @@ subroutine output(kstep,kinc,outdir)
           call extract(abstply, strain=str)
           call wtensor(str)
         case('fstat')
-          call extract(abstply, fstat=scalar)
-          call wscalar(scalar)
+          call extract(abstply, fstat=intvar)
+          call wscalar(intvar)
         case('df')
-          call extract(abstply, df=scalar)
-          call wscalar(scalar)
+          call extract(abstply, df=realvar)
+          call wscalar(realvar)
         case('dm')
           call wscalar(ZERO)
         end select
     end subroutine wabstply
     
     subroutine wcohcrack(cohCrack,wflag)
-      type(cohCrack_elem), intent(in) :: cohCrack
-      character(len=*),    intent(in) :: wflag
+      type(coh8Crack_elem), intent(in) :: cohCrack
+      character(len=*),     intent(in) :: wflag
         select case(wflag)
         case('nelem')
           ncoh8 = ncoh8 + 1
@@ -470,13 +476,13 @@ subroutine output(kstep,kinc,outdir)
         case('strain')
           call wtensor(str0)
         case('fstat')
-          call extract(cohCrack, fstat=scalar)
-          call wscalar(scalar)
+          call extract(cohCrack, fstat=intvar)
+          call wscalar(intvar)
         case('df')
           call wscalar(ZERO)
         case('dm')
-          call extract(cohCrack, dm=scalar)
-          call wscalar(scalar)
+          call extract(cohCrack, dm=realvar)
+          call wscalar(realvar)
         end select
     end subroutine wcohcrack
     
@@ -497,13 +503,13 @@ subroutine output(kstep,kinc,outdir)
         case('strain')
           call wtensor(str0)
         case('fstat')
-          call extract(coh8Delam, fstat=scalar)
-          call wscalar(scalar)
+          call extract(coh8Delam, fstat=intvar)
+          call wscalar(intvar)
         case('df')
           call wscalar(ZERO)
         case('dm')
-          call extract(coh8Delam, dm=scalar)
-          call wscalar(scalar)
+          call extract(coh8Delam, dm=realvar)
+          call wscalar(realvar)
         end select
     end subroutine wcoh8Delam
    
@@ -530,13 +536,13 @@ subroutine output(kstep,kinc,outdir)
         case('strain')
           call wtensor(str0)
         case('fstat')
-          call extract(abstDelam, fstat=scalar)
-          call wscalar(scalar)
+          call extract(abstDelam, fstat=intvar)
+          call wscalar(intvar)
         case('df')
           call wscalar(ZERO)
         case('dm')
-          call extract(abstDelam, dm=scalar)
-          call wscalar(scalar)
+          call extract(abstDelam, dm=realvar)
+          call wscalar(realvar)
         end select
     end subroutine wabstDelam
 
@@ -581,8 +587,15 @@ subroutine output(kstep,kinc,outdir)
     end subroutine wtensor
        
     subroutine wscalar(x)
-      real(DP), intent(in) :: x
-      write(outunit,'(1X, '//trim(FMATFLOAT)//')') x
+      class(*), intent(in) :: x
+      select type(x)
+      type is (real(DP))
+        write(outunit,'(1X, '//trim(FMATFLOAT)//')') x
+      type is (integer)
+        write(outunit,'(1X, '//trim(FMATFSTAT)//')') x
+      end select
+      !~real(DP), intent(in) :: x
+      !~write(outunit,'(1X, '//trim(FMATFLOAT)//')') x
     end subroutine wscalar
   
   

@@ -240,8 +240,6 @@ use cohesive_material_module, only : cohesive_material
   logical,        optional, intent(in)    :: nofailure
 
   ! local variables
-  type(fCoh8Delam_subelem) :: el
-  type(fnode) :: nodes_lcl(NNODE)
   logical :: nofail
 
   ! initialize K & F and local variables
@@ -257,12 +255,6 @@ use cohesive_material_module, only : cohesive_material
   ! but this should NOT be checked here, they should be ensured correct at
   ! the beginning of analysis.
 
-  ! define local variables
-
-  ! copy intent inout arg. to their local copies
-  el = elem
-  nodes_lcl = nodes
-
   ! by default, damage modelling is allowed, unless specified
   if(present(nofailure)) nofail = nofailure
 
@@ -271,7 +263,7 @@ use cohesive_material_module, only : cohesive_material
 
   ! partition element if first time integration
   if (.not. allocated(elem%subelems)) then
-    call partition_element (el, nodes_lcl, istat, emsg)
+    call partition_element (elem, nodes, istat, emsg)
     if (istat == STAT_FAILURE) then
       call zeroKF (K_matrix, F_vector)
       return
@@ -279,10 +271,10 @@ use cohesive_material_module, only : cohesive_material
   end if
 
   ! update internal nodes
-  call update_internal_nodes (el, nodes_lcl)
+  call update_internal_nodes (elem, nodes)
 
   ! integrate sub elems and assemble system matrices
-  call integrate_assemble_subelems(el, nodes_lcl, material, theta1, theta2, &
+  call integrate_assemble_subelems(elem, nodes, material, theta1, theta2, &
   & K_matrix, F_vector, istat, emsg, nofail)
   if (istat == STAT_FAILURE) then
     call zeroKF (K_matrix, F_vector)
@@ -291,10 +283,6 @@ use cohesive_material_module, only : cohesive_material
 
   !**** END MAIN CALCULATIONS ****
 
-  ! update to dummy arg. elem before successful return;
-  ! for nodes, only need to update the internal nodes stored in the end
-  elem  = el
-  nodes(NNODE-NNDIN+1 : NNODE) = nodes_lcl(NNODE-NNDIN+1 : NNODE)
   return
 
   contains

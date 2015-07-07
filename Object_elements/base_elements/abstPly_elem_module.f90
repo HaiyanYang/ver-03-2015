@@ -90,29 +90,22 @@ use brickPly_elem_module, only : brickPly_elem
   ! left for the called eltype's set procedure for checking
   ! - local copies of elem's components are used for set operation;
   ! they are copied to actual elem's components only before successful return
-  use wedgePly_elem_module, only : wedgePly_elem, set
-  use brickPly_elem_module, only : brickPly_elem, set
+  use wedgePly_elem_module, only : set
+  use brickPly_elem_module, only : set
 
-    type(abstPly_elem),       intent(inout) :: elem
+    type(abstPly_elem),          intent(inout) :: elem
     character(len=*),            intent(in)    :: eltype
     integer,                     intent(in)    :: connec(:)
     real(DP),                    intent(in)    :: ply_angle
     integer,                     intent(out)   :: istat
     character(len=MSGLENGTH),    intent(out)   :: emsg
 
-    ! local var., local copies of intent inout arg. components
-    character(len=ELTYPELENGTH) :: eltype_lcl
-    type(wedgePly_elem), allocatable :: wedge_lcl
-    type(brickPly_elem), allocatable :: brick_lcl
 
     ! initialize intent out and local variables (non derived type)
     istat = STAT_SUCCESS
     emsg  = ''
-    eltype_lcl = ''
 
-    eltype_lcl = adjustl(eltype)
-
-    select case (trim(eltype_lcl))
+    select case (trim(eltype))
 
       case ('wedge')
           ! check no. of nodes, exit program if incorrect
@@ -122,28 +115,19 @@ use brickPly_elem_module, only : brickPly_elem
             & set, abstPly_elem_module'
             return
           end if
-
-          ! allocate local wedge base elem
-          allocate(wedge_lcl)
-          ! call the set procedure of the base element
-          call set (wedge_lcl, connec, ply_angle, istat, emsg)
-          ! check istat, if istat is failure, clean up and exit program
-          if (istat == STAT_FAILURE) then
-            deallocate(wedge_lcl)
-            return
-          end if
-
-          ! update intent inout arg. if no error has been encountered
-
-          ! set elem type
-          elem%eltype = eltype_lcl
+          
           ! allocate the appropriate base element
           if (.not. allocated(elem%wedge)) allocate(elem%wedge)
           ! deallocate the other base element
           if (allocated(elem%brick)) deallocate(elem%brick)
-          ! copy definition from local variable
-          elem%wedge = wedge_lcl
 
+          ! call the set procedure of the base element
+          call set (elem%wedge, connec, ply_angle, istat, emsg)
+          ! check istat, if istat is failure, clean up and exit program
+          if (istat == STAT_FAILURE) then
+            deallocate(elem%wedge)
+            return
+          end if
 
       case ('brick')
           ! check no. of nodes, exit program if incorrect
@@ -154,27 +138,18 @@ use brickPly_elem_module, only : brickPly_elem
             return
           end if
 
-          ! allocate local brick base elem
-          allocate(brick_lcl)
-          ! call the set procedure of the base element
-          call set (brick_lcl, connec, ply_angle, istat, emsg)
-          ! check istat, if istat is failure, clean up and exit program
-          if (istat == STAT_FAILURE) then
-            deallocate(brick_lcl)
-            return
-          end if
-
-          ! update intent inout arg. if no error has been encountered
-
-          ! set elem type
-          elem%eltype = eltype_lcl
           ! allocate the appropriate base element
           if (.not. allocated(elem%brick)) allocate(elem%brick)
           ! deallocate the other base element
           if (allocated(elem%wedge)) deallocate(elem%wedge)
-          ! copy definition from local variable
-          elem%brick = brick_lcl
 
+          ! call the set procedure of the base element
+          call set (elem%brick, connec, ply_angle, istat, emsg)
+          ! check istat, if istat is failure, clean up and exit program
+          if (istat == STAT_FAILURE) then
+            deallocate(elem%brick)
+            return
+          end if
 
       case default
           ! this should not be reached, flag an error and return
@@ -182,11 +157,7 @@ use brickPly_elem_module, only : brickPly_elem
           emsg  = 'unsupported eltype in set, abstPly element module'
           return
 
-
     end select
-
-    if (allocated(wedge_lcl)) deallocate(wedge_lcl)
-    if (allocated(brick_lcl)) deallocate(brick_lcl)
 
   end subroutine set_abstPly_elem
 

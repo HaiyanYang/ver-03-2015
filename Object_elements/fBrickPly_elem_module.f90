@@ -169,8 +169,6 @@ use brickPly_elem_module,  only : set
   integer,                  intent(out)   :: istat
   character(len=MSGLENGTH), intent(out)   :: emsg
 
-  ! local copy of elem
-  type(fBrickPly_elem) :: elem_lcl
   ! global_connec of sub element
   integer, allocatable :: global_connec(:)
   ! location for emsg
@@ -190,18 +188,18 @@ use brickPly_elem_module,  only : set
   end if
 
   ! update to elem_lcl first
-  elem_lcl%ply_angle   = ply_angle
-  elem_lcl%node_connec = node_connec
+  elem%ply_angle   = ply_angle
+  elem%node_connec = node_connec
 
   ! allocate INTACT elem
-  allocate(elem_lcl%intact_elem)
+  allocate(elem%intact_elem)
   allocate(global_connec(NNDRL))
 
   ! populate the global connec of INTACT element
   global_connec(:) = node_connec(INTACT_ELEM_NODES(:))
 
   ! set the INTACT element
-  call set (elem_lcl%intact_elem, connec=global_connec, ply_angle=ply_angle, &
+  call set (elem%intact_elem, connec=global_connec, ply_angle=ply_angle, &
   & istat=istat, emsg=emsg)
 
   ! if an error is encountered in set, clean up and exit program
@@ -210,9 +208,6 @@ use brickPly_elem_module,  only : set
     emsg = emsg//trim(msgloc)
     return
   end if
-
-  ! update to dummy arg. elem before successful return
-  elem = elem_lcl
 
   if (allocated(global_connec)) deallocate(global_connec)
 
@@ -281,9 +276,6 @@ use global_clock_module,      only : GLOBAL_CLOCK, clock_in_sync
 
   !:::: local variables ::::
   ! local copy of intent inout variables
-  type(fBrickPly_elem)      :: el
-  type(fnode)               :: nds(NNODE)
-  integer                   :: egstatus(NEDGE)
   integer                   :: elstatus
   ! logical control variables
   logical                   :: nofailure
@@ -296,22 +288,16 @@ use global_clock_module,      only : GLOBAL_CLOCK, clock_in_sync
   F_vector        = ZERO
   istat           = STAT_SUCCESS
   emsg            = ''
-  egstatus        = 0
   elstatus        = 0
   nofailure       = .false.
   msgloc          = ' integrate, fBrickPly_elem module'
 
-  ! copy intent inout arg. to its local alias
-  el       = elem
-  nds      = nodes
-  egstatus = edge_status
-
   ! check if last iteration has converged; if so, the elem's current partition
   ! has lead to the convergence of the last increment, and hence it is NOT a
-  ! new partition but a converged partition, el%newpartition = .false.
-  if (.not. clock_in_sync(GLOBAL_CLOCK, el%local_clock)) then
-    el%local_clock  = GLOBAL_CLOCK
-    el%newpartition = .false.
+  ! new partition but a converged partition, elem%newpartition = .false.
+  if (.not. clock_in_sync(GLOBAL_CLOCK, elem%local_clock)) then
+    elem%local_clock  = GLOBAL_CLOCK
+    elem%newpartition = .false.
   end if
 
 
@@ -319,14 +305,14 @@ use global_clock_module,      only : GLOBAL_CLOCK, clock_in_sync
   !********** MAIN CALCULATIONS **********
   !---------------------------------------------------------------------!
 
-  elstatuscase: select case (el%curr_status)
+  elstatuscase: select case (elem%curr_status)
   !
   ! if elem has not yet reached final partition, then in each ITERATION,
   ! check for EDGE_STATUS_PARTITION of the elem first, and update newpartition:
-  ! -> if el partition is UPDATED by edge status, el newpartition is set TRUE
-  ! -> if el partition is UNCHANGED by edge status, el newpartition is UNCHANGED
+  ! -> if elem partition is UPDATED by edge status, elem newpartition is set TRUE
+  ! -> if elem partition is UNCHANGED by edge status, elem newpartition is UNCHANGED
   !
-  ! after the edge status partition, calculate based on el partition status:
+  ! after the edge status partition, calculate based on elem partition status:
   ! -> if newpartition is true (current partition is not converged), then:
   !     - integrate subelems with NOfailure
   !     - do NOT check for FAILURE_CRITERION_PARTITION
@@ -340,23 +326,23 @@ use global_clock_module,      only : GLOBAL_CLOCK, clock_in_sync
   &              CRACK_TIP_ELEM, CRACK_WAKE_ELEM) elstatuscase
 
       !***** check edge status variables *****
-      ! save existing el status for comparison purpose later
-      elstatus = el%curr_status
+      ! save existing elem status for comparison purpose later
+      elstatus = elem%curr_status
       ! update elem status according to edge status values
       ! and update the edge status values
       ! and partition the elem
-      call edge_status_partition (el, nds, egstatus, istat, emsg)
+      call edge_status_partition (elem, nodes, edge_status, istat, emsg)
       if (istat == STAT_FAILURE) then
         emsg = emsg//trim(msgloc)
         call clean_up (K_matrix, F_vector)
         return
       end if
       ! if elstat is changed, then this elem has a new partition
-      ! from edge status update; el%newpartition variable = TRUE
-      if (elstatus /= el%curr_status) el%newpartition = .true.
+      ! from edge status update; elem%newpartition variable = TRUE
+      if (elstatus /= elem%curr_status) elem%newpartition = .true.
 
-      !***** select what to do based on el partition status *****
-      newPartition: select case (el%newpartition)
+      !***** select what to do based on elem partition status *****
+      newPartition: select case (elem%newpartition)
       ! if the current elem partition is a new partition (not converged),
       ! no failure in subelems and no failure_criterion_partition is done
       ! just integrate and assemble subelems
@@ -364,7 +350,7 @@ use global_clock_module,      only : GLOBAL_CLOCK, clock_in_sync
           ! suppress subelem failure for increment of new elem partition
           nofailure = .true.
           ! integrate the subelems and assemle their K and F
-          call integrate_assemble_subelems (el, nds, lam_mat, coh_mat, &
+          call integrate_assemble_subelems (elem, nodes, lam_mat, coh_mat, &
           & K_matrix, F_vector, istat, emsg, nofailure)
           if (istat == STAT_FAILURE) then
             emsg = emsg//trim(msgloc)
@@ -378,7 +364,7 @@ use global_clock_module,      only : GLOBAL_CLOCK, clock_in_sync
           ! allow failure in subelems
           nofailure = .false.
           ! integrate the subelems before failure criterion partition
-          call integrate_assemble_subelems (el, nds, lam_mat, coh_mat, &
+          call integrate_assemble_subelems (elem, nodes, lam_mat, coh_mat, &
           & K_matrix, F_vector, istat, emsg, nofailure)
           if (istat == STAT_FAILURE) then
             emsg = emsg//trim(msgloc)
@@ -389,7 +375,7 @@ use global_clock_module,      only : GLOBAL_CLOCK, clock_in_sync
           ! failure criterion partitions elem of any status directly into
           ! MATRIX_CRACK_ELEM partition if the failure criterion judges
           ! any subelem reaches MATRIX/FIBRE failure onset
-          call failure_criterion_partition (el, nds, egstatus, istat, emsg)
+          call failure_criterion_partition (elem, nodes, edge_status, istat, emsg)
           if (istat == STAT_FAILURE) then
             emsg = emsg//trim(msgloc)
             call clean_up (K_matrix, F_vector)
@@ -399,13 +385,13 @@ use global_clock_module,      only : GLOBAL_CLOCK, clock_in_sync
           ! NOTE: any update goes straight to MATRIX_CRACK_ELEM status
           ! if updated, newpartition becomes TRUE and
           ! subelems need to be re-integrated with failure suppressed
-          if (el%curr_status == MATRIX_CRACK_ELEM) then
+          if (elem%curr_status == MATRIX_CRACK_ELEM) then
             ! this is a new element partition not yet converged
-            el%newpartition = .true.
+            elem%newpartition = .true.
             ! suppress failure for subelem during new partition increment
             nofailure = .true.
             ! re-integrate the subelems and re-assemle their K and F
-            call integrate_assemble_subelems (el, nds, lam_mat, coh_mat, &
+            call integrate_assemble_subelems (elem, nodes, lam_mat, coh_mat, &
             & K_matrix, F_vector, istat, emsg, nofailure)
             if (istat == STAT_FAILURE) then
               emsg = emsg//trim(msgloc)
@@ -422,10 +408,10 @@ use global_clock_module,      only : GLOBAL_CLOCK, clock_in_sync
 
       ! if the current partition is a new partition (not yet converged),
       ! suppress failure in subelems
-      nofailure = el%newpartition
+      nofailure = elem%newpartition
 
       ! integrate and assemble sub elems
-      call integrate_assemble_subelems (el, nds, lam_mat, coh_mat, &
+      call integrate_assemble_subelems (elem, nodes, lam_mat, coh_mat, &
       & K_matrix, F_vector, istat, emsg, nofailure)
 
 
@@ -442,11 +428,6 @@ use global_clock_module,      only : GLOBAL_CLOCK, clock_in_sync
   !---------------------------------------------------------------------!
   !********** END MAIN CALCULATIONS **********
   !---------------------------------------------------------------------!
-
-  ! update to intent inout args before successful return
-  elem        = el
-  nodes       = nds
-  edge_status = egstatus
 
   return
 

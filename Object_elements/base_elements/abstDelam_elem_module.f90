@@ -89,28 +89,20 @@ use coh8Delam_elem_module, only : coh8Delam_elem
   ! left for the called eltype's set procedure for checking
   ! - local copies of elem's components are used for set operation;
   ! they are copied to actual elem's components only before successful return
-  use coh6Delam_elem_module, only : coh6Delam_elem, set
-  use coh8Delam_elem_module, only : coh8Delam_elem, set
+  use coh6Delam_elem_module, only : set
+  use coh8Delam_elem_module, only : set
   
       type(abstDelam_elem),     intent(inout) :: elem
       character(len=*),         intent(in)    :: eltype
       integer,                  intent(in)    :: connec(:)
       integer,                  intent(out)   :: istat
       character(len=MSGLENGTH), intent(out)   :: emsg
-      
-      ! local variables
-      character(len=ELTYPELENGTH)       :: eltype_lcl
-      type(coh6Delam_elem), allocatable :: coh6Delam_lcl
-      type(coh8Delam_elem), allocatable :: coh8Delam_lcl
                  
       ! initialize intent out and local variables (non derived type)
       istat = STAT_SUCCESS
       emsg  = ''
-      eltype_lcl = ''
-
-      eltype_lcl = adjustl(eltype)  
       
-      select case (trim(eltype_lcl))
+      select case (trim(eltype))
         
         case ('coh6Delam')
             ! check no. of nodes, exit program if incorrect
@@ -121,26 +113,21 @@ use coh8Delam_elem_module, only : coh8Delam_elem
               return
             end if
             
-            ! allocate local coh6Delam base elem
-            allocate(coh6Delam_lcl)
-            ! call the set procedure of the base element
-            call set (coh6Delam_lcl, connec, istat, emsg)
-            ! check istat, if istat is failure, clean up and exit program
-            if (istat == STAT_FAILURE) then
-              deallocate(coh6Delam_lcl)
-              return
-            end if
-            
-            ! update intent inout arg. if no error has been encountered
-
             ! set elem type
-            elem%eltype = eltype_lcl
+            elem%eltype = eltype
             ! allocate the appropriate base element
             if (.not. allocated(elem%coh6Delam)) allocate(elem%coh6Delam)
             ! deallocate the other base element
             if (allocated(elem%coh8Delam)) deallocate(elem%coh8Delam)
-            ! copy definition from local variable
-            elem%coh6Delam = coh6Delam_lcl
+            
+            ! call the set procedure of the base element
+            call set (elem%coh6Delam, connec, istat, emsg)
+            ! check istat, if istat is failure, clean up and exit program
+            if (istat == STAT_FAILURE) then
+              deallocate(elem%coh6Delam)
+              return
+            end if
+
         
         case ('coh8Delam')
             ! check no. of nodes, exit program if incorrect
@@ -151,31 +138,25 @@ use coh8Delam_elem_module, only : coh8Delam_elem
               return
             end if
             
-            ! allocate local coh8Delam base elem
-            allocate(coh8Delam_lcl)
-            ! call the set procedure of the base element
-            call set (coh8Delam_lcl, connec, istat, emsg)
-            ! check istat, if istat is failure, clean up and exit program
-            if (istat == STAT_FAILURE) then
-              deallocate(coh8Delam_lcl)
-              return
-            end if
-            
-            ! update intent inout arg. if no error has been encountered
-
             ! set elem type
-            elem%eltype = eltype_lcl
+            elem%eltype = eltype
             ! allocate the appropriate base element
             if (.not. allocated(elem%coh8Delam)) allocate(elem%coh8Delam)
             ! deallocate the other base element
             if (allocated(elem%coh6Delam)) deallocate(elem%coh6Delam)
-            ! copy definition from local variable
-            elem%coh8Delam = coh8Delam_lcl
+            
+            ! call the set procedure of the base element
+            call set (elem%coh8Delam, connec, istat, emsg)
+            ! check istat, if istat is failure, clean up and exit program
+            if (istat == STAT_FAILURE) then
+              deallocate(elem%coh8Delam)
+              return
+            end if
         
         case default
             ! this should not be reached, flag an error and return
             istat = STAT_FAILURE
-            emsg  = 'unsupported eltype in set, baseCoh element module'
+            emsg  = 'unsupported eltype in set, abstDelam elem module'
             return
       
       end select
