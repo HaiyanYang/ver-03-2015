@@ -416,7 +416,7 @@ use global_toolkit_module,       only : crack_elem_centroid2d, determinant3d, &
   ! used here to calculate the element characteristic length, by imagining
   ! a crack line orthogonal to the fibre angle, thus: crack_angle=ply_angle+90
   call crack_elem_centroid2d (nedge=NEDGE_BOTTOM, crack_angle=ply_angle+90._DP,&
-  & coords=coords(1:2,:), nodes_on_edges=NODES_ON_BOTTOM_EDGES, istat=istat,   &
+  & coords=coords(1:2,1:NNODE), nodes_on_edges=NODES_ON_BOTTOM_EDGES, istat=istat,   &
   & emsg=emsg, edge_crack_points=crosspoints)
   ! if there's any error encountered in the above process
   ! clean up and exit the program
