@@ -69,6 +69,19 @@ use fBrickLam_elem_module,      only: extract
   
   ! nodal displacements
   real(kind=DP), allocatable  :: disp(:)  ! displacements of nodes extracted from lib_node
+
+  ! Laminate sub elems
+  type(fBrickPly_elem),     allocatable :: plyblks(:)
+  type(fCoh8Delam_elem),    allocatable :: interfs(:)
+  ! plyblks sub elems
+  type(brickPly_elem),      allocatable :: intactplyblk
+  type(abstPly_elem),       allocatable :: subBulks(:)
+  type(coh8Crack_elem),     allocatable :: cohCrack
+  ! interfs sub elems
+  type(coh8Delam_elem),     allocatable :: intactinterf
+  type(fCoh8Delam_subelem), allocatable :: top_interf
+  type(fCoh8Delam_subelem), allocatable :: bot_interf
+  type(abstDelam_elem),     allocatable :: subinterfs(:)
   
   ! stress and strain tensor variables
   real(DP) :: str(6)
@@ -172,29 +185,29 @@ use fBrickLam_elem_module,      only: extract
   ! nwedge, nbrick, ncoh6 and ncoh8
   call wfLam('nelem')
 
-!~  ! total no. of elems
-!~  nelem = nwedge + nbrick + ncoh6 + ncoh8
-!~  
-!~  ! calculate total no. of nodes to print; each row has 1+elnode no. of indices to print
-!~  nsize = (nwedge+ncoh6) * (1+6) + (nbrick+ncoh8) * (1+8)
-!~  
-!~  ! write a summary of output
-!~  write(outunit,'(1X, a, 2'//trim(FMATNNODE)//')')'CELLS ', nelem, nsize
-!~  ! wflag = 'connec' would allow the wfLam subroutine to write out all
-!~  ! the nodal connec of all sub elems in the mesh
-!~  call wfLam('connec')
-!~
-!~
-!~  ! -----------------------------------------------------------------!
-!~  !                     write element types (order matters)
-!~  ! -----------------------------------------------------------------!  
-!~  write(outunit,'(1X, a, '//trim(FMATNELEM)//')')'CELL_TYPES ', nelem
-!~  ! wflag = 'eltype' would allow the wfLam subroutine to write out all
-!~  ! the elem type code (used by VTK) of all sub elems in the mesh
-!~  call wfLam('eltype')
-!~
-!~
-!~
+  ! total no. of elems
+  nelem = nwedge + nbrick + ncoh6 + ncoh8
+  
+  ! calculate total no. of nodes to print; each row has 1+elnode no. of indices to print
+  nsize = (nwedge+ncoh6) * (1+6) + (nbrick+ncoh8) * (1+8)
+  
+  ! write a summary of output
+  write(outunit,'(1X, a, 2'//trim(FMATNNODE)//')')'CELLS ', nelem, nsize
+  ! wflag = 'connec' would allow the wfLam subroutine to write out all
+  ! the nodal connec of all sub elems in the mesh
+  call wfLam('connec')
+
+
+  ! -----------------------------------------------------------------!
+  !                     write element types (order matters)
+  ! -----------------------------------------------------------------!  
+  write(outunit,'(1X, a, '//trim(FMATNELEM)//')')'CELL_TYPES ', nelem
+  ! wflag = 'eltype' would allow the wfLam subroutine to write out all
+  ! the elem type code (used by VTK) of all sub elems in the mesh
+  call wfLam('eltype')
+
+
+
   ! -----------------------------------------------------------------!
   ! BEGIN WRITE NODAL DATA
   ! -----------------------------------------------------------------!
@@ -213,60 +226,60 @@ use fBrickLam_elem_module,      only: extract
   end do  
           
   write(outunit,'(1X)')  
-!~
-!~
-!~  ! -----------------------------------------------------------------!
-!~  ! BEGIN WRITE CELL DATA
-!~  ! -----------------------------------------------------------------!
-!~  write(outunit,'(1X, a, '//trim(FMATNELEM)//')')'CELL_DATA ', nelem
-!~  
-!~  
-!~  ! -----------------------------------------------------------------!
-!~  !                     write stress (order matters)
-!~  ! -----------------------------------------------------------------!     
-!~  write(outunit,'(1X, a)')'TENSORS stress float'
-!~  ! wflag = 'stress' would allow the wfLam subroutine to write out all
-!~  ! stress tensors of all ply sub elems in the mesh
-!~  call wfLam('stress')
-!~
-!~  
-!~  ! -----------------------------------------------------------------!
-!~  !                     write strain (order matters)
-!~  ! -----------------------------------------------------------------!  
-!~  write(outunit,'(1X, a)')'TENSORS strain float'
-!~  ! wflag = 'strain' would allow the wfLam subroutine to write out all
-!~  ! strain tensors of all ply sub elems in the mesh
-!~  call wfLam('strain')
-!~ 
-!~
-!~  ! -----------------------------------------------------------------!
-!~  !                     write failure status
-!~  ! -----------------------------------------------------------------! 
-!~  write(outunit,'(1X, a)')'SCALARS fstat float'
-!~  write(outunit,'(1X, a)')'LOOKUP_TABLE default'
-!~  ! wflag = 'fstat' would allow the wfLam subroutine to write out all
-!~  ! failure status var. of all sub elems in the mesh
-!~  call wfLam('fstat')
-!~  
-!~
-!~  ! -----------------------------------------------------------------!
-!~  !                     write fibre damage variable
-!~  ! -----------------------------------------------------------------!
-!~  write(outunit,'(1X, a)')'SCALARS df float'
-!~  write(outunit,'(1X, a)')'LOOKUP_TABLE default'
-!~  ! wflag = 'df' would allow the wfLam subroutine to write out all
-!~  ! fibre degradation factors of all ply sub elems in the mesh
-!~  call wfLam('df')
-!~
-!~
-!~  ! -----------------------------------------------------------------!
-!~  !                     write matrix damage variable
-!~  ! -----------------------------------------------------------------! 
-!~  write(outunit,'(1X, a)')'SCALARS dm float'
-!~  write(outunit,'(1X, a)')'LOOKUP_TABLE default'
-!~  ! wflag = 'dm' would allow the wfLam subroutine to write out all 
-!~  ! cohesive degradation factors of all cohesive sub elems in the mesh
-!~  call wfLam('dm')
+
+
+  ! -----------------------------------------------------------------!
+  ! BEGIN WRITE CELL DATA
+  ! -----------------------------------------------------------------!
+  write(outunit,'(1X, a, '//trim(FMATNELEM)//')')'CELL_DATA ', nelem
+  
+  
+  ! -----------------------------------------------------------------!
+  !                     write stress (order matters)
+  ! -----------------------------------------------------------------!     
+  write(outunit,'(1X, a)')'TENSORS stress float'
+  ! wflag = 'stress' would allow the wfLam subroutine to write out all
+  ! stress tensors of all ply sub elems in the mesh
+  call wfLam('stress')
+
+  
+  ! -----------------------------------------------------------------!
+  !                     write strain (order matters)
+  ! -----------------------------------------------------------------!  
+  write(outunit,'(1X, a)')'TENSORS strain float'
+  ! wflag = 'strain' would allow the wfLam subroutine to write out all
+  ! strain tensors of all ply sub elems in the mesh
+  call wfLam('strain')
+ 
+
+  ! -----------------------------------------------------------------!
+  !                     write failure status
+  ! -----------------------------------------------------------------! 
+  write(outunit,'(1X, a)')'SCALARS fstat float'
+  write(outunit,'(1X, a)')'LOOKUP_TABLE default'
+  ! wflag = 'fstat' would allow the wfLam subroutine to write out all
+  ! failure status var. of all sub elems in the mesh
+  call wfLam('fstat')
+  
+
+  ! -----------------------------------------------------------------!
+  !                     write fibre damage variable
+  ! -----------------------------------------------------------------!
+  write(outunit,'(1X, a)')'SCALARS df float'
+  write(outunit,'(1X, a)')'LOOKUP_TABLE default'
+  ! wflag = 'df' would allow the wfLam subroutine to write out all
+  ! fibre degradation factors of all ply sub elems in the mesh
+  call wfLam('df')
+
+
+  ! -----------------------------------------------------------------!
+  !                     write matrix damage variable
+  ! -----------------------------------------------------------------! 
+  write(outunit,'(1X, a)')'SCALARS dm float'
+  write(outunit,'(1X, a)')'LOOKUP_TABLE default'
+  ! wflag = 'dm' would allow the wfLam subroutine to write out all 
+  ! cohesive degradation factors of all cohesive sub elems in the mesh
+  call wfLam('dm')
   
   
   ! -----------------------------------------------------------------!
@@ -275,6 +288,15 @@ use fBrickLam_elem_module,      only: extract
   if(allocated(connec))         deallocate(connec)
   if(allocated(x))              deallocate(x)
   if(allocated(disp))           deallocate(disp)
+  if(allocated(plyblks))        deallocate(plyblks)
+  if(allocated(interfs))        deallocate(interfs)  
+  if(allocated(intactplyblk))   deallocate(intactplyblk)
+  if(allocated(subBulks))       deallocate(subBulks)
+  if(allocated(cohCrack))       deallocate(cohCrack)
+  if(allocated(intactinterf))   deallocate(intactinterf)
+  if(allocated(top_interf))     deallocate(top_interf)
+  if(allocated(bot_interf))     deallocate(bot_interf)
+  if(allocated(subinterfs))     deallocate(subinterfs)
   
   close(outunit)
   
@@ -291,87 +313,84 @@ use fBrickLam_elem_module,      only: extract
       nfLam = size(elem_list)
     
       do nfl = 1, nfLam
-      
-          call extract(elem_list(nfl),curr_status = intvar)
-          call wscalar(intvar)
     
-          !~! extract the plyblks and interfs elems of the fLam elem
-          !~call extract(elem_list(nfl), plyblks=plyblks, interfs=interfs)
-          !~
-          !~! read the plyblks elems
-          !~if(allocated(plyblks)) then
-          !~    ! read the no. of plyblks
-          !~    nplyblk = size(plyblks)
-          !~    ! loop over each plyblk subelem
-          !~    do m = 1, nplyblk
-          !~        ! extract the subelems of this plyblk
-          !~        call extract(plyblks(m), intact_elem=intactplyblk, &
-          !~        & subBulks=subBulks, cohCrack=cohCrack)
-          !~        if (allocated(intactplyblk)) then     
-          !~            !**** write intact elem, type: brickPly
-          !~            call wbrickply(intactplyblk,wflag)
-          !~            deallocate(intactplyblk)
-          !~        else
-          !~            !**** write sub bulks, type: abstPly
-          !~            nsubBulk = size(subBulks)
-          !~            do n = 1, nsubBulk
-          !~              call wabstply(subBulks(n),wflag)
-          !~            end do
-          !~            deallocate(subBulks)
-          !~            !**** write coh crack, type: cohCrack
-          !~            if (allocated(cohCrack)) then
-          !~              call wcohcrack(cohCrack,wflag)
-          !~              deallocate(cohCrack)
-          !~            end if
-          !~        end if
-          !~    end do
-          !~    deallocate(plyblks) 
-          !~end if
-          !~
-          !~! read the interfs elems
-          !~if(allocated(interfs)) then
-          !~    ! read the no. of interfs
-          !~    ninterf = size(interfs)
-          !~    ! loop over all interfs
-          !~    do m = 1, ninterf
-          !~        ! extract the subinterfs
-          !~        call extract(interfs(m), intact_elem=intactinterf, &
-          !~        & top_subelem=top_interf, bot_subelem=bot_interf)
-          !~        
-          !~        ! if intact elem is still present, then it is a coh8 elem type
-          !~        if (allocated(intactinterf)) then
-          !~            !**** write intact delam elem, type: coh8Delam
-          !~            call wcoh8Delam(intactinterf,wflag) 
-          !~            deallocate(intactinterf)
-          !~        ! if not, then it has decomposed into sub elems
-          !~        else
-          !~            ! if top interf is present
-          !~            if (allocated(top_interf)) then
-          !~                call extract(top_interf, subelems=subinterfs)
-          !~                ! find the subinterf type and increase the respective type count
-          !~                nsubinterf = size(subinterfs)
-          !~                do n = 1, nsubinterf
-          !~                    !**** write each sub interf, type: abstDelam
-          !~                    call wabstDelam(subinterfs(n), wflag)
-          !~                end do
-          !~                deallocate(subinterfs)
-          !~            end if
-          !~            ! if bot interf is present
-          !~            if (allocated(bot_interf)) then
-          !~                call extract(bot_interf, subelems=subinterfs)
-          !~                ! find the subinterf type and increase the respective type count
-          !~                nsubinterf = size(subinterfs)
-          !~                do n = 1, nsubinterf
-          !~                    !**** write each sub interf, type: abstDelam
-          !~                    call wabstDelam(subinterfs(n), wflag)
-          !~                end do
-          !~                deallocate(subinterfs)
-          !~            end if
-          !~        end if
-          !~    end do
-          !~    deallocate(interfs)
-          !~end if
-          !~
+          ! extract the plyblks and interfs elems of the fLam elem
+          call extract(elem_list(nfl), plyblks=plyblks, interfs=interfs)
+          
+          ! read the plyblks elems
+          if(allocated(plyblks)) then
+              ! read the no. of plyblks
+              nplyblk = size(plyblks)
+              ! loop over each plyblk subelem
+              do m = 1, nplyblk
+                  ! extract the subelems of this plyblk
+                  call extract(plyblks(m), intact_elem=intactplyblk, &
+                  & subBulks=subBulks, cohCrack=cohCrack)
+                  if (allocated(intactplyblk)) then     
+                      !**** write intact elem, type: brickPly
+                      call wbrickply(intactplyblk,wflag)
+                      deallocate(intactplyblk)
+                  else
+                      !**** write sub bulks, type: abstPly
+                      nsubBulk = size(subBulks)
+                      do n = 1, nsubBulk
+                        call wabstply(subBulks(n),wflag)
+                      end do
+                      deallocate(subBulks)
+                      !**** write coh crack, type: cohCrack
+                      if (allocated(cohCrack)) then
+                        call wcohcrack(cohCrack,wflag)
+                        deallocate(cohCrack)
+                      end if
+                  end if
+              end do
+              deallocate(plyblks) 
+          end if
+          
+          ! read the interfs elems
+          if(allocated(interfs)) then
+              ! read the no. of interfs
+              ninterf = size(interfs)
+              ! loop over all interfs
+              do m = 1, ninterf
+                  ! extract the subinterfs
+                  call extract(interfs(m), intact_elem=intactinterf, &
+                  & top_subelem=top_interf, bot_subelem=bot_interf)
+                  
+                  ! if intact elem is still present, then it is a coh8 elem type
+                  if (allocated(intactinterf)) then
+                      !**** write intact delam elem, type: coh8Delam
+                      call wcoh8Delam(intactinterf,wflag) 
+                      deallocate(intactinterf)
+                  ! if not, then it has decomposed into sub elems
+                  else
+                      ! if top interf is present
+                      if (allocated(top_interf)) then
+                          call extract(top_interf, subelems=subinterfs)
+                          ! find the subinterf type and increase the respective type count
+                          nsubinterf = size(subinterfs)
+                          do n = 1, nsubinterf
+                              !**** write each sub interf, type: abstDelam
+                              call wabstDelam(subinterfs(n), wflag)
+                          end do
+                          deallocate(subinterfs)
+                      end if
+                      ! if bot interf is present
+                      if (allocated(bot_interf)) then
+                          call extract(bot_interf, subelems=subinterfs)
+                          ! find the subinterf type and increase the respective type count
+                          nsubinterf = size(subinterfs)
+                          do n = 1, nsubinterf
+                              !**** write each sub interf, type: abstDelam
+                              call wabstDelam(subinterfs(n), wflag)
+                          end do
+                          deallocate(subinterfs)
+                      end if
+                  end if
+              end do
+              deallocate(interfs)
+          end if
+          
       end do
 
       write(outunit,'(1X)') 

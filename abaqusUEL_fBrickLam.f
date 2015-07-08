@@ -142,7 +142,7 @@ use elem_list_module,     only: elem_list, elem_node_connec, elem_edge_connec
 use material_list_module, only: UDSinglePly_material, matrixCrack_material, &
                                 & interface_material
 use fBrickLam_elem_module,only: fBrickLam_elem, integrate
-use output_module,        only: outdir
+use output_module
 
   ! use Abaqus default implict type declaration for passed-in variables only
   include 'aba_param.inc'
@@ -261,6 +261,7 @@ use output_module,        only: outdir
     if (istat == STAT_FAILURE) then
       emsg = emsg//trim(msgloc)
       write(MSG_FILE,*) emsg
+      call output(kstep,kinc,outdir)
       call cleanup (Kmat, Fvec, edge_status, edge_cnc)
       call cleanup_all
       call EXIT_FUNCTION

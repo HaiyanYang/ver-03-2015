@@ -18,8 +18,8 @@ use cohesive_material_module, only: set, cohesive_modulus, &
   & E2   =11400.0_dp,& 
   & G12  =5170.0_dp,& 
   & G23  =3980.0_dp,& 
-  & nu12 =0.34_dp,& 
-  & nu23 =0.43_dp),& 
+  & nu12 =0.0_dp,& 
+  & nu23 =0.0_dp),& 
   & lamina_strength(& 
   & Xt   =2806.0_dp,& 
   & Xc   =1400.0_dp,& 

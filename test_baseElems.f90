@@ -64,8 +64,12 @@ implicit none
   integer                  :: istat, elstat
   character(len=MSGLENGTH) :: emsg
   character(len=DIRLENGTH) :: dir
-  type(abstPly_elem)      :: elem, el2
+!  type(abstPly_elem)      :: elem
+!  type(abstDelam_elem)    :: elem
+  type(coh8Crack_elem)    :: elem
   type(lamina_ig_point), allocatable :: ig_points(:)
+  real(DP)                :: stress(NST_STANDARD)
+  real(DP)                :: traction(NST_COHESIVE)
 
   nnode     = 0
   nedge     = 0
@@ -78,18 +82,33 @@ implicit none
   call set_fnm_edges()
   call set_fnm_elems()
 
+!  call update(node_list(3),u=[-0.1_DP,ZERO,ZERO])
+!  call update(node_list(4),u=[-0.1_DP,ZERO,ZERO])
+!  call update(node_list(7),u=[-0.1_DP,ZERO,ZERO])
+!  call update(node_list(8),u=[-0.1_DP,ZERO,ZERO])
+  call update(node_list(1),u=[ZERO,ZERO,0.1_DP])
+  call update(node_list(3),u=[ZERO,ZERO,0.1_DP])
+  call update(node_list(5),u=[ZERO,ZERO,0.1_DP])
+  call update(node_list(7),u=[ZERO,ZERO,0.1_DP])
+
   nnode = 8
   allocate(nodes(nnode),node_cnc(nnode))
 
-  node_cnc(1:nnode) = elem_node_connec(1:nnode,1)
+  !node_cnc(1:nnode) = elem_node_connec(1:nnode,1)
+  node_cnc      = [6,8,4,2,5,7,3,1]
   nodes         = node_list(node_cnc)
 
-  call set(elem,eltype='brick',connec=node_cnc,ply_angle=0._DP,istat=istat,emsg=emsg)
+!  call set(elem,eltype='brick',connec=node_cnc,ply_angle=0._DP,istat=istat,emsg=emsg)
+!  call set(elem,eltype='coh8Delam', connec=node_cnc,istat=istat,emsg=emsg)
+  call set(elem, connec=node_cnc,istat=istat,emsg=emsg)
 
 ! integrate the element
-  call integrate(elem,nodes,UDSinglePly_material, Kmat, Fvec, istat, emsg)
+!  call integrate(elem,nodes,UDSinglePly_material, Kmat, Fvec, istat, emsg)
+!  call integrate(elem,nodes,interface_material, 0._DP, 90._DP, Kmat,Fvec,istat,emsg)
+  call integrate(elem,nodes,matrixCrack_material, Kmat,Fvec,istat,emsg)
 
-  call extract(elem,ig_points=ig_points)
+!  call extract(elem,fstat=elstat,stress=stress)
+  call extract(elem,fstat=elstat,traction=traction)
 
   !el2 = elem
 
@@ -98,5 +117,8 @@ implicit none
 
   print*, istat
   print*, emsg
+  print*, elstat
+!  print*, stress
+  print*, traction
 
 end program compile_base_elements

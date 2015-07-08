@@ -78,6 +78,17 @@ implicit none
   call set_fnm_edges()
   call set_fnm_elems()
 
+  call update(node_list(3),u=[ZERO,0.5_DP,ZERO])
+  call update(node_list(4),u=[ZERO,0.5_DP,ZERO])
+  call update(node_list(7),u=[ZERO,0.5_DP,ZERO])
+  call update(node_list(8),u=[ZERO,0.5_DP,ZERO])
+  call update(node_list(13),u=[ZERO,0.5_DP,ZERO])
+  call update(node_list(14),u=[ZERO,0.5_DP,ZERO])
+  call update(node_list(21),u=[ZERO,0.5_DP,ZERO])
+  call update(node_list(22),u=[ZERO,0.5_DP,ZERO])
+
+  call display(node_list(22))
+
   nnode = size(elem_node_connec(:,1))
   nedge = size(elem_edge_connec(:,1))
   allocate(nodes(nnode),node_cnc(nnode))
@@ -88,11 +99,13 @@ implicit none
   nodes       = node_list(node_cnc)
   edge_status = edge_list(edge_cnc)
 
+
+
 ! integrate the element
   call integrate(elem_list(1),nodes,edge_status,UDSinglePly_material, &
   &  matrixCrack_material, interface_material, Kmat, Fvec, istat, emsg)
 
-!  call extract(elem_list(1),plyblks=plyblks)
+  call extract(elem_list(1),curr_status=elstat)
 
 !  dir='C:\Users\mpecb\Documents\GitHub\ver-03-2015\outputs\'
 !  call output(kstep=1,kinc=1,outdir=dir)
