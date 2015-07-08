@@ -118,9 +118,6 @@ type, public :: fBrickPly_elem
 
 end type fBrickPly_elem
 
-interface empty
-    module procedure empty_fBrickPly_elem
-end interface
 
 interface set
     module procedure set_fBrickPly_elem
@@ -137,23 +134,11 @@ end interface
 
 
 
-public :: empty, set, integrate, extract
+public :: set, integrate, extract
 
 
 
 contains
-
-
-
-pure subroutine empty_fBrickPly_elem (elem)
-
-  type(fBrickPly_elem), intent(inout) :: elem
-
-  type(fBrickPly_elem) :: elem_lcl
-
-  elem = elem_lcl
-
-end subroutine empty_fBrickPly_elem
 
 
 
@@ -470,6 +455,7 @@ use global_toolkit_module, only : crack_elem_cracktip2d
   integer                   :: ifailedge(NEDGE_SURF)
   real(DP)                  :: crackpoint1(2), crackpoint2(2)
   real(DP)                  :: botsurf_coords(2,NEDGE_SURF)
+  real(DP)                  :: ztop, zbot
   integer                   :: jbe1, jbe2, jnode
   integer                   :: loc(1)
   integer                   :: i
@@ -496,6 +482,8 @@ use global_toolkit_module, only : crack_elem_cracktip2d
   crackpoint1       = ZERO
   crackpoint2       = ZERO
   botsurf_coords    = ZERO
+  ztop              = ZERO
+  zbot              = ZERO
   jbe1              = 0
   jbe2              = 0
   jnode             = 0
@@ -519,6 +507,12 @@ use global_toolkit_module, only : crack_elem_cracktip2d
   do i = 1, NNODE
     call extract (nodes(i), x=coords(i)%array)
   end do
+  
+  ! find ztop and zbot
+  ! NOTE: this element assumes that top surf nodes have the same z coord: ztop
+  !                            and  bot surf nodes have the same z coord: zbot
+  ztop = coords( NODES_ON_TOP_EDGES(1,1) )%array(3)
+  zbot = coords( NODES_ON_BOT_EDGES(1,1) )%array(3)
 
 
   !**** MAIN CALCULATIONS ****
@@ -662,21 +656,25 @@ use global_toolkit_module, only : crack_elem_cracktip2d
       ! of both top and bot surfaces, assuming a perpendicular matrix crack
       jnode = NODES_ON_BOT_EDGES(3,jbe2)
       coords(jnode)%array(1:2)=crackpoint2(:)
+      coords(jnode)%array(3)  =zbot
       call update(nodes(jnode), istat, emsg, x=coords(jnode)%array)
       if (istat == STAT_FAILURE) goto 10
 
       jnode = NODES_ON_BOT_EDGES(4,jbe2)
       coords(jnode)%array(1:2)=crackpoint2(:)
+      coords(jnode)%array(3)  =zbot
       call update(nodes(jnode), istat, emsg, x=coords(jnode)%array)
       if (istat == STAT_FAILURE) goto 10
 
       jnode = NODES_ON_TOP_EDGES(3,jbe2)
       coords(jnode)%array(1:2)=crackpoint2(:)
+      coords(jnode)%array(3)  =ztop
       call update(nodes(jnode), istat, emsg, x=coords(jnode)%array)
       if (istat == STAT_FAILURE) goto 10
 
       jnode = NODES_ON_TOP_EDGES(4,jbe2)
       coords(jnode)%array(1:2)=crackpoint2(:)
+      coords(jnode)%array(3)  =ztop
       call update(nodes(jnode), istat, emsg, x=coords(jnode)%array)
       if (istat == STAT_FAILURE) goto 10
     end if
@@ -818,6 +816,7 @@ use global_toolkit_module,  only : crack_elem_centroid2d, crack_elem_cracktip2d
   integer                   :: ifailedge(NEDGE_SURF)
   real(DP)                  :: crackpoints(2,2), crackpoint1(2), crackpoint2(2)
   real(DP)                  :: botsurf_coords(2,NEDGE_SURF)
+  real(DP)                  :: ztop, zbot
   integer                   :: crackedges(2), jbe1, jbe2, jnode
   integer                   :: loc(1)
   logical                   :: failed
@@ -845,6 +844,8 @@ use global_toolkit_module,  only : crack_elem_centroid2d, crack_elem_cracktip2d
   crackpoint1       = ZERO
   crackpoint2       = ZERO
   botsurf_coords    = ZERO
+  ztop              = ZERO
+  zbot              = ZERO
   crackedges        = 0
   jbe1              = 0
   jbe2              = 0
@@ -866,7 +867,12 @@ use global_toolkit_module,  only : crack_elem_centroid2d, crack_elem_cracktip2d
   do i = 1, NNODE
     call extract (nodes(i), x=coords(i)%array)
   end do
-
+  
+  ! find ztop and zbot
+  ! NOTE: this element assumes that top surf nodes have the same z coord: ztop
+  !                            and  bot surf nodes have the same z coord: zbot
+  ztop = coords( NODES_ON_TOP_EDGES(1,1) )%array(3)
+  zbot = coords( NODES_ON_BOT_EDGES(1,1) )%array(3)
 
   !**** MAIN CALCULATIONS ****
   !
@@ -1072,21 +1078,25 @@ use global_toolkit_module,  only : crack_elem_centroid2d, crack_elem_cracktip2d
       ! of both top and bot surfaces, now assuming a perpendicular matrix crack
       jnode = NODES_ON_BOT_EDGES(3,jbe1)
       coords(jnode)%array(1:2)=crackpoints(:,1)
+      coords(jnode)%array(3)  =zbot
       call update(nodes(jnode), istat, emsg, x=coords(jnode)%array)
       if (istat == STAT_FAILURE) goto 10
       
       jnode = NODES_ON_BOT_EDGES(4,jbe1)
       coords(jnode)%array(1:2)=crackpoints(:,1)
+      coords(jnode)%array(3)  =zbot
       call update(nodes(jnode), istat, emsg, x=coords(jnode)%array)
       if (istat == STAT_FAILURE) goto 10
 
       jnode = NODES_ON_TOP_EDGES(3,jbe1)
       coords(jnode)%array(1:2)=crackpoints(:,1)
+      coords(jnode)%array(3)  =ztop
       call update(nodes(jnode), istat, emsg, x=coords(jnode)%array)
       if (istat == STAT_FAILURE) goto 10
 
       jnode = NODES_ON_TOP_EDGES(4,jbe1)
       coords(jnode)%array(1:2)=crackpoints(:,1)
+      coords(jnode)%array(3)  =ztop
       call update(nodes(jnode), istat, emsg, x=coords(jnode)%array)
       if (istat == STAT_FAILURE) goto 10
 
@@ -1094,21 +1104,25 @@ use global_toolkit_module,  only : crack_elem_centroid2d, crack_elem_cracktip2d
       ! of both top and bot surfaces, now assuming a perpendicular matrix crack
       jnode = NODES_ON_BOT_EDGES(3,jbe2)
       coords(jnode)%array(1:2)=crackpoints(:,2)
+      coords(jnode)%array(3)  =zbot
       call update(nodes(jnode), istat, emsg, x=coords(jnode)%array)
       if (istat == STAT_FAILURE) goto 10
 
       jnode = NODES_ON_BOT_EDGES(4,jbe2)
       coords(jnode)%array(1:2)=crackpoints(:,2)
+      coords(jnode)%array(3)  =zbot
       call update(nodes(jnode), istat, emsg, x=coords(jnode)%array)
       if (istat == STAT_FAILURE) goto 10
 
       jnode = NODES_ON_TOP_EDGES(3,jbe2)
       coords(jnode)%array(1:2)=crackpoints(:,2)
+      coords(jnode)%array(3)  =ztop
       call update(nodes(jnode), istat, emsg, x=coords(jnode)%array)
       if (istat == STAT_FAILURE) goto 10
 
       jnode = NODES_ON_TOP_EDGES(4,jbe2)
       coords(jnode)%array(1:2)=crackpoints(:,2)
+      coords(jnode)%array(3)  =ztop
       call update(nodes(jnode), istat, emsg, x=coords(jnode)%array)
       if (istat == STAT_FAILURE) goto 10
 
@@ -1119,21 +1133,25 @@ use global_toolkit_module,  only : crack_elem_centroid2d, crack_elem_cracktip2d
       ! of both top and bot surfaces, now assuming a perpendicular matrix crack
       jnode = NODES_ON_BOT_EDGES(3,jbe2)
       coords(jnode)%array(1:2)=crackpoint2(:)
+      coords(jnode)%array(3)  =zbot
       call update(nodes(jnode), istat, emsg, x=coords(jnode)%array)
       if (istat == STAT_FAILURE) goto 10
 
       jnode = NODES_ON_BOT_EDGES(4,jbe2)
       coords(jnode)%array(1:2)=crackpoint2(:)
+      coords(jnode)%array(3)  =zbot
       call update(nodes(jnode), istat, emsg, x=coords(jnode)%array)
       if (istat == STAT_FAILURE) goto 10
 
       jnode = NODES_ON_TOP_EDGES(3,jbe2)
       coords(jnode)%array(1:2)=crackpoint2(:)
+      coords(jnode)%array(3)  =ztop
       call update(nodes(jnode), istat, emsg, x=coords(jnode)%array)
       if (istat == STAT_FAILURE) goto 10
 
       jnode = NODES_ON_TOP_EDGES(4,jbe2)
       coords(jnode)%array(1:2)=crackpoint2(:)
+      coords(jnode)%array(3)  =ztop
       call update(nodes(jnode), istat, emsg, x=coords(jnode)%array)
       if (istat == STAT_FAILURE) goto 10
 
@@ -1443,7 +1461,7 @@ use coh8Crack_elem_module,  only : set
       ! populate glb connec through el%node_connec
       subBulks_glb_connec(j)%array = el%node_connec(el%subBulks_nodes(j)%array)
       ! set this sub element
-      call set(el%subBulks(j), eltype=trim(subeltype),               &
+      call set(el%subBulks(j), eltype=subeltype,                     &
       & connec=subBulks_glb_connec(j)%array, ply_angle=el%ply_angle, &
       & istat=istat, emsg=emsg)
       if (istat == STAT_FAILURE) then

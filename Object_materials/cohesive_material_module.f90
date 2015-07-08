@@ -992,11 +992,6 @@ contains
     type(cohesive_sdv), optional, intent(out) :: converged_sdv
     type(cohesive_sdv), optional, intent(out) :: iterating_sdv
 
-    ! initialize intent(out) variables
-    x = ZERO
-    u = ZERO
-    traction   = ZERO
-    separation = ZERO
     ! derived types are automatically initialized upon declaration
 
     if(present(x)) then

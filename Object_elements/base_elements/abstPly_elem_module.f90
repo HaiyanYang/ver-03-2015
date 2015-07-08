@@ -33,10 +33,6 @@ use brickPly_elem_module, only : brickPly_elem
     type(brickPly_elem), allocatable :: brick      ! brick sub elements
   end type
 
-  interface empty
-      module procedure empty_abstPly_elem
-  end interface
-
   interface set
       module procedure set_abstPly_elem
   end interface
@@ -52,26 +48,13 @@ use brickPly_elem_module, only : brickPly_elem
 
 
 
-  public :: empty, set, integrate, extract
+  public :: set, integrate, extract
 
 
 
 
   contains
-
-
-
-
-  pure subroutine empty_abstPly_elem (elem)
-
-      type(abstPly_elem), intent(inout) :: elem
-
-      elem%eltype = ''
-
-      if(allocated(elem%wedge)) deallocate(elem%wedge)
-      if(allocated(elem%brick)) deallocate(elem%brick)
-
-  end subroutine empty_abstPly_elem
+  
 
 
 
@@ -105,7 +88,7 @@ use brickPly_elem_module, only : brickPly_elem
     istat = STAT_SUCCESS
     emsg  = ''
 
-    select case (trim(eltype))
+    select case (trim(adjustl(eltype)))
 
       case ('wedge')
           ! check no. of nodes, exit program if incorrect
@@ -115,6 +98,9 @@ use brickPly_elem_module, only : brickPly_elem
             & set, abstPly_elem_module'
             return
           end if
+          
+          ! set elem type
+          elem%eltype = 'wedge'
           
           ! allocate the appropriate base element
           if (.not. allocated(elem%wedge)) allocate(elem%wedge)
@@ -137,6 +123,9 @@ use brickPly_elem_module, only : brickPly_elem
             & set, abstPly_elem_module'
             return
           end if
+          
+          ! set elem type
+          elem%eltype = 'brick'
 
           ! allocate the appropriate base element
           if (.not. allocated(elem%brick)) allocate(elem%brick)
@@ -185,7 +174,7 @@ use brickPly_elem_module, only : brickPly_elem
     ! based on eltype, call the respective extract procedure to extract the
     ! requested components
 
-    select case (trim(elem%eltype))
+    select case (trim(adjustl(elem%eltype)))
 
       case ('wedge')
         if (present(fstat))       call extract (elem%wedge, fstat=fstat)
@@ -245,7 +234,7 @@ use brickPly_elem_module, only : brickPly_elem
       ! note that in case of error, the appropriate actions on K and F should
       ! have already been done in the called procedure. nothing need to be done
       ! here.
-      select case(elem%eltype)
+      select case(trim(adjustl(elem%eltype)))
       
         case('wedge')
         

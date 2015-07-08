@@ -1,5 +1,5 @@
 include 'globals/parameter_module.f90'
-include 'materials/lamina_material_module.f90'
+include 'object_materials/lamina_material_module.f90'
 
 program test_lamina_material
 ! Purpose:
@@ -114,8 +114,7 @@ call empty (this)
 
 call display (this)
 
-call set (this, modulus, strength, fibreToughness, &
-& istat=istat, emsg=emsg)
+call set (this, modulus, strength, fibreToughness)
 
 if(istat == STAT_FAILURE) then
   write(*,*) emsg

@@ -79,12 +79,6 @@ type, public :: coh6Delam_elem
 end type
 
 
-
-
-interface empty
-  module procedure empty_coh6Delam_elem
-end interface
-
 interface set
   module procedure set_coh6Delam_elem
 end interface
@@ -100,30 +94,13 @@ end interface
 
 
 
-public :: empty, set, integrate, extract
+public :: set, integrate, extract
 
 
 
 
 contains
 
-
-
-
-pure subroutine empty_coh6Delam_elem (elem)
-! Purpose:
-! this subroutine is used to format the element for use
-! it is used in the initialize_lib_elem procedure in the lib_elem module
-
-  type(coh6Delam_elem), intent(inout) :: elem
-
-  ! local variable, derived type var. is initialized upon declaration
-  type(coh6Delam_elem) :: elem_lcl
-
-  ! reset elem to the initial state
-  elem = elem_lcl
-
-end subroutine empty_coh6Delam_elem
 
 
 

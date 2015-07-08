@@ -41,10 +41,6 @@ type, public :: fBrickLam_elem
   type(INT_ALLOC_ARRAY), allocatable :: interfs_edges(:)
 end type fBrickLam_elem
 
-interface empty
-  module procedure empty_fBrickLam_elem
-end interface
-
 interface set
   module procedure set_fBrickLam_elem
 end interface
@@ -58,26 +54,13 @@ interface extract
 end interface
 
 
-public :: empty, set, integrate, extract
+public :: set, integrate, extract
 
 
 
 
 contains
 
-
-
-
-
-pure subroutine empty_fBrickLam_elem (elem)
-
-  type(fBrickLam_elem), intent(inout) :: elem
-
-  type(fBrickLam_elem) :: el
-
-  elem = el
-
-end subroutine empty_fBrickLam_elem
 
 
 

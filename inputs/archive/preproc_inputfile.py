@@ -256,6 +256,11 @@ for jp in jparts:
                     parts[-1].elems[-1].edges.append(parts[-1].NtN[row][col]) 
                     # append the fl. nodes in this elem
                     parts[-1].elems[-1].nodes.extend([fn1+1,fn2+1])
+                    # add the fl. nodes in topnds/botnds list
+                    if j == 0:
+                        botnds.extend([fn1+1,fn2+1])
+                    else:
+                        topnds.extend([fn1+1,fn2+1])
                 else:
                 # this pair of nodes has already formed an edge
                     eg = parts[-1].NtN[row][col]
@@ -466,14 +471,14 @@ for ipb in range(nplyblk):
     for cntr0, nd in enumerate(parts[0].nodes):
         # current node id of the node on the ith plyblk
         cntr = ipb * nnode_p + (cntr0+1)
-        # check if this node is a real node on the bot/top surf, or a fl. node
+        # check if this node is on the bot/top surf
         # must use cntr0+1 as bot/topnds lists are for nodes in 1st plyblk
         if ((cntr0+1) in botnds):
             zz = zbot
         elif ((cntr0+1) in topnds):
             zz = ztop
         else:
-            zz = 0.0
+            print('ERROR: node '+str(cntr0+1)+' does not belong to any surface!\n')
         # write this node coords in uel_nodes.inp
         uel_nodes.write\
         (str(cntr)+', '+str(nd.x)+', '+str(nd.y)+', '+str(zz)+'\n')

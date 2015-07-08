@@ -33,10 +33,6 @@ use coh8Delam_elem_module, only : coh8Delam_elem
     type(coh8Delam_elem), allocatable :: coh8Delam   
   end type
 
-  interface empty
-      module procedure empty_abstDelam_elem
-  end interface
-
   interface set
       module procedure set_abstDelam_elem
   end interface
@@ -52,26 +48,13 @@ use coh8Delam_elem_module, only : coh8Delam_elem
 
 
 
-  public :: empty, set, integrate, extract
+  public :: set, integrate, extract
 
   
   
   
   contains
   
-  
-   
-  
-  pure subroutine empty_abstDelam_elem (elem)
-  
-    type(abstDelam_elem), intent(inout) :: elem
-    
-    elem%eltype=''
-
-    if(allocated(elem%coh6Delam))      deallocate(elem%coh6Delam)
-    if(allocated(elem%coh8Delam))      deallocate(elem%coh8Delam)
-      
-  end subroutine empty_abstDelam_elem
    
   
   
@@ -102,7 +85,7 @@ use coh8Delam_elem_module, only : coh8Delam_elem
       istat = STAT_SUCCESS
       emsg  = ''
       
-      select case (trim(eltype))
+      select case (trim(adjustl(eltype)))
         
         case ('coh6Delam')
             ! check no. of nodes, exit program if incorrect
@@ -114,7 +97,8 @@ use coh8Delam_elem_module, only : coh8Delam_elem
             end if
             
             ! set elem type
-            elem%eltype = eltype
+            elem%eltype = 'coh6Delam'
+            
             ! allocate the appropriate base element
             if (.not. allocated(elem%coh6Delam)) allocate(elem%coh6Delam)
             ! deallocate the other base element
@@ -139,7 +123,8 @@ use coh8Delam_elem_module, only : coh8Delam_elem
             end if
             
             ! set elem type
-            elem%eltype = eltype
+            elem%eltype = 'coh8Delam'
+            
             ! allocate the appropriate base element
             if (.not. allocated(elem%coh8Delam)) allocate(elem%coh8Delam)
             ! deallocate the other base element
@@ -187,7 +172,7 @@ use coh8Delam_elem_module, only : coh8Delam_elem
     ! based on eltype, call the respective extract procedure to extract the
     ! requested components
 
-    select case (trim(elem%eltype))
+    select case (trim(adjustl(elem%eltype)))
 
       case ('coh6Delam')
         if (present(fstat))       call extract (elem%coh6Delam, fstat=fstat)
@@ -248,7 +233,7 @@ use coh8Delam_elem_module, only : coh8Delam_elem
       ! note that in case of error, the appropriate actions on K and F should
       ! have already been done in the called procedure. nothing need to be done
       ! here.
-      select case(elem%eltype)
+      select case(trim(adjustl(elem%eltype)))
 
         case('coh6Delam')
 

@@ -1120,11 +1120,6 @@ contains
       type(lamina_sdv), optional, intent(out) :: converged_sdv
       type(lamina_sdv), optional, intent(out) :: iterating_sdv
 
-      ! initialize intent(out) variable
-      x = ZERO
-      u = ZERO
-      stress = ZERO
-      strain = ZERO
       ! derived types are automatically initialized upon declaration
 
       if(present(x)) then

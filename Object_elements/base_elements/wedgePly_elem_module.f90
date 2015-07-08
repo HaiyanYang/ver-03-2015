@@ -97,12 +97,6 @@ type, public :: wedgePly_elem
 end type
 
 
-
-
-interface empty
-  module procedure empty_wedgePly_elem
-end interface
-
 interface set
   module procedure set_wedgePly_elem
 end interface
@@ -118,30 +112,13 @@ end interface
 
 
 
-public :: empty, set, integrate, extract
+public :: set, integrate, extract
 
 
 
 
 contains
 
-
-
-
-pure subroutine empty_wedgePly_elem (elem)
-! Purpose:
-! this subroutine is used to format the element for use
-! it is used in the initialize_lib_elem procedure in the lib_elem module
-
-  type(wedgePly_elem), intent(inout) :: elem
-
-  ! local variable, derived type var. is initialized upon declaration
-  type(wedgePly_elem) :: elem_lcl
-
-  ! reset elem to the initial state
-  elem = elem_lcl
-
-end subroutine empty_wedgePly_elem
 
 
 
@@ -268,6 +245,7 @@ use global_toolkit_module,       only : crack_elem_centroid2d, determinant3d, &
   ! - u               : element nodal displacemet vector
   real(DP), allocatable :: xj(:), uj(:)
   real(DP)            :: coords(NDIM,NNODE), u(NDOF)
+  real(DP)            :: coords2d(2,NNODE)
 
   !** element characteristic length variables:
   ! - clength         : characteristic length of this element
@@ -329,6 +307,7 @@ use global_toolkit_module,       only : crack_elem_centroid2d, determinant3d, &
   !** nodal variables:
   coords          = ZERO
   u               = ZERO
+  coords2d        = ZERO
   !** element characteristic length variables:
   clength         = ZERO
   crosspoints     = ZERO
@@ -416,8 +395,9 @@ use global_toolkit_module,       only : crack_elem_centroid2d, determinant3d, &
   ! the matrix crack (passing element centroid) and two element edges. it is
   ! used here to calculate the element characteristic length, by imagining
   ! a crack line orthogonal to the fibre angle, thus: crack_angle=ply_angle+90
+  coords2d = coords(1:2,1:NNODE)
   call crack_elem_centroid2d (nedge=NEDGE_BOTTOM, crack_angle=ply_angle+90._DP,&
-  & coords=coords(1:2,:), nodes_on_edges=NODES_ON_BOTTOM_EDGES, istat=istat,   &
+  & coords=coords2d, nodes_on_edges=NODES_ON_BOTTOM_EDGES, istat=istat,   &
   & emsg=emsg, edge_crack_points=crosspoints)
   ! if there's any error encountered in the above process
   ! clean up and exit the program

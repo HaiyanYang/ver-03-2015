@@ -1,23 +1,8 @@
 module output_module
 use parameter_module, only: DIRLENGTH,ELTYPELENGTH,DP,ZERO
-use node_list_module, only: node_list
-use elem_list_module, only: elem_list
-use fnode_module,     only: extract
-use brickPly_elem_module,       only: brickPly_elem, extract
-use abstPly_elem_module,        only: abstPly_elem,  extract
-use coh8Crack_elem_module,      only: coh8Crack_elem, extract
-use coh8Delam_elem_module,      only: coh8Delam_elem, extract
-use abstDelam_elem_module,      only: abstDelam_elem, extract
-use fBrickPly_elem_module,      only: fBrickPly_elem, extract
-use fCoh8Delam_subelem_module,  only: fCoh8Delam_subelem, extract
-use fCoh8Delam_elem_module,     only: fCoh8Delam_elem, extract
-use fBrickLam_elem_module,      only: extract
 
 implicit none
 private
-
-! private parameter, length of format string
-integer, parameter :: FMTLENGTH = 10
 
 ! define global variable for output directory
 character(len=DIRLENGTH), save :: outdir
@@ -30,6 +15,18 @@ contains
 
 
 subroutine output(kstep,kinc,outdir)
+use node_list_module, only: node_list
+use elem_list_module, only: elem_list
+use fnode_module,     only: extract
+use brickPly_elem_module,       only: brickPly_elem, extract
+use abstPly_elem_module,        only: abstPly_elem,  extract
+use coh8Crack_elem_module,      only: coh8Crack_elem, extract
+use coh8Delam_elem_module,      only: coh8Delam_elem, extract
+use abstDelam_elem_module,      only: abstDelam_elem, extract
+use fBrickPly_elem_module,      only: fBrickPly_elem, extract
+use fCoh8Delam_subelem_module,  only: fCoh8Delam_subelem, extract
+use fCoh8Delam_elem_module,     only: fCoh8Delam_elem, extract
+use fBrickLam_elem_module,      only: extract
    
   ! passed-in variables
   integer,                  intent(in)  :: kstep    ! current step number
@@ -39,6 +36,9 @@ subroutine output(kstep,kinc,outdir)
   !~character(len=MSGLENGTH), intent(out) :: emsg
   
   ! local variables
+  
+  ! private parameter, length of format string
+  integer, parameter          :: FMTLENGTH = 10
   
   !~character(len=MSGLENGTH)    :: msgloc
   
@@ -139,7 +139,7 @@ subroutine output(kstep,kinc,outdir)
   FMATFLOAT = 'ES10.3' ! scientific notation, repeat=1, width=10, digits=3
 
   ! write the increment number as a character and store in outnum
-  write(outnum,FMATKINC) kinc
+  write(outnum,'('//trim(FMATKINC)//')') kinc
   
   ! create the output file name
   !~outfile=trim(outdir)//'/outputs/'//trim(outnum)//'.vtk'
@@ -313,7 +313,7 @@ subroutine output(kstep,kinc,outdir)
       nfLam = size(elem_list)
     
       do nfl = 1, nfLam
-      
+    
           ! extract the plyblks and interfs elems of the fLam elem
           call extract(elem_list(nfl), plyblks=plyblks, interfs=interfs)
           
@@ -338,8 +338,10 @@ subroutine output(kstep,kinc,outdir)
                       end do
                       deallocate(subBulks)
                       !**** write coh crack, type: cohCrack
-                      call wcohcrack(cohCrack,wflag)
-                      deallocate(cohCrack)
+                      if (allocated(cohCrack)) then
+                        call wcohcrack(cohCrack,wflag)
+                        deallocate(cohCrack)
+                      end if
                   end if
               end do
               deallocate(plyblks) 
@@ -398,7 +400,7 @@ subroutine output(kstep,kinc,outdir)
     subroutine wbrickply(brickply,wflag)
       type(brickPly_elem), intent(in) :: brickply
       character(len=*),    intent(in) :: wflag
-        select case(wflag)
+        select case(trim(adjustl(wflag)))
         case('nelem')
           nbrick = nbrick + 1
         case('connec')
@@ -427,7 +429,7 @@ subroutine output(kstep,kinc,outdir)
     subroutine wabstply(abstply,wflag)
       type(abstPly_elem), intent(in) :: abstply
       character(len=*),   intent(in) :: wflag
-        select case(wflag)
+        select case(trim(adjustl(wflag)))
         case('nelem')
           call extract(abstply, eltype=eltype)
           if(eltype=='brick') then
@@ -462,7 +464,7 @@ subroutine output(kstep,kinc,outdir)
     subroutine wcohcrack(cohCrack,wflag)
       type(coh8Crack_elem), intent(in) :: cohCrack
       character(len=*),     intent(in) :: wflag
-        select case(wflag)
+        select case(trim(adjustl(wflag)))
         case('nelem')
           ncoh8 = ncoh8 + 1
         case('connec')
@@ -489,7 +491,7 @@ subroutine output(kstep,kinc,outdir)
     subroutine wcoh8Delam(coh8Delam,wflag)
       type(coh8Delam_elem), intent(in) :: coh8Delam
       character(len=*),    intent(in) :: wflag
-        select case(wflag)
+        select case(trim(adjustl(wflag)))
         case('nelem')
           ncoh8 = ncoh8 + 1
         case('connec')
@@ -516,7 +518,7 @@ subroutine output(kstep,kinc,outdir)
     subroutine wabstDelam(abstDelam,wflag)
       type(abstDelam_elem), intent(in) :: abstDelam
       character(len=*),     intent(in) :: wflag
-        select case(wflag)
+        select case(trim(adjustl(wflag)))
         case('nelem')
           call extract(abstDelam, eltype=eltype)
           if (eltype=='coh6Delam') then
@@ -558,7 +560,7 @@ subroutine output(kstep,kinc,outdir)
   
     subroutine weltype(eltype)
       character(len=*), intent(in) :: eltype
-      select case(eltype)
+      select case(trim(adjustl(eltype)))
           case('wedge','coh6Delam','coh6')
               write(outunit,'(1X,i2)') 13 ! 13 for wedge/coh6
           case('brick','coh8Delam','coh8')

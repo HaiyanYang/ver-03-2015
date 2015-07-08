@@ -1216,8 +1216,8 @@ contains
                 !*** define cknodes ***
                 !:::::::::::::::::::::::::!
                 cknodes(1) = NODES_ON_EDGES(4,e1)
-                cknodes(2) = NODES_ON_EDGES(3,e2)
-                cknodes(3) = NODES_ON_EDGES(4,e2)
+                cknodes(2) = NODES_ON_EDGES(3,e3)
+                cknodes(3) = NODES_ON_EDGES(4,e3)
                 cknodes(4) = NODES_ON_EDGES(3,e1)
 
             ! :::::::::::::::::::::::::::::::::::::::::!

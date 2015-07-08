@@ -98,9 +98,6 @@ type, public :: fCoh8Delam_subelem
   type(INT_ALLOC_ARRAY), allocatable :: subelems_nodes(:)
 end type fCoh8Delam_subelem
 
-interface empty
-    module procedure empty_fCoh8Delam_subelem
-end interface
 
 interface set
     module procedure set_fCoh8Delam_subelem
@@ -115,25 +112,12 @@ interface extract
 end interface
 
 
-public :: empty, set, integrate, extract
+public :: set, integrate, extract
 
 
 
 
 contains
-
-
-
-
-pure subroutine empty_fCoh8Delam_subelem (elem)
-
-  type(fCoh8Delam_subelem), intent(inout) :: elem
-
-  type(fCoh8Delam_subelem) :: elem_lcl
-
-  elem = elem_lcl
-
-end subroutine empty_fCoh8Delam_subelem
 
 
 
@@ -491,9 +475,9 @@ use global_toolkit_module, only : distance, partition_quad_elem
     ! determine sub elem type based on subelems_nnode
     select case (subelems_nnode)
       case (6)
-        subelems_type = 'delam6'
+        subelems_type = 'coh6Delam'
       case (8)
-        subelems_type = 'delam8'
+        subelems_type = 'coh8Delam'
       case default
         istat = STAT_FAILURE
         emsg  = 'unexpected no. of nodes for sub elem in'//trim(msgloc)
@@ -522,7 +506,7 @@ use global_toolkit_module, only : distance, partition_quad_elem
     subelems_glb_connec(j)%array = el%node_connec(el%subelems_nodes(j)%array)
 
     ! set this sub element
-    call set(el%subelems(j), eltype=trim(subelems_type), &
+    call set(el%subelems(j), eltype=subelems_type, &
     & connec=subelems_glb_connec(j)%array, istat=istat, emsg=emsg)
     if (istat == STAT_FAILURE) then
       emsg = emsg//trim(msgloc)

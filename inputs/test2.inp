@@ -47,6 +47,8 @@
 ** Name: Disp-BC-2 Type: Displacement/Rotation
 *Boundary
 BOTTOM, 3, 3
+BOTTOM, 2, 2
+BOTTOM, 1, 1
 ** ----------------------------------------------------------------
 ** 
 ** STEP: tension

@@ -64,8 +64,8 @@ implicit none
   integer                  :: istat, elstat
   character(len=MSGLENGTH) :: emsg
   character(len=DIRLENGTH) :: dir
-  type(fBrickPly_elem), allocatable :: plyblks(:)
-  type(fCoh8Delam_elem),allocatable :: interfs(:)
+  type(abstPly_elem)      :: elem, el2
+  type(lamina_ig_point), allocatable :: ig_points(:)
 
   nnode     = 0
   nedge     = 0
@@ -78,27 +78,25 @@ implicit none
   call set_fnm_edges()
   call set_fnm_elems()
 
-  nnode = size(elem_node_connec(:,1))
-  nedge = size(elem_edge_connec(:,1))
+  nnode = 8
   allocate(nodes(nnode),node_cnc(nnode))
-  allocate(edge_status(nedge),edge_cnc(nedge))
 
-  node_cnc(:) = elem_node_connec(:,1)
-  edge_cnc(:) = elem_edge_connec(:,1)
-  nodes       = node_list(node_cnc)
-  edge_status = edge_list(edge_cnc)
+  node_cnc(1:nnode) = elem_node_connec(1:nnode,1)
+  nodes         = node_list(node_cnc)
+
+  call set(elem,eltype='brick',connec=node_cnc,ply_angle=0._DP,istat=istat,emsg=emsg)
 
 ! integrate the element
-  call integrate(elem_list(1),nodes,edge_status,UDSinglePly_material, &
-  &  matrixCrack_material, interface_material, Kmat, Fvec, istat, emsg)
+  call integrate(elem,nodes,UDSinglePly_material, Kmat, Fvec, istat, emsg)
 
-!  call extract(elem_list(1),plyblks=plyblks)
+  call extract(elem,ig_points=ig_points)
+
+  !el2 = elem
 
 !  dir='C:\Users\mpecb\Documents\GitHub\ver-03-2015\outputs\'
 !  call output(kstep=1,kinc=1,outdir=dir)
 
   print*, istat
   print*, emsg
-  print*, elstat
 
 end program compile_base_elements

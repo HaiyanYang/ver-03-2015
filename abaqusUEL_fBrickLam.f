@@ -88,12 +88,12 @@ use output_module,       only: outdir, output
       
       call set_fnm_elems
       
+      call set_fnm_materials
+      
       ! open a file 
       open(110, file=trim(outdir)//'record.dat', status="replace", action="write")
-      write(110,'(1X, a)')'reach here'
+      write(110,'(1X, a)')'reach mark 1'
       close(110)
-      
-      call set_fnm_materials
       
   
   ! start of increment
@@ -142,6 +142,7 @@ use elem_list_module,     only: elem_list, elem_node_connec, elem_edge_connec
 use material_list_module, only: UDSinglePly_material, matrixCrack_material, &
                                 & interface_material
 use fBrickLam_elem_module,only: fBrickLam_elem, integrate
+use output_module,        only: outdir
 
   ! use Abaqus default implict type declaration for passed-in variables only
   include 'aba_param.inc'
@@ -158,7 +159,7 @@ use fBrickLam_elem_module,only: fBrickLam_elem, integrate
   character(len=MSGLENGTH):: msgloc
   real(DP),allocatable    :: Kmat(:,:), Fvec(:)
   real(DP)                :: uj(NDIM,nnode)
-  type(fBrickLam_elem)    :: elem
+  !~type(fBrickLam_elem)    :: elem
   type(fnode)             :: nodes(nnode)
   integer                 :: node_cnc(nnode)
   integer                 :: nedge
@@ -227,43 +228,60 @@ use fBrickLam_elem_module,only: fBrickLam_elem, integrate
 
   
   ! extract this element from global elem list, using the element key jelem
-  elem        = elem_list(jelem)
+  associate ( elem  => elem_list(jelem))
   
-  ! extract the node and edge connec of this elem
-  node_cnc(:) = elem_node_connec(:,jelem)
-  nedge       = size(elem_edge_connec(:,jelem))
-  allocate(edge_status(nedge),edge_cnc(nedge))
-  edge_cnc(:) = elem_edge_connec(:,jelem)
+    ! extract the node and edge connec of this elem
+    node_cnc(:) = elem_node_connec(:,jelem)
+    nedge       = size(elem_edge_connec(:,jelem))
+    allocate(edge_status(nedge),edge_cnc(nedge))
+    edge_cnc(:) = elem_edge_connec(:,jelem)
 
-  ! extract passed-in nodal solutions obtained by Abaqus Solver
-  do j=1, nnode
-    uj(1:NDIM,j) = u( (j-1)*NDIM+1 : j*NDIM )
-  end do
+    ! extract passed-in nodal solutions obtained by Abaqus Solver
+    do j=1, nnode
+      uj(1:NDIM,j) = u( (j-1)*NDIM+1 : j*NDIM )
+    end do
+    
+    ! update the nodal solutions to global_node_list
+    do j=1, nnode
+      call update(node_list(node_cnc(j)),u=uj(:,j))
+    end do
+
+    ! extract nodes and edge status from global node and edge lists
+    nodes       = node_list(node_cnc)
+    edge_status = edge_list(edge_cnc)
+
+    ! open a file 
+    open(110, file=trim(outdir)//'record.dat', status="replace", action="write")
+    write(110,'(1X, a)')'reach mark 2'
+    close(110)
+
+    ! integrate this element
+    call integrate (elem, nodes, edge_status, UDSinglePly_material, &
+    &  matrixCrack_material, interface_material, Kmat, Fvec, istat, emsg)
+    if (istat == STAT_FAILURE) then
+      emsg = emsg//trim(msgloc)
+      write(MSG_FILE,*) emsg
+      call cleanup (Kmat, Fvec, edge_status, edge_cnc)
+      call cleanup_all
+      call EXIT_FUNCTION
+    end if
   
-  ! update the nodal solutions to global_node_list
-  do j=1, nnode
-    call update(node_list(node_cnc(j)),u=uj(:,j))
-  end do
+    ! open a file 
+    open(110, file=trim(outdir)//'record.dat', status="replace", action="write")
+    write(110,'(1X, a)')'reach mark 3'
+    close(110)
 
-  ! extract nodes and edge status from global node and edge lists
-  nodes       = node_list(node_cnc)
-  edge_status = edge_list(edge_cnc)
-
-  ! integrate this element
-  call integrate (elem, nodes, edge_status, UDSinglePly_material, &
-  &  matrixCrack_material, interface_material, Kmat, Fvec, istat, emsg)
-  if (istat == STAT_FAILURE) then
-    emsg = emsg//trim(msgloc)
-    write(MSG_FILE,*) emsg
-    call cleanup (Kmat, Fvec, edge_status, edge_cnc)
-    call cleanup_all
-    call EXIT_FUNCTION
-  end if
-
-  ! update to global lists
-  elem_list(jelem)    = elem
-  node_list(node_cnc) = nodes
-  edge_list(edge_cnc) = edge_status
+    ! update to global lists
+    !~elem_list(jelem)    = elem
+    node_list(node_cnc) = nodes
+    edge_list(edge_cnc) = edge_status
+  
+  end associate
+  
+  ! open a file 
+  open(110, file=trim(outdir)//'record.dat', status="replace", action="write")
+  write(110,'(1X, a)')'reach mark 4'
+  close(110)
 
   ! in the end, pass Kmat and Fvec to Abaqus UEL amatrx and rhs
   amatrx   =  Kmat

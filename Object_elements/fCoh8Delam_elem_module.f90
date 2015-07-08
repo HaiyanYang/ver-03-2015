@@ -152,10 +152,6 @@ type, public :: fCoh8Delam_elem
 
 end type fCoh8Delam_elem
 
-interface empty
-    module procedure empty_fCoh8Delam_elem
-end interface
-
 interface set
     module procedure set_fCoh8Delam_elem
 end interface
@@ -173,23 +169,11 @@ interface extract
 end interface
 
 
-public :: empty, set, update, integrate, extract
+public :: set, update, integrate, extract
 
 
 
 contains
-
-
-
-pure subroutine empty_fCoh8Delam_elem (elem)
-
-  type(fCoh8Delam_elem), intent(inout) :: elem
-
-  type(fCoh8Delam_elem) :: elem_lcl
-
-  elem = elem_lcl
-
-end subroutine empty_fCoh8Delam_elem
 
 
 
