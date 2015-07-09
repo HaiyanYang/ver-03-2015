@@ -16,6 +16,7 @@ contains
 
 subroutine output(kstep,kinc,outdir)
 use node_list_module, only: node_list
+use edge_list_module, only: edge_list
 use elem_list_module, only: elem_list
 use fnode_module,     only: extract
 use brickPly_elem_module,       only: brickPly_elem, extract
@@ -163,6 +164,18 @@ use fBrickLam_elem_module,      only: extract
       write(outunit,'(1X, 3'//trim(FMATFLOAT)//')') x(1),x(2),x(3)
   end do            
   write(outunit,'(1X)')
+  
+  
+  ! -----------------------------------------------------------------!
+  !                     write edges
+  ! -----------------------------------------------------------------!
+  write(outunit,'(1X, a)')'edges'
+  
+  do i=1, size(edge_list)
+      write(outunit,'(1X, '//trim(FMATFSTAT)//')') edge_list(i)
+  end do  
+          
+  write(outunit,'(1X)')  
 
   
   ! -----------------------------------------------------------------!

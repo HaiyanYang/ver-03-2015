@@ -315,6 +315,11 @@ use global_toolkit_module,    only : assembleKF
       ! integrate this plyblk elem and update its nodes and edge status
       call integrate (elem%plyblks(i), plyblknds, subegstatus, plyblklam_mat, &
       & plycoh_mat, Ki, Fi, istat, emsg)
+      !******* debug only
+      ! update nodes and edge status
+      nodes(elem%plyblks_nodes(i)%array)       = plyblknds
+      edge_status(elem%plyblks_edges(i)%array) = subegstatus
+      !******* remove after debug
       if (istat == STAT_FAILURE) exit loop_plyblks
       ! assemble this elem's K and F
       call assembleKF (K_matrix, F_vector, Ki, Fi, elem%plyblks_nodes(i)%array, &

@@ -275,7 +275,7 @@ use global_clock_module,      only : GLOBAL_CLOCK, clock_in_sync
   emsg            = ''
   elstatus        = 0
   nofailure       = .false.
-  msgloc          = ' integrate, fBrickPly_elem module'
+  msgloc          = ', integrate, fBrickPly_elem module'
 
   ! check if last iteration has converged; if so, the elem's current partition
   ! has lead to the convergence of the last increment, and hence it is NOT a
@@ -318,7 +318,7 @@ use global_clock_module,      only : GLOBAL_CLOCK, clock_in_sync
       ! and partition the elem
       call edge_status_partition (elem, nodes, edge_status, istat, emsg)
       if (istat == STAT_FAILURE) then
-        emsg = emsg//trim(msgloc)
+        emsg = trim(emsg)//trim(msgloc)
         call clean_up (K_matrix, F_vector)
         return
       end if
@@ -338,7 +338,7 @@ use global_clock_module,      only : GLOBAL_CLOCK, clock_in_sync
           call integrate_assemble_subelems (elem, nodes, lam_mat, coh_mat, &
           & K_matrix, F_vector, istat, emsg, nofailure)
           if (istat == STAT_FAILURE) then
-            emsg = emsg//trim(msgloc)
+            emsg = trim(emsg)//trim(msgloc)//'-mark 1'
             call clean_up (K_matrix, F_vector)
             return
           end if
@@ -352,7 +352,7 @@ use global_clock_module,      only : GLOBAL_CLOCK, clock_in_sync
           call integrate_assemble_subelems (elem, nodes, lam_mat, coh_mat, &
           & K_matrix, F_vector, istat, emsg, nofailure)
           if (istat == STAT_FAILURE) then
-            emsg = emsg//trim(msgloc)
+            emsg = trim(emsg)//trim(msgloc)//'-mark 2'
             call clean_up (K_matrix, F_vector)
             return
           end if
@@ -513,6 +513,11 @@ use global_toolkit_module, only : crack_elem_cracktip2d
   !                            and  bot surf nodes have the same z coord: zbot
   ztop = coords( NODES_ON_TOP_EDGES(1,1) )%array(3)
   zbot = coords( NODES_ON_BOT_EDGES(1,1) )%array(3)
+  !~if ( abs(ztop - zbot) <= epsilon(zero)) then
+  !~  istat = stat_failure
+  !~  emsg  = 'ztop = zbot in edge status partition '//trim(msgloc)
+  !~  return
+  !~end if
 
 
   !**** MAIN CALCULATIONS ****
@@ -597,6 +602,20 @@ use global_toolkit_module, only : crack_elem_cracktip2d
         emsg = emsg//trim(msgloc)
         return
       end if
+      ! debug check
+      !~istat = STAT_FAILURE
+      !~emsg  = 'just to see if it even reaches here'
+      !~return
+      !~if ( dot_product(crackpoint1,crackpoint1)> epsilon(zero) ) then
+      !~  istat = STAT_FAILURE
+      !~  emsg  = 'crackpoint1 is incorrect!'//trim(msgloc)
+      !~  return
+      !~end if
+      !~if ( dot_product(crackpoint2-[zero,1._DP],crackpoint2-[zero,1._DP])> epsilon(zero) ) then
+      !~  istat = STAT_FAILURE
+      !~  emsg  = 'crackpoint2 is incorrect!'//trim(msgloc)
+      !~  return
+      !~end if
       ! in the future, consider adding here the algorithm to find the top surf
       ! jbe2 crackpoint according to the fracture plane
 
@@ -638,6 +657,24 @@ use global_toolkit_module, only : crack_elem_cracktip2d
 
   ! update edge status and elem status, based on jbe1 and jbe2 status
   call update_edge_elem_status (eledgestatus_lcl, elstatus, jbe1, jbe2)
+  
+  !~! debug check
+  !~if (elstatus /= CRACK_WAKE_ELEM) then
+  !~  istat = STAT_FAILURE
+  !~  emsg  = 'wrong elstatus'//trim(msgloc)
+  !~  return
+  !~end if
+  !~if (jbe1 /= 1 .or. jbe2 /=3) then
+  !~  istat = STAT_FAILURE
+  !~  emsg  = 'wrong jbe1jbe2'//trim(msgloc)
+  !~  return
+  !~end if
+  !~if (eledgestatus_lcl(jbe1) /= COH_CRACK_EDGE .or. &
+  !~&   eledgestatus_lcl(jbe2) /= CRACK_TIP_EDGE) then
+  !~  istat = STAT_FAILURE
+  !~  emsg  = 'wrong jbe1jbe2 status'//trim(msgloc)
+  !~  return
+  !~end if
 
   !**** END MAIN CALCULATIONS ****
 
@@ -652,6 +689,10 @@ use global_toolkit_module, only : crack_elem_cracktip2d
     ! or transition elem (on both surfs)
     if (elem%curr_status == INTACT .or. &
     &   elem%curr_status == TRANSITION_ELEM) then
+      !~! debug check
+      !~istat = STAT_FAILURE
+      !~emsg  = 'just to see if it even reaches here'
+      !~return
       ! update the coords of two fl. nodes on edge jbe2
       ! of both top and bot surfaces, assuming a perpendicular matrix crack
       jnode = NODES_ON_BOT_EDGES(3,jbe2)
@@ -679,7 +720,7 @@ use global_toolkit_module, only : crack_elem_cracktip2d
       if (istat == STAT_FAILURE) goto 10
     end if
 10  nd_update_err : if (istat == STAT_FAILURE) then
-      emsg = emsg//trim(msgloc)
+      emsg = trim(emsg)//trim(msgloc)
       return
     end if nd_update_err
 
@@ -692,6 +733,29 @@ use global_toolkit_module, only : crack_elem_cracktip2d
     ! update to elem components
     elem%curr_status     = elstatus
     elem%edge_status_lcl = eledgestatus_lcl
+    
+    !~! debug check
+    !~istat = STAT_FAILURE
+    !~emsg  = 'just to see if it even reaches here'
+    !~return
+    
+    !~! debug check
+    !~if (jbe1 /= 1 .or. jbe2 /=3) then
+    !~  istat = STAT_FAILURE
+    !~  emsg  = 'wrong jbe1jbe2'//trim(msgloc)
+    !~  return
+    !~end if
+    !~if (edge_status(jbe1) /= COH_CRACK_EDGE .or. &
+    !~&   edge_status(jbe2) /= CRACK_TIP_EDGE) then
+    !~  istat = STAT_FAILURE
+    !~  emsg  = 'wrong jbe1jbe2 status'//trim(msgloc)
+    !~  return
+    !~end if
+    !~if (elem%curr_status /= CRACK_WAKE_ELEM) then
+    !~  istat = STAT_FAILURE
+    !~  emsg  = 'wrong elem curr status'//trim(msgloc)
+    !~  return
+    !~end if
 
     ! update elem partition
     call partition_elem (elem, istat, emsg)
@@ -1337,6 +1401,7 @@ use coh8Crack_elem_module,  only : set
         emsg  = 'unexpected status of cracked edges, wake elem,'//trim(msgloc)
         return
       end if
+      
       ! make the 2nd fl. node same as the 1st on crack tip edge, so that
       ! when partitioned, it is a refinement node, not an edge crack point
       ! the 1st fl. node is the one with a smaller global node index
@@ -1500,7 +1565,14 @@ use coh8Crack_elem_module,  only : set
       el%cohCrack_nodes%array(5) = cohcrack_nds_top(4)
       el%cohCrack_nodes%array(6) = cohcrack_nds_top(3)
       el%cohCrack_nodes%array(7) = cohcrack_nds_bot(3)
-      el%cohCrack_nodes%array(8) = cohcrack_nds_bot(4)
+      el%cohCrack_nodes%array(8) = cohcrack_nds_bot(4)   
+      !~! debug check
+      !~if (any ( el%cohCrack_nodes%array/= [18,21,13,10,17,22,14,9] )) then
+      !~  istat = STAT_FAILURE
+      !~  emsg  = 'wrong coh crack nodes '//trim(msgloc)
+      !~  return
+      !~end if
+      
       ! populate glb connec through el%node_connec
       cohcrack_glb_connec = el%node_connec(el%cohCrack_nodes%array)
       ! set this sub element
@@ -1633,30 +1705,30 @@ use global_toolkit_module,    only : assembleKF
         call zeroKF (K_matrix, F_vector)
         return
       end if
-      ! constrain fl. nodes on cracked edges
-      if (elem%curr_status == TRANSITION_ELEM) then
-        ! impose constrain btw 2 fl. nodes on the 1 crack edge of both surfs
-        node1 = NODES_ON_BOT_EDGES(3, ifailedge(1))
-        node2 = NODES_ON_BOT_EDGES(4, ifailedge(1))
-        call tie_two_nodes (K_matrix, node1, node2)
-        node1 = NODES_ON_TOP_EDGES(3, ifailedge(1))
-        node2 = NODES_ON_TOP_EDGES(4, ifailedge(1))
-        call tie_two_nodes (K_matrix, node1, node2)
-      else
-        ! impose constrain btw 2 fl. nodes on the 2 crack edges of both surfs
-        node1 = NODES_ON_BOT_EDGES(3, ifailedge(1))
-        node2 = NODES_ON_BOT_EDGES(4, ifailedge(1))
-        call tie_two_nodes (K_matrix, node1, node2)
-        node1 = NODES_ON_BOT_EDGES(3, ifailedge(2))
-        node2 = NODES_ON_BOT_EDGES(4, ifailedge(2))
-        call tie_two_nodes (K_matrix, node1, node2)
-        node1 = NODES_ON_TOP_EDGES(3, ifailedge(1))
-        node2 = NODES_ON_TOP_EDGES(4, ifailedge(1))
-        call tie_two_nodes (K_matrix, node1, node2)
-        node1 = NODES_ON_TOP_EDGES(3, ifailedge(2))
-        node2 = NODES_ON_TOP_EDGES(4, ifailedge(2))
-        call tie_two_nodes (K_matrix, node1, node2)
-      end if
+      !~! constrain fl. nodes on cracked edges
+      !~if (elem%curr_status == TRANSITION_ELEM) then
+      !~  ! impose constrain btw 2 fl. nodes on the 1 crack edge of both surfs
+      !~  node1 = NODES_ON_BOT_EDGES(3, ifailedge(1))
+      !~  node2 = NODES_ON_BOT_EDGES(4, ifailedge(1))
+      !~  call tie_two_nodes (K_matrix, node1, node2)
+      !~  node1 = NODES_ON_TOP_EDGES(3, ifailedge(1))
+      !~  node2 = NODES_ON_TOP_EDGES(4, ifailedge(1))
+      !~  call tie_two_nodes (K_matrix, node1, node2)
+      !~else
+      !~  ! impose constrain btw 2 fl. nodes on the 2 crack edges of both surfs
+      !~  node1 = NODES_ON_BOT_EDGES(3, ifailedge(1))
+      !~  node2 = NODES_ON_BOT_EDGES(4, ifailedge(1))
+      !~  call tie_two_nodes (K_matrix, node1, node2)
+      !~  node1 = NODES_ON_BOT_EDGES(3, ifailedge(2))
+      !~  node2 = NODES_ON_BOT_EDGES(4, ifailedge(2))
+      !~  call tie_two_nodes (K_matrix, node1, node2)
+      !~  node1 = NODES_ON_TOP_EDGES(3, ifailedge(1))
+      !~  node2 = NODES_ON_TOP_EDGES(4, ifailedge(1))
+      !~  call tie_two_nodes (K_matrix, node1, node2)
+      !~  node1 = NODES_ON_TOP_EDGES(3, ifailedge(2))
+      !~  node2 = NODES_ON_TOP_EDGES(4, ifailedge(2))
+      !~  call tie_two_nodes (K_matrix, node1, node2)
+      !~end if
 
   case (CRACK_WAKE_ELEM, MATRIX_CRACK_ELEM)
   ! integrate both subBulks and cohCrack and
@@ -1693,21 +1765,21 @@ use global_toolkit_module,    only : assembleKF
         call zeroKF (K_matrix, F_vector)
         return
       end if
-      ! constrain fl. nodes on crack tip edge in case of wake elem
-      if (elem%curr_status == CRACK_WAKE_ELEM) then
-        do j=1, 2
-          if ( elem%edge_status_lcl(ifailedge(j)) == CRACK_TIP_EDGE ) then
-            ! impose constrain btw 2 fl. nodes on the crack edge of both surfs
-            node1 = NODES_ON_BOT_EDGES(3, ifailedge(j))
-            node2 = NODES_ON_BOT_EDGES(4, ifailedge(j))
-            call tie_two_nodes (K_matrix, node1, node2)
-            node1 = NODES_ON_TOP_EDGES(3, ifailedge(j))
-            node2 = NODES_ON_TOP_EDGES(4, ifailedge(j))
-            call tie_two_nodes (K_matrix, node1, node2)
-            exit
-          end if
-        end do
-      end if
+      !~! constrain fl. nodes on crack tip edge in case of wake elem
+      !~if (elem%curr_status == CRACK_WAKE_ELEM) then
+      !~  do j=1, 2
+      !~    if ( elem%edge_status_lcl(ifailedge(j)) == CRACK_TIP_EDGE ) then
+      !~      ! impose constrain btw 2 fl. nodes on the crack edge of both surfs
+      !~      node1 = NODES_ON_BOT_EDGES(3, ifailedge(j))
+      !~      node2 = NODES_ON_BOT_EDGES(4, ifailedge(j))
+      !~      call tie_two_nodes (K_matrix, node1, node2)
+      !~      node1 = NODES_ON_TOP_EDGES(3, ifailedge(j))
+      !~      node2 = NODES_ON_TOP_EDGES(4, ifailedge(j))
+      !~      call tie_two_nodes (K_matrix, node1, node2)
+      !~      exit
+      !~    end if
+      !~  end do
+      !~end if
 
   case default
       istat = STAT_FAILURE
@@ -1872,7 +1944,7 @@ use global_toolkit_module,    only : assembleKF
 
     real(DP), allocatable :: Ki(:,:), Fi(:)
 
-    ! integrate coh crack
+    ! integrate coh crack    
     call integrate (elem%cohCrack, nodes(elem%cohCrack_nodes%array), &
     & coh_mat, Ki, Fi, istat, emsg, nofail)
     if (istat == STAT_FAILURE) then

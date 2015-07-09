@@ -166,6 +166,7 @@ use output_module
   integer, allocatable    :: edge_status(:)
   integer, allocatable    :: edge_cnc(:)
   integer                 :: j
+  character(len=10)       :: cjelem
 
   amatrx    = ZERO
   rhs(:,1)  = ZERO
@@ -176,6 +177,7 @@ use output_module
   node_cnc  = 0
   nedge     = 0
   j         = 0
+  write(cjelem,'(i5)') jelem
   
 !~  ! check input validity during first run
 !~  if (kstep == 1 .and. kinc == 1) then
@@ -228,7 +230,6 @@ use output_module
 
   
   ! extract this element from global elem list, using the element key jelem
-  associate ( elem  => elem_list(jelem))
   
     ! extract the node and edge connec of this elem
     node_cnc(:) = elem_node_connec(:,jelem)
@@ -256,11 +257,13 @@ use output_module
     close(110)
 
     ! integrate this element
-    call integrate (elem, nodes, edge_status, UDSinglePly_material, &
+    call integrate (elem_list(jelem), nodes, edge_status, UDSinglePly_material, &
     &  matrixCrack_material, interface_material, Kmat, Fvec, istat, emsg)
     if (istat == STAT_FAILURE) then
-      emsg = emsg//trim(msgloc)
+      emsg = trim(emsg)//trim(msgloc)//trim(cjelem)
       write(MSG_FILE,*) emsg
+      node_list(node_cnc) = nodes
+      edge_list(edge_cnc) = edge_status
       call output(kstep,kinc,outdir)
       call cleanup (Kmat, Fvec, edge_status, edge_cnc)
       call cleanup_all
@@ -277,7 +280,6 @@ use output_module
     node_list(node_cnc) = nodes
     edge_list(edge_cnc) = edge_status
   
-  end associate
   
   ! open a file 
   open(110, file=trim(outdir)//'record.dat', status="replace", action="write")

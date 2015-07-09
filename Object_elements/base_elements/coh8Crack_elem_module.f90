@@ -374,27 +374,44 @@ use global_toolkit_module,       only : cross_product3d, normalize_vect, &
   tangent1(:)=midcoords(:,2)-midcoords(:,1)
   ! compute tangent2 of the interface: node 4 coords - node 1 coords
   tangent2(:)=midcoords(:,4)-midcoords(:,1)
+  
+  ! debug
+  call normalize_vect(tangent1, is_zero_vect)
+  if (is_zero_vect) then
+    istat = STAT_FAILURE
+    emsg  = 'element edge 1-2 is ZERO, cohCrack element module'
+    call clean_up (K_matrix, F_vector, uj, xj)
+    return
+  end if
+  call normalize_vect(tangent2, is_zero_vect)
+  if (is_zero_vect) then
+    istat = STAT_FAILURE
+    emsg  = 'element edge 1-4 is ZERO, cohCrack element module'
+    call clean_up (K_matrix, F_vector, uj, xj)
+    return
+  end if
+  
   ! compute normal vector of the interface,
   normal = cross_product3d(tangent1,tangent2)
   ! - re-evaluate tangent2 so that it is perpendicular to both
   ! tangent1 and normal
   tangent2 = cross_product3d(normal,tangent1)
   ! - normalize these vectors, exit w error if ZERO vector is encountered
-  call normalize_vect(normal, is_zero_vect)
-  if (is_zero_vect) then
-    istat = STAT_FAILURE
-    emsg  = 'element area is ZERO, cohCrack element module'
-    call clean_up (K_matrix, F_vector, uj, xj)
-    return
-  end if
   call normalize_vect(tangent1, is_zero_vect)
   if (is_zero_vect) then
     istat = STAT_FAILURE
-    emsg  = 'element area is ZERO, cohCrack element module'
+    emsg  = 'element tangent1 is ZERO, cohCrack element module'
     call clean_up (K_matrix, F_vector, uj, xj)
     return
   end if
   call normalize_vect(tangent2, is_zero_vect)
+  if (is_zero_vect) then
+    istat = STAT_FAILURE
+    emsg  = 'element tangent2 is ZERO, cohCrack element module'
+    call clean_up (K_matrix, F_vector, uj, xj)
+    return
+  end if
+  call normalize_vect(normal, is_zero_vect)
   if (is_zero_vect) then
     istat = STAT_FAILURE
     emsg  = 'element area is ZERO, cohCrack element module'
