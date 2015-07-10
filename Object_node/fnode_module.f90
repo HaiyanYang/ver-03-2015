@@ -10,7 +10,7 @@ module fnode_module
 !    ========  ====================  ========================================
 !    10/04/15  B. Y. Chen            Original code
 !
-use parameter_module, only : DP, MSGLENGTH, STAT_SUCCESS, STAT_FAILURE
+use parameter_module, only : INTACT, DP, MSGLENGTH, STAT_SUCCESS, STAT_FAILURE
 
 implicit none
 
@@ -19,10 +19,12 @@ private
 type, public :: fnode ! a node with enriched d.o.f
   private ! hide components from external operation
   ! list of type components:
+  ! - nstat     : status of this node
   ! - x         : coordinates
   ! - u, du     : displacement vector and its increment
   ! - v, a      : velocity and acceleration
   ! - dof, ddof : additional dof and incremental dof
+  integer               :: nstat = INTACT
   real(DP), allocatable :: x(:)
   real(DP), allocatable :: u(:),   du(:)
   real(DP), allocatable :: v(:),   a(:)
@@ -79,6 +81,8 @@ contains
   
     type(fnode), intent(inout) :: this_fnode
     
+    this_fnode%nstat = INTACT
+    
     if(allocated(this_fnode%x))     deallocate(this_fnode%x)
     if(allocated(this_fnode%u))     deallocate(this_fnode%u)
     if(allocated(this_fnode%du))    deallocate(this_fnode%du)
@@ -98,6 +102,7 @@ contains
     type(fnode), intent(in) :: fnode1, fnode2
     type(fnode)             :: fnode3
     
+    ! fnode3 nstat = INTACT, automatic assigned upon definiton
     
     if (allocated(fnode1%x) .and. allocated(fnode2%x)) then
       if (size(fnode1%x) == size(fnode2%x)) then
@@ -161,6 +166,7 @@ contains
     type(fnode), intent(in) :: fnode1, fnode2
     type(fnode)             :: fnode3
     
+    ! fnode3 nstat = INTACT, automatic assigned upon definiton
     
     if (allocated(fnode1%x) .and. allocated(fnode2%x)) then
       if (size(fnode1%x) == size(fnode2%x)) then
@@ -226,6 +232,8 @@ contains
     real(DP),    intent(in) :: r
     type(fnode)             :: fnode3
     
+    ! fnode3 nstat = INTACT, automatic assigned upon definiton
+    
     if (allocated(fnode1%x)) then
       allocate(fnode3%x(size(fnode1%x)))
       fnode3%x = r * fnode1%x
@@ -267,7 +275,7 @@ contains
 
 
 
-  pure subroutine update_fnode (this_fnode, istat, emsg, x, u, du, v, a, &
+  pure subroutine update_fnode (this_fnode, istat, emsg, nstat, x, u, du, v, a, &
   & dof, ddof)
   ! Purpose:
   ! to update the components of this fnode; it is used both before and during
@@ -278,6 +286,7 @@ contains
     type(fnode),                        intent(inout) :: this_fnode
     integer,                  optional, intent(out)   :: istat
     character(len=MSGLENGTH), optional, intent(out)   :: emsg
+    integer,                  optional, intent(in)    :: nstat
     real(DP),                 optional, intent(in)    :: x(:), u(:)
     real(DP),                 optional, intent(in)    :: du(:), v(:), a(:)
     real(DP),                 optional, intent(in)    :: dof(:), ddof(:)
@@ -287,6 +296,8 @@ contains
     ! initialize intent(out) & local variables
     istatl = STAT_SUCCESS  ! default
     emsgl  = ''
+    
+    if (present(nstat)) this_fnode%nstat = nstat
     
     if (present(x)) then
       if (allocated(this_fnode%x)) then
@@ -455,15 +466,17 @@ contains
   
   
 
-  pure subroutine extract_fnode (this_fnode, x, u, du, v, a, dof, ddof)
+  pure subroutine extract_fnode (this_fnode, nstat, x, u, du, v, a, dof, ddof)
   ! Purpose:
   ! to extract all the components of this fnode
   
     type(fnode),                     intent(in)  :: this_fnode
+    integer,               optional, intent(out) :: nstat
     real(DP), allocatable, optional, intent(out) :: x(:),  u(:)
     real(DP), allocatable, optional, intent(out) :: du(:), v(:), a(:)
     real(DP), allocatable, optional, intent(out) :: dof(:), ddof(:)
     
+    if(present(nstat)) nstat = this_fnode%nstat
     
     if(present(x)) then
       if(allocated(this_fnode%x)) then
