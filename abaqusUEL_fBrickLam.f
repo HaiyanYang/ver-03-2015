@@ -250,11 +250,15 @@ use output_module
     ! extract nodes and edge status from global node and edge lists
     nodes       = node_list(node_cnc)
     edge_status = edge_list(edge_cnc)
+    
+    ! debug, check the input to elem
+    call output(kstep,jelem*1000+kinc,outdir)
 
-    ! open a file 
-    open(110, file=trim(outdir)//'record.dat', status="replace", action="write")
-    write(110,'(1X, a)')'reach mark 2'
-    close(110)
+    !~! debug
+    !~! open a file 
+    !~open(110, file=trim(outdir)//'record.dat', status="replace", action="write")
+    !~write(110,'(1X, a)')'reach mark 2'
+    !~close(110)
 
     ! integrate this element
     call integrate (elem_list(jelem), nodes, edge_status, UDSinglePly_material, &
@@ -264,7 +268,7 @@ use output_module
       write(MSG_FILE,*) emsg
       node_list(node_cnc) = nodes
       edge_list(edge_cnc) = edge_status
-      call output(kstep,kinc,outdir)
+      call output(kstep,jelem*10000+kinc,outdir)
       call cleanup (Kmat, Fvec, edge_status, edge_cnc)
       call cleanup_all
       call EXIT_FUNCTION
