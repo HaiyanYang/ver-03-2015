@@ -34,8 +34,6 @@ type, public :: fBrickLam_elem
   type(fCoh8Delam_elem), allocatable :: interfs(:)
   type(INT_ALLOC_ARRAY), allocatable :: plyblks_nodes(:)
   type(INT_ALLOC_ARRAY), allocatable :: interfs_nodes(:)
-  type(INT_ALLOC_ARRAY), allocatable :: plyblks_edges(:)
-  type(INT_ALLOC_ARRAY), allocatable :: interfs_edges(:)
 end type fBrickLam_elem
 
 interface set
@@ -84,8 +82,6 @@ pure subroutine set_fBrickLam_elem (elem, NPLYBLKS)
 ! only need to know NPLYBLKS, the rest is following the conventions:
 ! plyblk_i_nodes = [ (i-1)*NNODE_PLYBLK + 1 : i*NNODE_PLYBLK ]
 ! interf_i_nodes = top_nodes_of_plyblk_i + bot_nodes_of_plyblk_(i+1)
-! plyblk_i_edges = [ (i-1)*NEEGE_PLYBLK + 1 : i*NEEGE_PLYBLK ]
-! interf_i_edges = top_edges_of_plyblk_i + bot_edges_of_plyblk_(i+1)
 ! interf_i_internal_nodes = [ (i-1)*NNDIN_INTERF + 1 : i*NNDIN_INTERF ]
 
   type(fBrickLam_elem), intent(inout) :: elem
@@ -105,14 +101,10 @@ pure subroutine set_fBrickLam_elem (elem, NPLYBLKS)
   !***** allocate nodes and edges to plyblks and set plyblks elements *****
   allocate(elem%plyblks(NPLYBLKS))
   allocate(elem%plyblks_nodes(NPLYBLKS))
-  allocate(elem%plyblks_edges(NPLYBLKS))
   do i = 1, NPLYBLKS
     allocate(elem%plyblks_nodes(i)%array(NNODE_PLYBLK))
-    allocate(elem%plyblks_edges(i)%array(NEDGE))
     elem%plyblks_nodes(i)%array = 0
-    elem%plyblks_edges(i)%array = 0
     elem%plyblks_nodes(i)%array = [(j, j = (i-1)*NNODE_PLYBLK+1, i*NNODE_PLYBLK)]
-    elem%plyblks_edges(i)%array = [(j, j = (i-1)*NEDGE       +1, i*NEDGE       )]
   end do
   !:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::!
 
@@ -123,40 +115,32 @@ pure subroutine set_fBrickLam_elem (elem, NPLYBLKS)
     !***** allocate nodes to interfs and set interfs elements *****
     allocate(elem%interfs(NPLYBLKS-1))
     allocate(elem%interfs_nodes(NPLYBLKS-1))
-    allocate(elem%interfs_edges(NPLYBLKS-1))
+    
     do i = 1, NPLYBLKS-1
+    
       ! allocate array dimensions
       allocate(elem%interfs_nodes(i)%array(NNODE_INTERF))
-      allocate(elem%interfs_edges(i)%array(NEDGE))
       elem%interfs_nodes(i)%array = 0
-      elem%interfs_edges(i)%array = 0
 
       ! 1st half of interface real nodes comes from
       ! bottom plyblk elem top surface (nodes 5-8)
         elem%interfs_nodes(i)%array(        1 : NNDRL/2) =                      &
       & elem%plyblks_nodes(i)%array(NNDRL/2+1 : NNDRL  )
+      
       ! 2nd half of interface real nodes comes from
       ! top plyblk elem bottom surface (nodes 1-4)
         elem%interfs_nodes(i  )%array(NNDRL/2+1 : NNDRL  ) =                    &
       & elem%plyblks_nodes(i+1)%array(        1 : NNDRL/2)
+      
       ! 1st half of interface flo nodes come from
       ! bottm plyblk elem top surface (nodes 17-24)
         elem%interfs_nodes(i)%array(NNDRL+        1 : NNDRL+NNDFL/2) =          &
       & elem%plyblks_nodes(i)%array(NNDRL+NNDFL/2+1 : NNDRL+NNDFL  )
+      
       ! 2nd half of interface flo nodes come from
       ! top plyblk elem bottom surface (nodes 9-16)
         elem%interfs_nodes(i  )%array(NNDRL+NNDFL/2+1 : NNDRL+NNDFL  ) =        &
       & elem%plyblks_nodes(i+1)%array(NNDRL+        1 : NNDRL+NNDFL/2)
-
-      ! edges of this interface element
-      ! 1st half of interface edges comes from
-      ! bottom plyblk elem top edges (edges 5-8)
-        elem%interfs_edges(i)%array(        1 : NEDGE/2) =                      &
-      & elem%plyblks_edges(i)%array(NEDGE/2+1 : NEDGE  )
-      ! 2nd half of interface edges comes from
-      ! top plyblk elem bottom edges (edges 1-4)
-        elem%interfs_edges(i  )%array(NEDGE/2+1 : NEDGE  ) =                    &
-      & elem%plyblks_edges(i+1)%array(        1 : NEDGE/2)
       
       ! internal nodes of interface element fDelam8
         jstart = NPLYBLKS*NNODE_PLYBLK + (i-1)* NNDIN_INTERF+1
@@ -178,7 +162,7 @@ pure subroutine integrate_fBrickLam_elem (elem, nodes, layup, plylam_mat, plycoh
 & interf_mat, K_matrix, F_vector, istat, emsg)
 
 use parameter_module, only : DP, MSGLENGTH, STAT_SUCCESS, STAT_FAILURE, NDIM, &
-                      & ZERO, NDIM, MATRIX_CRACK_ELEM
+                      & ZERO, NDIM, TRANSITION_ELEM
 use fnode_module,             only : fnode
 use lamina_material_module,   only : lamina_material, lamina_scaled_Gfc
 use cohesive_material_module, only : cohesive_material
@@ -268,11 +252,11 @@ use global_toolkit_module,    only : assembleKF
       plyblknds = nodes(elem%plyblks_nodes(i)%array)
       
       ! increase fibre toughness w.r.t no. plies in this plyblock
-      plyblklam_mat = lamina_scaled_Gfc(plylam_mat, elem%layup(i)%nplies)
+      plyblklam_mat = lamina_scaled_Gfc(plylam_mat, layup(i)%nplies)
       
       ! integrate this plyblk elem and update its nodes and edge status
-      call integrate (elem%plyblks(i), plyblknds, plyblklam_mat, plycoh_mat, &
-      & Ki, Fi, istat, emsg)
+      call integrate (elem%plyblks(i), plyblknds, layup(i)%angle, &
+      & plyblklam_mat, plycoh_mat, Ki, Fi, istat, emsg)
       if (istat == STAT_FAILURE) exit loop_plyblks
       
       ! assemble this elem's K and F
@@ -280,7 +264,7 @@ use global_toolkit_module,    only : assembleKF
       & NDIM, istat, emsg)
       if (istat == STAT_FAILURE) exit loop_plyblks
       
-      ! update nodes and edge status
+      ! update nodes
       nodes(elem%plyblks_nodes(i)%array) = plyblknds
       
   end do loop_plyblks
@@ -299,6 +283,7 @@ use global_toolkit_module,    only : assembleKF
   if (ninterfs > 0) then
   
     loop_interfs: do i = 1, ninterfs
+    
       !----- update edge status -----
       ! extract status of this interface
       call extract (elem%interfs(i), top_subelem_set=topsurf_set, &
@@ -309,7 +294,7 @@ use global_toolkit_module,    only : assembleKF
         call extract (elem%plyblks(i+1), curr_status = plyblk_status)
         ! if it has reached final partition, extract its edge status array
         ! and update to this interface elem
-        if (plyblk_status == MATRIX_CRACK_ELEM) then
+        if (plyblk_status > TRANSITION_ELEM) then
           call extract (elem%plyblks(i+1), edge_status_lcl=plyblk_egstatus_lcl)
           call update  (elem%interfs(i  ), ply_edge_status=plyblk_egstatus_lcl, &
           & top_or_bottom='top', istat=istat, emsg=emsg)
@@ -322,19 +307,20 @@ use global_toolkit_module,    only : assembleKF
         call extract (elem%plyblks(i), curr_status = plyblk_status)
         ! if it has reached final partition, extract its edge status array
         ! and update to this interface elem
-        if (plyblk_status == MATRIX_CRACK_ELEM) then
+        if (plyblk_status > TRANSITION_ELEM) then
           call extract (elem%plyblks(i), edge_status_lcl=plyblk_egstatus_lcl)
           call update  (elem%interfs(i), ply_edge_status=plyblk_egstatus_lcl, &
           & top_or_bottom='bottom', istat=istat, emsg=emsg)
           if (istat == STAT_FAILURE) exit loop_interfs
         end if
       end if
+      
       !----- integration and assembly -----
       ! extract nodes of this interf for integration
       interfnds = nodes(elem%interfs_nodes(i)%array)
       ! extract top and bot ply angles of this interf
-      theta1 = elem%layup(i)%angle
-      theta2 = elem%layup(i+1)%angle
+      theta1 = layup(i  )%angle
+      theta2 = layup(i+1)%angle
       ! integrate this interf elem and update its nodes
       call integrate (elem%interfs(i), interfnds, interf_mat, theta1, theta2,   &
       & Ki, Fi, istat, emsg)
@@ -343,9 +329,12 @@ use global_toolkit_module,    only : assembleKF
       call assembleKF (K_matrix, F_vector, Ki, Fi, elem%interfs_nodes(i)%array, &
       & NDIM, istat, emsg)
       if (istat == STAT_FAILURE) exit loop_interfs
-      ! update nodes
+      
+      !---- update nodes ----
       nodes(elem%interfs_nodes(i)%array) = interfnds
+      
     end do loop_interfs
+    
     if (istat == STAT_FAILURE) then
       emsg = emsg//trim(msgloc)
       call zeroKF(K_matrix, F_vector)

@@ -117,10 +117,6 @@ type, public :: fBrickPly_elem
 end type fBrickPly_elem
 
 
-interface set
-    module procedure set_fBrickPly_elem
-end interface
-
 interface integrate
     module procedure integrate_fBrickPly_elem
 end interface
@@ -132,7 +128,7 @@ end interface
 
 
 
-public :: set, integrate, extract
+public :: integrate, extract
 
 
 

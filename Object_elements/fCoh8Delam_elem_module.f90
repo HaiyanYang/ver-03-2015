@@ -143,7 +143,6 @@ integer, parameter :: BOT_SUBELEM_NODES(20) = [8,7,6,5,4,3,2,1,  &
 type, public :: fCoh8Delam_elem
     private
 
-    integer :: node_connec(NNODE) = 0
     logical :: top_subelem_set    = .false.
     logical :: bot_subelem_set    = .false.
     type(coh8Delam_elem),     allocatable :: intact_elem
@@ -152,9 +151,6 @@ type, public :: fCoh8Delam_elem
 
 end type fCoh8Delam_elem
 
-interface set
-    module procedure set_fCoh8Delam_elem
-end interface
 
 interface update
     module procedure update_fCoh8Delam_elem
@@ -169,64 +165,11 @@ interface extract
 end interface
 
 
-public :: set, update, integrate, extract
+public :: update, integrate, extract
 
 
 
 contains
-
-
-
-pure subroutine set_fCoh8Delam_elem (elem, node_connec, istat, emsg)
-! Purpose:
-! to set the element ready for first use
-use parameter_module,       only : MSGLENGTH, STAT_FAILURE, STAT_SUCCESS
-use coh8Delam_elem_module,  only : set
-
-  type(fCoh8Delam_elem),    intent(inout) :: elem
-  integer,                  intent(in)    :: node_connec(nnode)
-  integer,                  intent(out)   :: istat
-  character(len=MSGLENGTH), intent(out)   :: emsg
-
-  ! global_connec of sub element
-  integer, allocatable  :: global_connec(:)
-  ! location for emsg
-  character(len=MSGLENGTH) :: msgloc
-
-  istat = STAT_SUCCESS
-  emsg  = ''
-  msgloc = ' set, fCoh8Delam_elem module'
-
-  ! check validity of inputs
-  if ( any(node_connec < 1) ) then
-    istat = STAT_FAILURE
-    emsg  = 'node connec indices must be >=1'//trim(msgloc)
-    return
-  end if
-
-  ! update to elem_lcl first
-  elem%node_connec = node_connec
-
-  ! allocate intact elem
-  allocate(elem%intact_elem)
-  allocate(global_connec(NNDRL))
-
-  ! populate the global connec of intact element
-  global_connec(:) = node_connec(INTACT_ELEM_NODES(:))
-
-  ! set the intact element
-  call set (elem%intact_elem, connec=global_connec, istat=istat, emsg=emsg)
-
-  ! if an error is encountered in set, clean up and exit program
-  if (istat == STAT_FAILURE) then
-    if (allocated(global_connec)) deallocate(global_connec)
-    emsg = emsg//trim(msgloc)
-    return
-  end if
-
-  if (allocated(global_connec)) deallocate(global_connec)
-
-end subroutine set_fCoh8Delam_elem
 
 
 
@@ -295,8 +238,7 @@ use fCoh8Delam_subelem_module, only : set
 
         ! set top sub elem; note that the top sub elem's top edges are just
         ! this elem's top edges, without any change of order
-        call set (elem%top_subelem, node_connec=elem%node_connec(TOP_SUBELEM_NODES),&
-        & top_edge_status=ply_edge_status, istat=istat, emsg=emsg)
+        call set (elem%top_subelem, ply_edge_status, istat, emsg)
         if (istat == STAT_FAILURE) then
           emsg = emsg//trim(msgloc)
           return
@@ -317,9 +259,8 @@ use fCoh8Delam_subelem_module, only : set
         ! set top sub elem; note that the bot sub elem's top edges are
         ! this elem's bot edges but with permutated order (see illustration at top
         ! of this module, in comment)
-        call set (elem%bot_subelem, node_connec=elem%node_connec(BOT_SUBELEM_NODES),&
-        & top_edge_status=ply_edge_status([3, 2, 1, 4]), istat=istat, &
-        & emsg=emsg)
+        call set (elem%bot_subelem, top_edge_status=ply_edge_status([3, 2, 1, 4]), &
+        & istat=istat, emsg=emsg)
         if (istat == STAT_FAILURE) then
           emsg = emsg//trim(msgloc)
           return
@@ -339,41 +280,14 @@ end subroutine update_fCoh8Delam_elem
 
 
 
-pure subroutine extract_fCoh8Delam_elem(elem, top_subelem_set, bot_subelem_set,&
-& intact_elem, top_subelem, bot_subelem)
-use coh8Delam_elem_module,     only : coh8Delam_elem
-use fCoh8Delam_subelem_module, only : fCoh8Delam_subelem
+pure subroutine extract_fCoh8Delam_elem(elem, top_subelem_set, bot_subelem_set)
 
-  type(fCoh8Delam_elem),                           intent(in)  :: elem
-  logical,                               optional, intent(out) :: top_subelem_set
-  logical,                               optional, intent(out) :: bot_subelem_set
-  type(coh8Delam_elem),     allocatable, optional, intent(out) :: intact_elem
-  type(fCoh8Delam_subelem), allocatable, optional, intent(out) :: top_subelem
-  type(fCoh8Delam_subelem), allocatable, optional, intent(out) :: bot_subelem
+  type(fCoh8Delam_elem), intent(in)  :: elem
+  logical,     optional, intent(out) :: top_subelem_set
+  logical,     optional, intent(out) :: bot_subelem_set
 
   if (present(top_subelem_set)) top_subelem_set = elem%top_subelem_set
   if (present(bot_subelem_set)) bot_subelem_set = elem%bot_subelem_set
-
-  if (present(intact_elem)) then
-    if (allocated(elem%intact_elem)) then
-      allocate(intact_elem)
-      intact_elem = elem%intact_elem
-    end if
-  end if
-
-  if (present(top_subelem)) then
-    if (allocated(elem%top_subelem)) then
-      allocate(top_subelem)
-      top_subelem = elem%top_subelem
-    end if
-  end if
-
-  if (present(bot_subelem)) then
-    if (allocated(elem%bot_subelem)) then
-      allocate(bot_subelem)
-      bot_subelem = elem%bot_subelem
-    end if
-  end if
 
 end subroutine extract_fCoh8Delam_elem
 
