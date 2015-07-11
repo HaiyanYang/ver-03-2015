@@ -60,14 +60,12 @@ type, public :: coh8Crack_elem
   private
   ! list of type components:
   ! fstat         : element failure status
-  ! connec        : indices of element nodes in the global node array
   ! ig_points     : integration points of this element
   ! local_clock   : locally-saved program clock
   ! traction      : traction on the interface, for output
   ! separation    : separation on the interface, for output
   ! dm            : matrix degradation factor for output
   integer  :: fstat         = 0
-  integer  :: connec(NNODE) = 0
   type(program_clock)     :: local_clock
   type(cohesive_ig_point) :: ig_points(NIGPOINT)
   real(DP) :: traction(NST)   = ZERO
@@ -75,10 +73,6 @@ type, public :: coh8Crack_elem
   real(DP) :: dm              = ZERO
 end type
 
-
-interface set
-  module procedure set_coh8Crack_elem
-end interface
 
 interface integrate
   module procedure integrate_coh8Crack_elem
@@ -91,7 +85,7 @@ end interface
 
 
 
-public :: set, integrate, extract
+public :: integrate, extract
 
 
 
@@ -101,36 +95,7 @@ contains
 
 
 
-pure subroutine set_coh8Crack_elem (elem, connec, istat, emsg)
-! Purpose:
-! this subroutine is used to set the components of the element
-! it is used in the initialize_lib_elem procedure in the lib_elem module
-! note that only some of the components need to be set during preproc,
-! namely connec, ID_matlist
-
-  type(coh8Crack_elem),   intent(inout)   :: elem
-  integer,                intent(in)      :: connec(NNODE)
-  integer,                  intent(out)   :: istat
-  character(len=MSGLENGTH), intent(out)   :: emsg
-  
-  istat = STAT_SUCCESS
-  emsg  = ''
-  
-  ! check validity of inputs
-  if ( any(connec < 1) ) then
-    istat = STAT_FAILURE
-    emsg  = 'connec node indices must be >=1, set, &
-    &coh8Crack_elem_module'
-    return
-  end if
-  
-  elem%connec    = connec
-
-end subroutine set_coh8Crack_elem
-
-
-
-pure subroutine extract_coh8Crack_elem (elem, fstat, connec, ig_points, &
+pure subroutine extract_coh8Crack_elem (elem, fstat, ig_points, &
 & traction, separation, dm)
 ! Purpose:
 ! to extract the components of this element
@@ -139,18 +104,12 @@ pure subroutine extract_coh8Crack_elem (elem, fstat, connec, ig_points, &
 
   type(coh8Crack_elem),                           intent(in)  :: elem
   integer,                              optional, intent(out) :: fstat
-  integer,                 allocatable, optional, intent(out) :: connec(:)
   type(cohesive_ig_point), allocatable, optional, intent(out) :: ig_points(:)
   real(DP),                             optional, intent(out) :: traction(NST)
   real(DP),                             optional, intent(out) :: separation(NST)
   real(DP),                             optional, intent(out) :: dm
 
   if (present(fstat))       fstat = elem%fstat
-
-  if (present(connec)) then
-    allocate(connec(NNODE))
-    connec = elem%connec
-  end if
 
   if (present(ig_points)) then
     allocate(ig_points(NIGPOINT))
@@ -374,23 +333,6 @@ use global_toolkit_module,       only : cross_product3d, normalize_vect, &
   tangent1(:)=midcoords(:,2)-midcoords(:,1)
   ! compute tangent2 of the interface: node 4 coords - node 1 coords
   tangent2(:)=midcoords(:,4)-midcoords(:,1)
-  
-  ! debug
-  call normalize_vect(tangent1, is_zero_vect)
-  if (is_zero_vect) then
-    istat = STAT_FAILURE
-    emsg  = 'element edge 1-2 is ZERO, cohCrack element module'
-    call clean_up (K_matrix, F_vector, uj, xj)
-    return
-  end if
-  call normalize_vect(tangent2, is_zero_vect)
-  if (is_zero_vect) then
-    istat = STAT_FAILURE
-    emsg  = 'element edge 1-4 is ZERO, cohCrack element module'
-    call clean_up (K_matrix, F_vector, uj, xj)
-    return
-  end if
-  
   ! compute normal vector of the interface,
   normal = cross_product3d(tangent1,tangent2)
   ! - re-evaluate tangent2 so that it is perpendicular to both
@@ -419,9 +361,9 @@ use global_toolkit_module,       only : cross_product3d, normalize_vect, &
     return
   end if
   ! - compute Q matrix
-  Qmatrix(1,:)=normal(:)
-  Qmatrix(2,:)=tangent1(:)
-  Qmatrix(3,:)=tangent2(:)
+  Qmatrix(1,:)=normal(:)   ! normal
+  Qmatrix(2,:)=tangent2(:) ! transverse
+  Qmatrix(3,:)=tangent1(:) ! longitudinal
   ! - rotate midcoords to planar coord sys.
   midcoords = matmul(Qmatrix,midcoords)
 

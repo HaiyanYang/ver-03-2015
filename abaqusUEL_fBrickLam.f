@@ -25,7 +25,6 @@ include 'object_elements/fCoh8Delam_elem_module.f90'
 include 'object_elements/fBrickLam_elem_module.f90'
 include 'datalists/material_list_module.f90'
 include 'datalists/node_list_module.f90'
-include 'datalists/edge_list_module.f90'
 include 'datalists/elem_list_module.f90'
 include 'inputs/input_module.f90'
 include 'outputs/output_module.f90'
@@ -39,7 +38,7 @@ include 'outputs/output_module.f90'
 subroutine uexternaldb(lop,lrestart,time,dtime,kstep,kinc)
 use parameter_module,    only: DP, DIRLENGTH, MSG_FILE, EXIT_FUNCTION
 use global_clock_module, only: GLOBAL_CLOCK, set
-use input_module,        only: set_fnm_nodes, set_fnm_edges, set_fnm_elems, set_fnm_materials
+use input_module,        only: set_fnm_nodes, set_fnm_elems, set_fnm_materials
 use output_module,       only: outdir, output
 
   implicit none
@@ -83,8 +82,6 @@ use output_module,       only: outdir, output
       call set(GLOBAL_CLOCK, curr_step=0, curr_inc=0)
       
       call set_fnm_nodes
-      
-      call set_fnm_edges
       
       call set_fnm_elems
       
@@ -137,8 +134,7 @@ use parameter_module,     only: NDIM, DP, ZERO, MSG_FILE, MSGLENGTH, STAT_SUCCES
                                 & STAT_FAILURE, EXIT_FUNCTION
 use fnode_module,         only: fnode, update
 use node_list_module,     only: node_list
-use edge_list_module,     only: edge_list
-use elem_list_module,     only: elem_list, elem_node_connec, elem_edge_connec
+use elem_list_module,     only: elem_list, elem_node_connec, layup
 use material_list_module, only: UDSinglePly_material, matrixCrack_material, &
                                 & interface_material
 use fBrickLam_elem_module,only: fBrickLam_elem, integrate
@@ -162,9 +158,6 @@ use output_module
   !~type(fBrickLam_elem)    :: elem
   type(fnode)             :: nodes(nnode)
   integer                 :: node_cnc(nnode)
-  integer                 :: nedge
-  integer, allocatable    :: edge_status(:)
-  integer, allocatable    :: edge_cnc(:)
   integer                 :: j
   character(len=10)       :: cjelem
 
@@ -175,7 +168,6 @@ use output_module
   msgloc    = ', abaqusUEL_fBrickLam.f'
   uj        = ZERO
   node_cnc  = 0
-  nedge     = 0
   j         = 0
   write(cjelem,'(i5)') jelem
   
@@ -228,86 +220,74 @@ use output_module
 !~    end if
 !~  end if
 
+ 
+  ! extract the node connec of this elem
+  node_cnc(:) = elem_node_connec(:,jelem)
+
+  ! extract passed-in nodal solutions obtained by Abaqus Solver
+  do j=1, nnode
+    uj(1:NDIM,j) = u( (j-1)*NDIM+1 : j*NDIM )
+  end do
   
-  ! extract this element from global elem list, using the element key jelem
+  ! update the nodal solutions to global_node_list
+  do j=1, nnode
+    call update(node_list(node_cnc(j)),u=uj(:,j))
+  end do
+
+  ! extract nodes and edge status from global node and edge lists
+  nodes = node_list(node_cnc)
   
-    ! extract the node and edge connec of this elem
-    node_cnc(:) = elem_node_connec(:,jelem)
-    nedge       = size(elem_edge_connec(:,jelem))
-    allocate(edge_status(nedge),edge_cnc(nedge))
-    edge_cnc(:) = elem_edge_connec(:,jelem)
+  !~! debug, check the input to elem
+  !~call output(kstep,jelem*1000+kinc,outdir)
 
-    ! extract passed-in nodal solutions obtained by Abaqus Solver
-    do j=1, nnode
-      uj(1:NDIM,j) = u( (j-1)*NDIM+1 : j*NDIM )
-    end do
-    
-    ! update the nodal solutions to global_node_list
-    do j=1, nnode
-      call update(node_list(node_cnc(j)),u=uj(:,j))
-    end do
+  !~! debug
+  !~! open a file 
+  !~open(110, file=trim(outdir)//'record.dat', status="replace", action="write")
+  !~write(110,'(1X, a)')'reach mark 2'
+  !~close(110)
 
-    ! extract nodes and edge status from global node and edge lists
-    nodes       = node_list(node_cnc)
-    edge_status = edge_list(edge_cnc)
-    
-    ! debug, check the input to elem
-    call output(kstep,jelem*1000+kinc,outdir)
-
-    !~! debug
-    !~! open a file 
-    !~open(110, file=trim(outdir)//'record.dat', status="replace", action="write")
-    !~write(110,'(1X, a)')'reach mark 2'
-    !~close(110)
-
-    ! integrate this element
-    call integrate (elem_list(jelem), nodes, edge_status, UDSinglePly_material, &
-    &  matrixCrack_material, interface_material, Kmat, Fvec, istat, emsg)
-    if (istat == STAT_FAILURE) then
-      emsg = trim(emsg)//trim(msgloc)//trim(cjelem)
-      write(MSG_FILE,*) emsg
-      node_list(node_cnc) = nodes
-      edge_list(edge_cnc) = edge_status
-      call output(kstep,jelem*10000+kinc,outdir)
-      call cleanup (Kmat, Fvec, edge_status, edge_cnc)
-      call cleanup_all
-      call EXIT_FUNCTION
-    end if
-  
-    ! open a file 
-    open(110, file=trim(outdir)//'record.dat', status="replace", action="write")
-    write(110,'(1X, a)')'reach mark 3'
-    close(110)
-
-    ! update to global lists
-    !~elem_list(jelem)    = elem
+  ! integrate this element. elem_list(jelem)
+  call integrate (elem_list(jelem), nodes, layup, UDSinglePly_material, &
+  &  matrixCrack_material, interface_material, Kmat, Fvec, istat, emsg)
+  if (istat == STAT_FAILURE) then
+    emsg = trim(emsg)//trim(msgloc)//trim(cjelem)
+    write(MSG_FILE,*) emsg
+    !** debug **
     node_list(node_cnc) = nodes
-    edge_list(edge_cnc) = edge_status
-  
-  
+    call output(kstep,jelem*10000+kinc,outdir)
+    !***********
+    call cleanup (Kmat, Fvec)
+    call cleanup_all
+    call EXIT_FUNCTION
+  end if
+
   ! open a file 
   open(110, file=trim(outdir)//'record.dat', status="replace", action="write")
-  write(110,'(1X, a)')'reach mark 4'
+  write(110,'(1X, a)')'reach mark 3'
   close(110)
+
+  ! update to global lists
+  node_list(node_cnc) = nodes
+  
+  !~! open a file 
+  !~open(110, file=trim(outdir)//'record.dat', status="replace", action="write")
+  !~write(110,'(1X, a)')'reach mark 4'
+  !~close(110)
 
   ! in the end, pass Kmat and Fvec to Abaqus UEL amatrx and rhs
   amatrx   =  Kmat
   rhs(:,1) = -Fvec(:)
 
   ! clean up memory used in local dynamic arrays
-  call cleanup (Kmat, Fvec, edge_status, edge_cnc)
+  call cleanup (Kmat, Fvec)
   return
   
   contains
   
-  pure subroutine cleanup (Kmat, Fvec, edge_status, edge_cnc)
-    real(DP),allocatable, intent(inout)    :: Kmat(:,:), Fvec(:)
-    integer, allocatable, intent(inout)    :: edge_status(:)
-    integer, allocatable, intent(inout)    :: edge_cnc(:)
-    if(allocated(Kmat))         deallocate(Kmat)
-    if(allocated(Fvec))         deallocate(Fvec)
-    if(allocated(edge_status))  deallocate(edge_status)
-    if(allocated(edge_cnc))     deallocate(edge_cnc)
+  pure subroutine cleanup (Kmat, Fvec)
+    real(DP),allocatable, intent(inout) :: Kmat(:,:), Fvec(:)
+    if(allocated(Kmat)) deallocate(Kmat)
+    if(allocated(Fvec)) deallocate(Fvec)
   end subroutine cleanup
 
 end subroutine uel
@@ -322,12 +302,10 @@ end subroutine uel
 subroutine cleanup_all()
 use material_list_module, only: empty_material_list
 use node_list_module,     only: empty_node_list
-use edge_list_module,     only: empty_edge_list
 use elem_list_module,     only: empty_elem_list
 
   call empty_material_list
   call empty_node_list
-  call empty_edge_list
   call empty_elem_list
 
 end subroutine cleanup_all

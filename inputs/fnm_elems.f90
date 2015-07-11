@@ -1,6 +1,6 @@
 subroutine set_fnm_elems()                                 
 use parameter_module,      only: DP                        
-use elem_list_module,      only: elem_list,&               
+use elem_list_module,      only: layup, elem_list,&        
                       & elem_node_connec, elem_edge_connec 
 use fBrickLam_elem_module, only: plyblock_layup, set       
                                                            
@@ -9,7 +9,6 @@ use fBrickLam_elem_module, only: plyblock_layup, set
   integer :: elnedge = 0                                   
   integer :: nplyblk = 0                                   
   integer, allocatable :: nodecnc(:), edgecnc(:)           
-  type(plyblock_layup), allocatable :: layup(:)            
                                                            
   nelem   =2                                
   elnnode =24                              
@@ -33,8 +32,7 @@ use fBrickLam_elem_module, only: plyblock_layup, set
   edgecnc=[ &
 & 1,2,3,4,5,6,7,8 &
 & ]
-  call set(elem_list(1), NPLYBLKS=1,& 
-& node_connec=nodecnc, layup=layup)
+  call set(elem_list(1), NPLYBLKS=1)
   elem_node_connec(:,1)=nodecnc(:)
   elem_edge_connec(:,1)=edgecnc(:)
 
@@ -45,8 +43,7 @@ use fBrickLam_elem_module, only: plyblock_layup, set
   edgecnc=[ &
 & 3,9,10,11,7,12,13,14 &
 & ]
-  call set(elem_list(2), NPLYBLKS=1,& 
-& node_connec=nodecnc, layup=layup)
+  call set(elem_list(2), NPLYBLKS=1)
   elem_node_connec(:,2)=nodecnc(:)
   elem_edge_connec(:,2)=edgecnc(:)
 

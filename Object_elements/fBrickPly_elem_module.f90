@@ -116,6 +116,9 @@ type, public :: fBrickPly_elem
 
 end type fBrickPly_elem
 
+interface set
+    module procedure set_fBrickPly_elem
+end interface
 
 interface integrate
     module procedure integrate_fBrickPly_elem
@@ -128,11 +131,20 @@ end interface
 
 
 
-public :: integrate, extract
+public :: set, integrate, extract
 
 
 
 contains
+
+
+
+pure subroutine set_fBrickPly_elem (elem)
+  type(fBrickPly_elem), intent(inout)  :: elem
+  
+  allocate(elem%intact_elem)
+
+end subroutine set_fBrickPly_elem
 
 
 
@@ -227,7 +239,7 @@ use global_clock_module,      only : GLOBAL_CLOCK, clock_in_sync
       ! update elem status according to edge status values
       ! and update the edge status values
       ! and partition the elem
-      call edge_status_partition (elem, nodes, istat, emsg)
+      call edge_status_partition (elem, nodes, ply_angle, istat, emsg)
       if (istat == STAT_FAILURE) then
         emsg = trim(emsg)//trim(msgloc)
         call clean_up (K_matrix, F_vector)
@@ -268,7 +280,7 @@ use global_clock_module,      only : GLOBAL_CLOCK, clock_in_sync
           ! failure criterion partitions elem of any status directly into
           ! MATRIX_CRACK_ELEM partition if the failure criterion judges
           ! any subelem reaches MATRIX/FIBRE failure onset
-          call failure_criterion_partition (elem, nodes, istat, emsg)
+          call failure_criterion_partition (elem, nodes, ply_angle, istat, emsg)
           if (istat == STAT_FAILURE) then
             emsg = emsg//trim(msgloc)
             call clean_up (K_matrix, F_vector)
@@ -336,7 +348,7 @@ end subroutine integrate_fBrickPly_elem
 
 
 
-pure subroutine edge_status_partition (elem, nodes, istat, emsg)
+pure subroutine edge_status_partition (elem, nodes, ply_angle, istat, emsg)
 use parameter_module,      only : DP, MSGLENGTH, STAT_SUCCESS, STAT_FAILURE,  &
                           & REAL_ALLOC_ARRAY, ZERO, INTACT,                   &
                           & TRANSITION_EDGE, REFINEMENT_EDGE,                 &
@@ -349,6 +361,7 @@ use global_toolkit_module, only : crack_elem_cracktip2d
   ! passed-in variables
   type(fBrickPly_elem),     intent(inout) :: elem
   type(fnode),              intent(inout) :: nodes(NNODE)
+  real(DP),                 intent(in)    :: ply_angle
   integer,                  intent(out)   :: istat
   character(len=MSGLENGTH), intent(out)   :: emsg
 
@@ -498,7 +511,7 @@ use global_toolkit_module, only : crack_elem_cracktip2d
       call crack_elem_cracktip2d (cracktip_point = crackpoint1,               &
       &                      cracktip_edge_index = jbe1,                      &
       &                                    nedge = NEDGE_SURF,                &
-      &                              crack_angle = elem%ply_angle,            &
+      &                              crack_angle = ply_angle,                 &
       &                                   coords = botsurf_coords,            &
       &                           nodes_on_edges = ENDNODES_ON_BOT_EDGES,     &
       &                                    istat = istat,                     &
@@ -601,6 +614,10 @@ use global_toolkit_module, only : crack_elem_cracktip2d
     ! update elem partition when changing from intact or trans. elem
     if (elem%curr_status == INTACT .or. &
     &   elem%curr_status == TRANSITION_ELEM) then
+      ! update to elem components
+      elem%curr_status     = elstatus
+      elem%edge_status_lcl = eledgestatus_lcl
+      ! update elem partition
       call partition_elem (elem, istat, emsg)
       if (istat == STAT_FAILURE) then
         emsg = emsg//trim(msgloc)
@@ -608,11 +625,11 @@ use global_toolkit_module, only : crack_elem_cracktip2d
       end if
       ! set newpartition logical variable to be true
       elem%newpartition = .true.
+    else
+      ! update to elem components
+      elem%curr_status     = elstatus
+      elem%edge_status_lcl = eledgestatus_lcl
     end if
-
-    ! update to elem components
-    elem%curr_status     = elstatus
-    elem%edge_status_lcl = eledgestatus_lcl
 
   end if
 
@@ -699,7 +716,7 @@ end subroutine edge_status_partition
 
 
 
-pure subroutine failure_criterion_partition (elem, nodes, istat, emsg)
+pure subroutine failure_criterion_partition (elem, nodes, ply_angle, istat, emsg)
 ! Purpose:
 ! this subroutine updates elem status & partition to MATRIX_CRACK_ELEM
 ! if any sub elem is nolonger INTACT
@@ -717,6 +734,7 @@ use global_toolkit_module,  only : crack_elem_centroid2d, crack_elem_cracktip2d
   ! passed-in variables
   type(fBrickPly_elem),     intent(inout) :: elem
   type(fnode),              intent(inout) :: nodes(NNODE)
+  real(DP),                 intent(in)    :: ply_angle
   integer,                  intent(out)   :: istat
   character(len=MSGLENGTH), intent(out)   :: emsg
 
@@ -829,7 +847,7 @@ use global_toolkit_module,  only : crack_elem_centroid2d, crack_elem_cracktip2d
         ! use the crack_elem_centroid2d subroutine to find 2 cross points and 2
         ! crack edges of the elem, with crack passing elem centroid
         call crack_elem_centroid2d (nedge = NEDGE_SURF,             &
-        &                     crack_angle = elem%ply_angle,         &
+        &                     crack_angle = ply_angle,              &
         &                          coords = botsurf_coords,         &
         &                  nodes_on_edges = ENDNODES_ON_BOT_EDGES,  &
         &                           istat = istat,                  &
@@ -893,7 +911,7 @@ use global_toolkit_module,  only : crack_elem_centroid2d, crack_elem_cracktip2d
         call crack_elem_cracktip2d (cracktip_point = crackpoint1,              &
         &                      cracktip_edge_index = jbe1,                     &
         &                                    nedge = NEDGE_SURF,               &
-        &                              crack_angle = elem%ply_angle,           &
+        &                              crack_angle = ply_angle,                &
         &                                   coords = botsurf_coords,           &
         &                           nodes_on_edges = ENDNODES_ON_BOT_EDGES,    &
         &                                    istat = istat,                    &
@@ -1060,6 +1078,11 @@ use global_toolkit_module,  only : crack_elem_centroid2d, crack_elem_cracktip2d
     ! only updates partition when changing from intact and trans elem
     if (elem%curr_status == INTACT .or. &
     &   elem%curr_status == TRANSITION_ELEM) then
+      !:::: update elem components ::::!
+      elem%edge_status_lcl(jbe1)    = COH_CRACK_EDGE
+      elem%edge_status_lcl(jbe2)    = COH_CRACK_EDGE
+      elem%curr_status              = MATRIX_CRACK_ELEM
+      ! update elem partition
       call partition_elem (elem, istat, emsg)
       if (istat == STAT_FAILURE) then
         emsg = emsg//trim(msgloc)
@@ -1067,12 +1090,12 @@ use global_toolkit_module,  only : crack_elem_centroid2d, crack_elem_cracktip2d
       end if
       ! set newpartition logical variable to be true
       elem%newpartition = .true.
+    else
+      !:::: update elem components ::::!
+      elem%edge_status_lcl(jbe1)    = COH_CRACK_EDGE
+      elem%edge_status_lcl(jbe2)    = COH_CRACK_EDGE
+      elem%curr_status              = MATRIX_CRACK_ELEM
     end if
-
-    !:::: update elem components ::::!
-    elem%edge_status_lcl(jbe1)    = COH_CRACK_EDGE
-    elem%edge_status_lcl(jbe2)    = COH_CRACK_EDGE
-    elem%curr_status              = MATRIX_CRACK_ELEM
 
   end if
 

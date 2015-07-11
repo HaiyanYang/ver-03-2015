@@ -55,13 +55,13 @@ BOTTOM, 1, 1
 ** 
 *Step, name=tension
 *Static
-0.001, 0.02, 1e-07, 0.001
+0.01, 0.2, 1e-07, 0.01
 ** 
 ** BOUNDARY CONDITIONS
 ** 
 ** Name: Vel-BC-1 Type: Velocity/Angular velocity
 *Boundary, type=VELOCITY
-TOP, 2, 2, 1.
+TOP, 1, 1, 1.
 ** 
 ** CONTROLS
 ** 

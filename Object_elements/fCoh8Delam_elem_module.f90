@@ -152,6 +152,11 @@ type, public :: fCoh8Delam_elem
 end type fCoh8Delam_elem
 
 
+interface set
+    module procedure set_fCoh8Delam_elem
+end interface
+
+
 interface update
     module procedure update_fCoh8Delam_elem
 end interface
@@ -165,11 +170,20 @@ interface extract
 end interface
 
 
-public :: update, integrate, extract
+public :: set, update, integrate, extract
 
 
 
 contains
+
+
+
+pure subroutine set_fCoh8Delam_elem (elem)
+  type(fCoh8Delam_elem),    intent(inout) :: elem
+  
+  allocate(elem%intact_elem)
+
+end subroutine set_fCoh8Delam_elem
 
 
 

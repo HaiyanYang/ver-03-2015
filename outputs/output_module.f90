@@ -16,18 +16,9 @@ contains
 
 subroutine output(kstep,kinc,outdir)
 use node_list_module, only: node_list
-use edge_list_module, only: edge_list
 use elem_list_module, only: elem_list
 use fnode_module,     only: extract
-use brickPly_elem_module,       only: brickPly_elem, extract
-use abstPly_elem_module,        only: abstPly_elem,  extract
-use coh8Crack_elem_module,      only: coh8Crack_elem, extract
-use coh8Delam_elem_module,      only: coh8Delam_elem, extract
-use abstDelam_elem_module,      only: abstDelam_elem, extract
-use fBrickPly_elem_module,      only: fBrickPly_elem, extract
-use fCoh8Delam_subelem_module,  only: fCoh8Delam_subelem, extract
-use fCoh8Delam_elem_module,     only: fCoh8Delam_elem, extract
-use fBrickLam_elem_module,      only: extract
+use fBrickLam_elem_module, only: extract
    
   ! passed-in variables
   integer,                  intent(in)  :: kstep    ! current step number
@@ -164,18 +155,6 @@ use fBrickLam_elem_module,      only: extract
       write(outunit,'(1X, 3'//trim(FMATFLOAT)//')') x(1),x(2),x(3)
   end do            
   write(outunit,'(1X)')
-  
-  
-  ! -----------------------------------------------------------------!
-  !                     write edges
-  ! -----------------------------------------------------------------!
-  write(outunit,'(1X, a)')'edges'
-  
-  do i=1, size(edge_list)
-      write(outunit,'(1X, '//trim(FMATFSTAT)//')') edge_list(i)
-  end do  
-          
-  write(outunit,'(1X)')  
 
   
   ! -----------------------------------------------------------------!
@@ -183,7 +162,7 @@ use fBrickLam_elem_module,      only: extract
   ! -----------------------------------------------------------------!  
   ! wflag = 'nelem' would allow the wfLam subroutine to update
   ! nwedge, nbrick, ncoh6 and ncoh8
-  call wfLam('nelem')
+  !~call wfLam('nelem')
 
 !~  ! total no. of elems
 !~  nelem = nwedge + nbrick + ncoh6 + ncoh8
@@ -226,6 +205,20 @@ use fBrickLam_elem_module,      only: extract
   end do  
           
   write(outunit,'(1X)')  
+  
+  
+  ! -----------------------------------------------------------------!
+  !                     write node status
+  ! -----------------------------------------------------------------!
+  write(outunit,'(1X, a)')'SCALARS nstat int'
+  write(outunit,'(1X, a)')'LOOKUP_TABLE default'
+  do i=1, nnode
+      call extract(node_list(i),nstat=intvar)
+      write(outunit,'(1X, '//trim(FMATFSTAT)//')') intvar
+  end do  
+          
+  write(outunit,'(1X)')  
+  
 !~
 !~
 !~  ! -----------------------------------------------------------------!
@@ -293,306 +286,306 @@ use fBrickLam_elem_module,      only: extract
   
   return
   
-  
-  
-  contains
-  
-  
-    subroutine wfLam(wflag)
-      character(len=*), intent(in)  :: wflag
-      
-      nfLam = size(elem_list)
-    
-      do nfl = 1, nfLam
-      
-          call extract(elem_list(nfl),curr_status = intvar)
-          call wscalar(intvar)
-    
-          !~! extract the plyblks and interfs elems of the fLam elem
-          !~call extract(elem_list(nfl), plyblks=plyblks, interfs=interfs)
-          !~
-          !~! read the plyblks elems
-          !~if(allocated(plyblks)) then
-          !~    ! read the no. of plyblks
-          !~    nplyblk = size(plyblks)
-          !~    ! loop over each plyblk subelem
-          !~    do m = 1, nplyblk
-          !~        ! extract the subelems of this plyblk
-          !~        call extract(plyblks(m), intact_elem=intactplyblk, &
-          !~        & subBulks=subBulks, cohCrack=cohCrack)
-          !~        if (allocated(intactplyblk)) then     
-          !~            !**** write intact elem, type: brickPly
-          !~            call wbrickply(intactplyblk,wflag)
-          !~            deallocate(intactplyblk)
-          !~        else
-          !~            !**** write sub bulks, type: abstPly
-          !~            nsubBulk = size(subBulks)
-          !~            do n = 1, nsubBulk
-          !~              call wabstply(subBulks(n),wflag)
-          !~            end do
-          !~            deallocate(subBulks)
-          !~            !**** write coh crack, type: cohCrack
-          !~            if (allocated(cohCrack)) then
-          !~              call wcohcrack(cohCrack,wflag)
-          !~              deallocate(cohCrack)
-          !~            end if
-          !~        end if
-          !~    end do
-          !~    deallocate(plyblks) 
-          !~end if
-          !~
-          !~! read the interfs elems
-          !~if(allocated(interfs)) then
-          !~    ! read the no. of interfs
-          !~    ninterf = size(interfs)
-          !~    ! loop over all interfs
-          !~    do m = 1, ninterf
-          !~        ! extract the subinterfs
-          !~        call extract(interfs(m), intact_elem=intactinterf, &
-          !~        & top_subelem=top_interf, bot_subelem=bot_interf)
-          !~        
-          !~        ! if intact elem is still present, then it is a coh8 elem type
-          !~        if (allocated(intactinterf)) then
-          !~            !**** write intact delam elem, type: coh8Delam
-          !~            call wcoh8Delam(intactinterf,wflag) 
-          !~            deallocate(intactinterf)
-          !~        ! if not, then it has decomposed into sub elems
-          !~        else
-          !~            ! if top interf is present
-          !~            if (allocated(top_interf)) then
-          !~                call extract(top_interf, subelems=subinterfs)
-          !~                ! find the subinterf type and increase the respective type count
-          !~                nsubinterf = size(subinterfs)
-          !~                do n = 1, nsubinterf
-          !~                    !**** write each sub interf, type: abstDelam
-          !~                    call wabstDelam(subinterfs(n), wflag)
-          !~                end do
-          !~                deallocate(subinterfs)
-          !~            end if
-          !~            ! if bot interf is present
-          !~            if (allocated(bot_interf)) then
-          !~                call extract(bot_interf, subelems=subinterfs)
-          !~                ! find the subinterf type and increase the respective type count
-          !~                nsubinterf = size(subinterfs)
-          !~                do n = 1, nsubinterf
-          !~                    !**** write each sub interf, type: abstDelam
-          !~                    call wabstDelam(subinterfs(n), wflag)
-          !~                end do
-          !~                deallocate(subinterfs)
-          !~            end if
-          !~        end if
-          !~    end do
-          !~    deallocate(interfs)
-          !~end if
-          !~
-      end do
-
-      write(outunit,'(1X)') 
-    
-    end subroutine wfLam
-  
-    subroutine wbrickply(brickply,wflag)
-      type(brickPly_elem), intent(in) :: brickply
-      character(len=*),    intent(in) :: wflag
-        select case(trim(adjustl(wflag)))
-        case('nelem')
-          nbrick = nbrick + 1
-        case('connec')
-          call extract(brickply, connec=connec)
-          call wconnec(connec)
-          deallocate(connec)
-        case('eltype')
-          call weltype('brick')
-        case('stress')
-          call extract(brickply, stress=str)
-          call wtensor(str)
-        case('strain')
-          call extract(brickply, strain=str)
-          call wtensor(str)
-        case('fstat')
-          call extract(brickply, fstat=intvar)
-          call wscalar(intvar)
-        case('df')
-          call extract(brickply, df=realvar)
-          call wscalar(realvar)
-        case('dm')
-          call wscalar(ZERO)
-        end select  
-    end subroutine wbrickply
-    
-    subroutine wabstply(abstply,wflag)
-      type(abstPly_elem), intent(in) :: abstply
-      character(len=*),   intent(in) :: wflag
-        select case(trim(adjustl(wflag)))
-        case('nelem')
-          call extract(abstply, eltype=eltype)
-          if(eltype=='brick') then
-            nbrick = nbrick + 1
-          else if(eltype=='wedge') then
-            nwedge = nwedge + 1
-          end if
-        case('connec')
-          call extract(abstply, connec=connec)
-          call wconnec(connec)
-          deallocate(connec)
-        case('eltype')
-          call extract(abstply, eltype=eltype)
-          call weltype(eltype)
-        case('stress')
-          call extract(abstply, stress=str)
-          call wtensor(str)
-        case('strain')
-          call extract(abstply, strain=str)
-          call wtensor(str)
-        case('fstat')
-          call extract(abstply, fstat=intvar)
-          call wscalar(intvar)
-        case('df')
-          call extract(abstply, df=realvar)
-          call wscalar(realvar)
-        case('dm')
-          call wscalar(ZERO)
-        end select
-    end subroutine wabstply
-    
-    subroutine wcohcrack(cohCrack,wflag)
-      type(coh8Crack_elem), intent(in) :: cohCrack
-      character(len=*),     intent(in) :: wflag
-        select case(trim(adjustl(wflag)))
-        case('nelem')
-          ncoh8 = ncoh8 + 1
-        case('connec')
-          call extract(cohCrack, connec=connec)
-          call wconnec(connec)
-          deallocate(connec)
-        case('eltype')
-          call weltype('coh8')
-        case('stress')
-          call wtensor(str0)
-        case('strain')
-          call wtensor(str0)
-        case('fstat')
-          call extract(cohCrack, fstat=intvar)
-          call wscalar(intvar)
-        case('df')
-          call wscalar(ZERO)
-        case('dm')
-          call extract(cohCrack, dm=realvar)
-          call wscalar(realvar)
-        end select
-    end subroutine wcohcrack
-    
-    subroutine wcoh8Delam(coh8Delam,wflag)
-      type(coh8Delam_elem), intent(in) :: coh8Delam
-      character(len=*),    intent(in) :: wflag
-        select case(trim(adjustl(wflag)))
-        case('nelem')
-          ncoh8 = ncoh8 + 1
-        case('connec')
-          call extract(coh8Delam, connec=connec)
-          call wconnec(connec)
-          deallocate(connec)
-        case('eltype')
-          call weltype('coh8')
-        case('stress')
-          call wtensor(str0)
-        case('strain')
-          call wtensor(str0)
-        case('fstat')
-          call extract(coh8Delam, fstat=intvar)
-          call wscalar(intvar)
-        case('df')
-          call wscalar(ZERO)
-        case('dm')
-          call extract(coh8Delam, dm=realvar)
-          call wscalar(realvar)
-        end select
-    end subroutine wcoh8Delam
-   
-    subroutine wabstDelam(abstDelam,wflag)
-      type(abstDelam_elem), intent(in) :: abstDelam
-      character(len=*),     intent(in) :: wflag
-        select case(trim(adjustl(wflag)))
-        case('nelem')
-          call extract(abstDelam, eltype=eltype)
-          if (eltype=='coh6Delam') then
-            ncoh6 = ncoh6 + 1
-          else if (eltype=='coh8Delam') then
-            ncoh8 = ncoh8 + 1
-          end if
-        case('connec')
-          call extract(abstDelam, connec=connec)
-          call wconnec(connec)
-          deallocate(connec)
-        case('eltype')
-          call extract(abstDelam, eltype=eltype)
-          call weltype(eltype)
-        case('stress')
-          call wtensor(str0)
-        case('strain')
-          call wtensor(str0)
-        case('fstat')
-          call extract(abstDelam, fstat=intvar)
-          call wscalar(intvar)
-        case('df')
-          call wscalar(ZERO)
-        case('dm')
-          call extract(abstDelam, dm=realvar)
-          call wscalar(realvar)
-        end select
-    end subroutine wabstDelam
-
-    subroutine wconnec(connec)
-      integer, allocatable, intent(in) :: connec(:)
-      ! print connec in vtk; note that in vtk node no. starts from 0
-      write(outunit,'(1X, '//FMATNNODE//')',advance="no") size(connec)
-      do j=1,size(connec)
-          write(outunit,'('//FMATNNODE//')',advance="no") connec(j)-1
-      end do
-      write(outunit,'(a)')''
-    end subroutine wconnec
-  
-    subroutine weltype(eltype)
-      character(len=*), intent(in) :: eltype
-      select case(trim(adjustl(eltype)))
-          case('wedge','coh6Delam','coh6')
-              write(outunit,'(1X,i2)') 13 ! 13 for wedge/coh6
-          case('brick','coh8Delam','coh8')
-              write(outunit,'(1X,i2)') 12 ! 12 for brick/coh8
-      end select
-    end subroutine weltype
-   
-    subroutine wtensor(x)
-      real(DP), intent(in) :: x(6)
-      real(DP) :: tensor(3,3)
-      integer  :: l
-      tensor = ZERO
-      tensor(1,1)=x(1)
-      tensor(2,2)=x(2)
-      tensor(3,3)=x(3)
-      tensor(1,2)=x(4)
-      tensor(1,3)=x(5)
-      tensor(2,3)=x(6)
-      tensor(2,1)=x(4)
-      tensor(3,1)=x(5)
-      tensor(3,2)=x(6)
-      do l=1,3
-          write(outunit,'(1X, 3'//trim(FMATFLOAT)//')') tensor(1,l), tensor(2,l), tensor(3,l)
-      end do
-      write(outunit,'(a)')''
-    end subroutine wtensor
-       
-    subroutine wscalar(x)
-      class(*), intent(in) :: x
-      select type(x)
-      type is (real(DP))
-        write(outunit,'(1X, '//trim(FMATFLOAT)//')') x
-      type is (integer)
-        write(outunit,'(1X, '//trim(FMATFSTAT)//')') x
-      end select
-      !~real(DP), intent(in) :: x
-      !~write(outunit,'(1X, '//trim(FMATFLOAT)//')') x
-    end subroutine wscalar
+!~  
+!~  
+!~  contains
+!~  
+!~  
+!~    subroutine wfLam(wflag)
+!~      character(len=*), intent(in)  :: wflag
+!~      
+!~      nfLam = size(elem_list)
+!~    
+!~      do nfl = 1, nfLam
+!~      
+!~          call extract(elem_list(nfl),curr_status = intvar)
+!~          call wscalar(intvar)
+!~    
+!~          !~! extract the plyblks and interfs elems of the fLam elem
+!~          !~call extract(elem_list(nfl), plyblks=plyblks, interfs=interfs)
+!~          !~
+!~          !~! read the plyblks elems
+!~          !~if(allocated(plyblks)) then
+!~          !~    ! read the no. of plyblks
+!~          !~    nplyblk = size(plyblks)
+!~          !~    ! loop over each plyblk subelem
+!~          !~    do m = 1, nplyblk
+!~          !~        ! extract the subelems of this plyblk
+!~          !~        call extract(plyblks(m), intact_elem=intactplyblk, &
+!~          !~        & subBulks=subBulks, cohCrack=cohCrack)
+!~          !~        if (allocated(intactplyblk)) then     
+!~          !~            !**** write intact elem, type: brickPly
+!~          !~            call wbrickply(intactplyblk,wflag)
+!~          !~            deallocate(intactplyblk)
+!~          !~        else
+!~          !~            !**** write sub bulks, type: abstPly
+!~          !~            nsubBulk = size(subBulks)
+!~          !~            do n = 1, nsubBulk
+!~          !~              call wabstply(subBulks(n),wflag)
+!~          !~            end do
+!~          !~            deallocate(subBulks)
+!~          !~            !**** write coh crack, type: cohCrack
+!~          !~            if (allocated(cohCrack)) then
+!~          !~              call wcohcrack(cohCrack,wflag)
+!~          !~              deallocate(cohCrack)
+!~          !~            end if
+!~          !~        end if
+!~          !~    end do
+!~          !~    deallocate(plyblks) 
+!~          !~end if
+!~          !~
+!~          !~! read the interfs elems
+!~          !~if(allocated(interfs)) then
+!~          !~    ! read the no. of interfs
+!~          !~    ninterf = size(interfs)
+!~          !~    ! loop over all interfs
+!~          !~    do m = 1, ninterf
+!~          !~        ! extract the subinterfs
+!~          !~        call extract(interfs(m), intact_elem=intactinterf, &
+!~          !~        & top_subelem=top_interf, bot_subelem=bot_interf)
+!~          !~        
+!~          !~        ! if intact elem is still present, then it is a coh8 elem type
+!~          !~        if (allocated(intactinterf)) then
+!~          !~            !**** write intact delam elem, type: coh8Delam
+!~          !~            call wcoh8Delam(intactinterf,wflag) 
+!~          !~            deallocate(intactinterf)
+!~          !~        ! if not, then it has decomposed into sub elems
+!~          !~        else
+!~          !~            ! if top interf is present
+!~          !~            if (allocated(top_interf)) then
+!~          !~                call extract(top_interf, subelems=subinterfs)
+!~          !~                ! find the subinterf type and increase the respective type count
+!~          !~                nsubinterf = size(subinterfs)
+!~          !~                do n = 1, nsubinterf
+!~          !~                    !**** write each sub interf, type: abstDelam
+!~          !~                    call wabstDelam(subinterfs(n), wflag)
+!~          !~                end do
+!~          !~                deallocate(subinterfs)
+!~          !~            end if
+!~          !~            ! if bot interf is present
+!~          !~            if (allocated(bot_interf)) then
+!~          !~                call extract(bot_interf, subelems=subinterfs)
+!~          !~                ! find the subinterf type and increase the respective type count
+!~          !~                nsubinterf = size(subinterfs)
+!~          !~                do n = 1, nsubinterf
+!~          !~                    !**** write each sub interf, type: abstDelam
+!~          !~                    call wabstDelam(subinterfs(n), wflag)
+!~          !~                end do
+!~          !~                deallocate(subinterfs)
+!~          !~            end if
+!~          !~        end if
+!~          !~    end do
+!~          !~    deallocate(interfs)
+!~          !~end if
+!~          !~
+!~      end do
+!~
+!~      write(outunit,'(1X)') 
+!~    
+!~    end subroutine wfLam
+!~  
+!~    subroutine wbrickply(brickply,wflag)
+!~      type(brickPly_elem), intent(in) :: brickply
+!~      character(len=*),    intent(in) :: wflag
+!~        select case(trim(adjustl(wflag)))
+!~        case('nelem')
+!~          nbrick = nbrick + 1
+!~        case('connec')
+!~          call extract(brickply, connec=connec)
+!~          call wconnec(connec)
+!~          deallocate(connec)
+!~        case('eltype')
+!~          call weltype('brick')
+!~        case('stress')
+!~          call extract(brickply, stress=str)
+!~          call wtensor(str)
+!~        case('strain')
+!~          call extract(brickply, strain=str)
+!~          call wtensor(str)
+!~        case('fstat')
+!~          call extract(brickply, fstat=intvar)
+!~          call wscalar(intvar)
+!~        case('df')
+!~          call extract(brickply, df=realvar)
+!~          call wscalar(realvar)
+!~        case('dm')
+!~          call wscalar(ZERO)
+!~        end select  
+!~    end subroutine wbrickply
+!~    
+!~    subroutine wabstply(abstply,wflag)
+!~      type(abstPly_elem), intent(in) :: abstply
+!~      character(len=*),   intent(in) :: wflag
+!~        select case(trim(adjustl(wflag)))
+!~        case('nelem')
+!~          call extract(abstply, eltype=eltype)
+!~          if(eltype=='brick') then
+!~            nbrick = nbrick + 1
+!~          else if(eltype=='wedge') then
+!~            nwedge = nwedge + 1
+!~          end if
+!~        case('connec')
+!~          call extract(abstply, connec=connec)
+!~          call wconnec(connec)
+!~          deallocate(connec)
+!~        case('eltype')
+!~          call extract(abstply, eltype=eltype)
+!~          call weltype(eltype)
+!~        case('stress')
+!~          call extract(abstply, stress=str)
+!~          call wtensor(str)
+!~        case('strain')
+!~          call extract(abstply, strain=str)
+!~          call wtensor(str)
+!~        case('fstat')
+!~          call extract(abstply, fstat=intvar)
+!~          call wscalar(intvar)
+!~        case('df')
+!~          call extract(abstply, df=realvar)
+!~          call wscalar(realvar)
+!~        case('dm')
+!~          call wscalar(ZERO)
+!~        end select
+!~    end subroutine wabstply
+!~    
+!~    subroutine wcohcrack(cohCrack,wflag)
+!~      type(coh8Crack_elem), intent(in) :: cohCrack
+!~      character(len=*),     intent(in) :: wflag
+!~        select case(trim(adjustl(wflag)))
+!~        case('nelem')
+!~          ncoh8 = ncoh8 + 1
+!~        case('connec')
+!~          call extract(cohCrack, connec=connec)
+!~          call wconnec(connec)
+!~          deallocate(connec)
+!~        case('eltype')
+!~          call weltype('coh8')
+!~        case('stress')
+!~          call wtensor(str0)
+!~        case('strain')
+!~          call wtensor(str0)
+!~        case('fstat')
+!~          call extract(cohCrack, fstat=intvar)
+!~          call wscalar(intvar)
+!~        case('df')
+!~          call wscalar(ZERO)
+!~        case('dm')
+!~          call extract(cohCrack, dm=realvar)
+!~          call wscalar(realvar)
+!~        end select
+!~    end subroutine wcohcrack
+!~    
+!~    subroutine wcoh8Delam(coh8Delam,wflag)
+!~      type(coh8Delam_elem), intent(in) :: coh8Delam
+!~      character(len=*),    intent(in) :: wflag
+!~        select case(trim(adjustl(wflag)))
+!~        case('nelem')
+!~          ncoh8 = ncoh8 + 1
+!~        case('connec')
+!~          call extract(coh8Delam, connec=connec)
+!~          call wconnec(connec)
+!~          deallocate(connec)
+!~        case('eltype')
+!~          call weltype('coh8')
+!~        case('stress')
+!~          call wtensor(str0)
+!~        case('strain')
+!~          call wtensor(str0)
+!~        case('fstat')
+!~          call extract(coh8Delam, fstat=intvar)
+!~          call wscalar(intvar)
+!~        case('df')
+!~          call wscalar(ZERO)
+!~        case('dm')
+!~          call extract(coh8Delam, dm=realvar)
+!~          call wscalar(realvar)
+!~        end select
+!~    end subroutine wcoh8Delam
+!~   
+!~    subroutine wabstDelam(abstDelam,wflag)
+!~      type(abstDelam_elem), intent(in) :: abstDelam
+!~      character(len=*),     intent(in) :: wflag
+!~        select case(trim(adjustl(wflag)))
+!~        case('nelem')
+!~          call extract(abstDelam, eltype=eltype)
+!~          if (eltype=='coh6Delam') then
+!~            ncoh6 = ncoh6 + 1
+!~          else if (eltype=='coh8Delam') then
+!~            ncoh8 = ncoh8 + 1
+!~          end if
+!~        case('connec')
+!~          call extract(abstDelam, connec=connec)
+!~          call wconnec(connec)
+!~          deallocate(connec)
+!~        case('eltype')
+!~          call extract(abstDelam, eltype=eltype)
+!~          call weltype(eltype)
+!~        case('stress')
+!~          call wtensor(str0)
+!~        case('strain')
+!~          call wtensor(str0)
+!~        case('fstat')
+!~          call extract(abstDelam, fstat=intvar)
+!~          call wscalar(intvar)
+!~        case('df')
+!~          call wscalar(ZERO)
+!~        case('dm')
+!~          call extract(abstDelam, dm=realvar)
+!~          call wscalar(realvar)
+!~        end select
+!~    end subroutine wabstDelam
+!~
+!~    subroutine wconnec(connec)
+!~      integer, allocatable, intent(in) :: connec(:)
+!~      ! print connec in vtk; note that in vtk node no. starts from 0
+!~      write(outunit,'(1X, '//FMATNNODE//')',advance="no") size(connec)
+!~      do j=1,size(connec)
+!~          write(outunit,'('//FMATNNODE//')',advance="no") connec(j)-1
+!~      end do
+!~      write(outunit,'(a)')''
+!~    end subroutine wconnec
+!~  
+!~    subroutine weltype(eltype)
+!~      character(len=*), intent(in) :: eltype
+!~      select case(trim(adjustl(eltype)))
+!~          case('wedge','coh6Delam','coh6')
+!~              write(outunit,'(1X,i2)') 13 ! 13 for wedge/coh6
+!~          case('brick','coh8Delam','coh8')
+!~              write(outunit,'(1X,i2)') 12 ! 12 for brick/coh8
+!~      end select
+!~    end subroutine weltype
+!~   
+!~    subroutine wtensor(x)
+!~      real(DP), intent(in) :: x(6)
+!~      real(DP) :: tensor(3,3)
+!~      integer  :: l
+!~      tensor = ZERO
+!~      tensor(1,1)=x(1)
+!~      tensor(2,2)=x(2)
+!~      tensor(3,3)=x(3)
+!~      tensor(1,2)=x(4)
+!~      tensor(1,3)=x(5)
+!~      tensor(2,3)=x(6)
+!~      tensor(2,1)=x(4)
+!~      tensor(3,1)=x(5)
+!~      tensor(3,2)=x(6)
+!~      do l=1,3
+!~          write(outunit,'(1X, 3'//trim(FMATFLOAT)//')') tensor(1,l), tensor(2,l), tensor(3,l)
+!~      end do
+!~      write(outunit,'(a)')''
+!~    end subroutine wtensor
+!~       
+!~    subroutine wscalar(x)
+!~      class(*), intent(in) :: x
+!~      select type(x)
+!~      type is (real(DP))
+!~        write(outunit,'(1X, '//trim(FMATFLOAT)//')') x
+!~      type is (integer)
+!~        write(outunit,'(1X, '//trim(FMATFSTAT)//')') x
+!~      end select
+!~      !~real(DP), intent(in) :: x
+!~      !~write(outunit,'(1X, '//trim(FMATFLOAT)//')') x
+!~    end subroutine wscalar
   
   
   

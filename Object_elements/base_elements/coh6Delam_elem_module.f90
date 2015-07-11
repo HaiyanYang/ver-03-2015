@@ -61,7 +61,6 @@ type, public :: coh6Delam_elem
   private
   ! list of type components:
   ! fstat         : element failure status
-  ! connec        : indices of element nodes in the global node array
   ! ig_points     : integration points of this element
   ! ig_angles     : delamination longitudial angles at ig points
   ! local_clock   : locally-saved program clock
@@ -69,7 +68,6 @@ type, public :: coh6Delam_elem
   ! separation    : separation on the interface, for output
   ! dm            : matrix degradation factor for output
   integer  :: fstat         = 0
-  integer  :: connec(NNODE) = 0
   type(program_clock)     :: local_clock
   type(cohesive_ig_point) :: ig_points(NIGPOINT)
   real(DP)                :: ig_angles(NIGPOINT) = ZERO
@@ -78,10 +76,6 @@ type, public :: coh6Delam_elem
   real(DP) :: dm              = ZERO
 end type
 
-
-interface set
-  module procedure set_coh6Delam_elem
-end interface
 
 interface integrate
   module procedure integrate_coh6Delam_elem
@@ -94,7 +88,7 @@ end interface
 
 
 
-public :: set, integrate, extract
+public :: integrate, extract
 
 
 
@@ -104,36 +98,7 @@ contains
 
 
 
-pure subroutine set_coh6Delam_elem (elem, connec, istat, emsg)
-! Purpose:
-! this subroutine is used to set the components of the element
-! it is used in the initialize_lib_elem procedure in the lib_elem module
-! note that only some of the components need to be set during preproc,
-! namely connec, ID_matlist
-
-  type(coh6Delam_elem),   intent(inout)   :: elem
-  integer,                intent(in)      :: connec(NNODE)
-  integer,                  intent(out)   :: istat
-  character(len=MSGLENGTH), intent(out)   :: emsg
-
-  istat = STAT_SUCCESS
-  emsg  = ''
-
-  ! check validity of inputs
-  if ( any(connec < 1) ) then
-    istat = STAT_FAILURE
-    emsg  = 'connec node indices must be >=1, set, &
-    &coh6Delam_elem_module'
-    return
-  end if
-
-  elem%connec    = connec
-
-end subroutine set_coh6Delam_elem
-
-
-
-pure subroutine extract_coh6Delam_elem (elem, fstat, connec, ig_points, &
+pure subroutine extract_coh6Delam_elem (elem, fstat, ig_points, &
 & ig_angles, traction, separation, dm)
 ! Purpose:
 ! to extract the components of this element
@@ -142,7 +107,6 @@ pure subroutine extract_coh6Delam_elem (elem, fstat, connec, ig_points, &
 
   type(coh6Delam_elem),                           intent(in)  :: elem
   integer,                              optional, intent(out) :: fstat
-  integer,                 allocatable, optional, intent(out) :: connec(:)
   type(cohesive_ig_point), allocatable, optional, intent(out) :: ig_points(:)
   real(DP),                allocatable, optional, intent(out) :: ig_angles(:)
   real(DP),                             optional, intent(out) :: traction(NST)
@@ -150,11 +114,6 @@ pure subroutine extract_coh6Delam_elem (elem, fstat, connec, ig_points, &
   real(DP),                             optional, intent(out) :: dm
 
   if (present(fstat))       fstat = elem%fstat
-
-  if (present(connec)) then
-    allocate(connec(NNODE))
-    connec = elem%connec
-  end if
 
   if (present(ig_points)) then
     allocate(ig_points(NIGPOINT))
@@ -490,9 +449,9 @@ use global_toolkit_module,       only : cross_product3d, normalize_vect
       if (ig_fstat > INTACT) then
         ctheta1 = cos(ig_angles(kig)/HALFCIRC*PI)
         stheta1 = sin(ig_angles(kig)/HALFCIRC*PI)
-        Qmatrix(1,:)=[    ZERO,    ZERO, ONE ]
-        Qmatrix(2,:)=[ ctheta1, stheta1, ZERO]
-        Qmatrix(3,:)=[-stheta1, ctheta1, ZERO]
+        Qmatrix(1,:)=[    ZERO,    ZERO, ONE ] ! normal
+        Qmatrix(2,:)=[-stheta1, ctheta1, ZERO] ! transverse
+        Qmatrix(3,:)=[ ctheta1, stheta1, ZERO] ! longitudinal
       else
         ! find the preferred delam longitudinal direction (theta1 or theta2)
         ctheta1 = cos(theta1/HALFCIRC*PI)
@@ -504,13 +463,13 @@ use global_toolkit_module,       only : cross_product3d, normalize_vect
         if(abs(deltaL1) > abs(deltaL2)) then
           ig_angles(kig) = theta1
           Qmatrix(1,:)=[    ZERO,    ZERO, ONE ]
-          Qmatrix(2,:)=[ ctheta1, stheta1, ZERO]
-          Qmatrix(3,:)=[-stheta1, ctheta1, ZERO]
+          Qmatrix(2,:)=[-stheta1, ctheta1, ZERO]
+          Qmatrix(3,:)=[ ctheta1, stheta1, ZERO]
         else
           ig_angles(kig) = theta2
           Qmatrix(1,:)=[    ZERO,    ZERO, ONE ]
-          Qmatrix(2,:)=[ ctheta2, stheta2, ZERO]
-          Qmatrix(3,:)=[-stheta2, ctheta2, ZERO]
+          Qmatrix(2,:)=[-stheta2, ctheta2, ZERO]
+          Qmatrix(3,:)=[ ctheta2, stheta2, ZERO]
         end if
       end if
 

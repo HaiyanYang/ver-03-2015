@@ -79,26 +79,18 @@ type, public :: brickPly_elem
   private
   ! list of type components:
   ! fstat         : element failure status
-  ! connec        : indices of elem nodes in the glb node list, need for output
-  ! ply_angle     : ply angle for composite lamina (rotation around z axis)
   ! ig_points     : integration points of this element
   ! local_clock   : locally-saved program clock
   ! stress        : stresses for output
   ! strain        : strains for output
   ! df            : fibre degradation factor for output
   integer  :: fstat         = 0
-  integer  :: connec(NNODE) = 0
-  real(DP) :: ply_angle     = ZERO
   type(program_clock)   :: local_clock
   type(lamina_ig_point) :: ig_points(NIGPOINT)
   real(DP) :: stress(NST)   = ZERO
   real(DP) :: strain(NST)   = ZERO
   real(DP) :: df            = ZERO
 end type
-
-interface set
-  module procedure set_brickPly_elem
-end interface
 
 interface integrate
   module procedure integrate_brickPly_elem
@@ -111,7 +103,7 @@ end interface
 
 
 
-public :: set, integrate, extract
+public :: integrate, extract
 
 
 
@@ -120,39 +112,7 @@ contains
 
 
 
-pure subroutine set_brickPly_elem (elem, connec, ply_angle, istat, emsg)
-! Purpose:
-! this subroutine is used to set the components of the element
-! it is used in the initialize_lib_elem procedure in the lib_elem module
-! note that only some of the components need to be set during preproc,
-! namely connec, ID_matlist, ply_angle
-
-  type(brickPly_elem),      intent(inout) :: elem
-  integer,                  intent(in)    :: connec(NNODE)
-  real(DP),                 intent(in)    :: ply_angle
-  integer,                  intent(out)   :: istat
-  character(len=MSGLENGTH), intent(out)   :: emsg
-  
-  istat = STAT_SUCCESS
-  emsg  = ''
-
-  ! check validity of inputs
-  if ( any(connec < 1) ) then
-    istat = STAT_FAILURE
-    emsg  = 'connec node indices must be >=1, set, &
-    &brickPly_elem_module'
-    return
-  end if
-
-  elem%connec     = connec
-  elem%ply_angle  = ply_angle
-
-end subroutine set_brickPly_elem
-
-
-
-pure subroutine extract_brickPly_elem (elem, fstat, connec, ply_angle, &
-& ig_points, stress, strain, df)
+pure subroutine extract_brickPly_elem (elem, fstat, ig_points, stress, strain, df)
 ! Purpose:
 ! to extract the components of this element
 ! note that the dummy args connec and ig_points are allocatable arrays
@@ -160,21 +120,12 @@ pure subroutine extract_brickPly_elem (elem, fstat, connec, ply_angle, &
 
   type(brickPly_elem),                          intent(in)  :: elem
   integer,                            optional, intent(out) :: fstat
-  integer,               allocatable, optional, intent(out) :: connec(:)
-  real(DP),                           optional, intent(out) :: ply_angle
   type(lamina_ig_point), allocatable, optional, intent(out) :: ig_points(:)
   real(DP),                           optional, intent(out) :: stress(NST)
   real(DP),                           optional, intent(out) :: strain(NST)
   real(DP),                           optional, intent(out) :: df
 
   if (present(fstat))       fstat = elem%fstat
-
-  if (present(connec)) then
-    allocate(connec(NNODE))
-    connec = elem%connec
-  end if
-
-  if (present(ply_angle))   ply_angle   = elem%ply_angle
 
   if (present(ig_points)) then
     allocate(ig_points(NIGPOINT))
@@ -191,7 +142,7 @@ end subroutine extract_brickPly_elem
 
 
 
-pure subroutine integrate_brickPly_elem (elem, nodes, material, K_matrix, &
+pure subroutine integrate_brickPly_elem (elem, nodes, ply_angle, material, K_matrix, &
 & F_vector, istat, emsg, nofailure)
 ! Purpose:
 ! updates K matrix, F vector, integration point stress and strain,
@@ -212,6 +163,7 @@ use global_toolkit_module,       only : crack_elem_centroid2d, determinant3d, &
 
   type(brickPly_elem),      intent(inout) :: elem
   type(fnode),              intent(in)    :: nodes(NNODE)
+  real(DP),                 intent(in)    :: ply_angle
   type(lamina_material),    intent(in)    :: material
   real(DP),    allocatable, intent(out)   :: K_matrix(:,:), F_vector(:)
   integer,                  intent(out)   :: istat
@@ -220,14 +172,12 @@ use global_toolkit_module,       only : crack_elem_centroid2d, determinant3d, &
 
   ! local copies of intent(inout) dummy arg./its components:
   ! - elfstat         : elem's fstat
-  ! - ply_angle       : elem's ply_angle
   ! - local_clock     : elem's local_clock
   ! - ig_points       : elem's ig_points
   ! - elstress        : elem's stress
   ! - elstrain        : elem's strain
   ! - eldf            : elem's df
   integer             :: elfstat
-  real(DP)            :: ply_angle
   type(program_clock) :: local_clock
   type(lamina_ig_point) :: ig_points(NIGPOINT)
   real(DP)            :: elstress(NST)
@@ -297,7 +247,6 @@ use global_toolkit_module,       only : crack_elem_centroid2d, determinant3d, &
   emsg            = ''
   !** local copies of intent(inout) dummy args./its components:
   elfstat         = 0
-  ply_angle       = ZERO
   elstress        = ZERO
   elstrain        = ZERO
   eldf            = ZERO
@@ -347,7 +296,6 @@ use global_toolkit_module,       only : crack_elem_centroid2d, determinant3d, &
   ! elstress  : no extraction     ! out
   ! elstrain  : no extraction     ! out
   ! eldf      : no extraction     ! out
-  ply_angle   = elem%ply_angle    ! in
   local_clock = elem%local_clock  ! inout
   ig_points   = elem%ig_points    ! inout
 
@@ -537,21 +485,6 @@ use global_toolkit_module,       only : crack_elem_centroid2d, determinant3d, &
   end if
 
   !**** END MAIN CALCULATIONS ****
-
-
-  ! check to see if intent(inout) derived type dummy arg's components are
-  ! unintentionally modified
-  if (abs(ply_angle - elem%ply_angle) > SMALLNUM) then
-    istat = STAT_FAILURE
-    emsg  = 'elem%ply_angle is unintentionally modified in brickPly_elem module'
-  end if
-  if (istat == STAT_FAILURE) then
-    call clean_up (K_matrix, F_vector, uj, xj)
-    return
-  end if
-
-  ! if no unintentinal modification, proceed with final calculations
-  ! and updates and exit the program
 
   ! calculate F_vector
   F_vector = matmul(K_matrix,u)

@@ -83,6 +83,8 @@ pure subroutine set_fBrickLam_elem (elem, NPLYBLKS)
 ! plyblk_i_nodes = [ (i-1)*NNODE_PLYBLK + 1 : i*NNODE_PLYBLK ]
 ! interf_i_nodes = top_nodes_of_plyblk_i + bot_nodes_of_plyblk_(i+1)
 ! interf_i_internal_nodes = [ (i-1)*NNDIN_INTERF + 1 : i*NNDIN_INTERF ]
+use fBrickPly_elem_module,  only: set
+use fCoh8Delam_elem_module, only: set
 
   type(fBrickLam_elem), intent(inout) :: elem
   integer,              intent(in)    :: NPLYBLKS
@@ -105,6 +107,8 @@ pure subroutine set_fBrickLam_elem (elem, NPLYBLKS)
     allocate(elem%plyblks_nodes(i)%array(NNODE_PLYBLK))
     elem%plyblks_nodes(i)%array = 0
     elem%plyblks_nodes(i)%array = [(j, j = (i-1)*NNODE_PLYBLK+1, i*NNODE_PLYBLK)]
+    ! set this plyblk elem
+    call set(elem%plyblks(i))
   end do
   !:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::!
 
@@ -147,6 +151,9 @@ pure subroutine set_fBrickLam_elem (elem, NPLYBLKS)
         jend   = NPLYBLKS*NNODE_PLYBLK +  i   * NNDIN_INTERF
         elem%interfs_nodes(i)%array(NNDRL+NNDFL+1 : NNDRL+NNDFL+NNDIN_INTERF) = &
       & [(j, j=jstart,jend)]
+      
+      ! set this interf elem
+      call set (elem%interfs(i))
       
     end do
   
