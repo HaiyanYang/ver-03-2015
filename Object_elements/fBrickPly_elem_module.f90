@@ -282,7 +282,7 @@ use global_clock_module,      only : GLOBAL_CLOCK, clock_in_sync
           ! any subelem reaches MATRIX/FIBRE failure onset
           call failure_criterion_partition (elem, nodes, ply_angle, istat, emsg)
           if (istat == STAT_FAILURE) then
-            emsg = emsg//trim(msgloc)
+            emsg = trim(emsg)//trim(msgloc)
             call clean_up (K_matrix, F_vector)
             return
           end if
@@ -297,7 +297,7 @@ use global_clock_module,      only : GLOBAL_CLOCK, clock_in_sync
             call integrate_assemble_subelems (elem, nodes, ply_angle, lam_mat, coh_mat, &
             & K_matrix, F_vector, istat, emsg, nofailure)
             if (istat == STAT_FAILURE) then
-              emsg = emsg//trim(msgloc)
+              emsg = trim(emsg)//trim(msgloc)
               call clean_up (K_matrix, F_vector)
               return
             end if
@@ -519,7 +519,7 @@ use global_toolkit_module, only : crack_elem_cracktip2d
       &                         edge_crack_point = crackpoint2,               &
       &                         crack_edge_index = jbe2)
       if (istat == STAT_FAILURE) then
-        emsg = emsg//trim(msgloc)
+        emsg = trim(emsg)//trim(msgloc)
         return
       end if
       ! in the future, consider adding here the algorithm to find the top surf
@@ -620,7 +620,7 @@ use global_toolkit_module, only : crack_elem_cracktip2d
       ! update elem partition
       call partition_elem (elem, istat, emsg)
       if (istat == STAT_FAILURE) then
-        emsg = emsg//trim(msgloc)
+        emsg = trim(emsg)//trim(msgloc)
         return
       end if
       ! set newpartition logical variable to be true
@@ -855,7 +855,7 @@ use global_toolkit_module,  only : crack_elem_centroid2d, crack_elem_cracktip2d
         &               edge_crack_points = crackpoints,            &
         &              crack_edge_indices = crackedges)
         if (istat == STAT_FAILURE) then
-          emsg = emsg//trim(msgloc)
+          emsg = trim(emsg)//trim(msgloc)
           return
         end if
         jbe1 = crackedges(1)
@@ -919,7 +919,7 @@ use global_toolkit_module,  only : crack_elem_centroid2d, crack_elem_cracktip2d
         &                         edge_crack_point = crackpoint2,              &
         &                         crack_edge_index = jbe2)
         if (istat == STAT_FAILURE) then
-          emsg = emsg//trim(msgloc)
+          emsg = trim(emsg)//trim(msgloc)
           return
         end if
         ! in the future, consider adding here the algorithm to find the top surf
@@ -1085,7 +1085,7 @@ use global_toolkit_module,  only : crack_elem_centroid2d, crack_elem_cracktip2d
       ! update elem partition
       call partition_elem (elem, istat, emsg)
       if (istat == STAT_FAILURE) then
-        emsg = emsg//trim(msgloc)
+        emsg = trim(emsg)//trim(msgloc)
         return
       end if
       ! set newpartition logical variable to be true
@@ -1236,7 +1236,7 @@ use global_toolkit_module,  only : partition_quad_elem
   call partition_quad_elem (nds_topsurf, ifailedge, subBulks_nds_top, &
   & istat, emsg, cohcrack_nds_top)
   if (istat == STAT_FAILURE) then
-    emsg = emsg//trim(msgloc)
+    emsg = trim(emsg)//trim(msgloc)
     call clean_up (subBulks_nds_top, subBulks_nds_bot)
     return
   end if
@@ -1247,7 +1247,7 @@ use global_toolkit_module,  only : partition_quad_elem
   call partition_quad_elem (nds_botsurf, ifailedge, subBulks_nds_bot, &
   & istat, emsg, cohcrack_nds_bot)
   if (istat == STAT_FAILURE) then
-    emsg = emsg//trim(msgloc)
+    emsg = trim(emsg)//trim(msgloc)
     call clean_up (subBulks_nds_top, subBulks_nds_bot)
     return
   end if
@@ -1411,7 +1411,7 @@ use global_toolkit_module,    only : assembleKF
       call integrate_assemble_intact_elem (elem, nodes, ply_angle, lam_mat, &
       & K_matrix, F_vector, istat, emsg, nofail)
       if (istat == STAT_FAILURE) then
-        emsg = emsg//trim(msgloc)
+        emsg = trim(emsg)//trim(msgloc)
         call zeroKF (K_matrix, F_vector)
         return
       end if
@@ -1430,7 +1430,7 @@ use global_toolkit_module,    only : assembleKF
       call integrate_assemble_subBulks (elem, nodes, ply_angle, lam_mat, &
       & K_matrix, F_vector, istat, emsg, nofail)
       if (istat == STAT_FAILURE) then
-        emsg = emsg//trim(msgloc)
+        emsg = trim(emsg)//trim(msgloc)
         call zeroKF (K_matrix, F_vector)
         return
       end if
@@ -1458,7 +1458,7 @@ use global_toolkit_module,    only : assembleKF
       call integrate_assemble_subBulks (elem, nodes, ply_angle, lam_mat, &
       & K_matrix, F_vector, istat, emsg, nofail)
       if (istat == STAT_FAILURE) then
-        emsg = emsg//trim(msgloc)
+        emsg = trim(emsg)//trim(msgloc)
         call zeroKF (K_matrix, F_vector)
         return
       end if
@@ -1466,7 +1466,7 @@ use global_toolkit_module,    only : assembleKF
       call integrate_assemble_cohCrack (elem, nodes, coh_mat, &
       & K_matrix, F_vector, istat, emsg, nofail)
       if (istat == STAT_FAILURE) then
-        emsg = emsg//trim(msgloc)
+        emsg = trim(emsg)//trim(msgloc)
         call zeroKF (K_matrix, F_vector)
         return
       end if

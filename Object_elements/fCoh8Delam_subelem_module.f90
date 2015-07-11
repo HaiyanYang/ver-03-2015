@@ -170,7 +170,7 @@ use parameter_module, only : MSGLENGTH, STAT_FAILURE, STAT_SUCCESS,&
   end if
   
   ! check the no. of broken edges; only accepts TWO cracked edges
-  n_crackedges = count (top_edge_status >= COH_CRACK_EDGE)
+  n_crackedges = count (top_edge_status > TRANSITION_EDGE)
   if (n_crackedges /= 2) then
     istat = STAT_FAILURE
     emsg  = 'no. of cracked edges must be TWO,'//trim(msgloc)
@@ -272,7 +272,7 @@ pure subroutine partition_element (el, nodes, istat, emsg)
 !** NOTE: ONLY PARTITION WITH TWO CRACKED EDGES IS ALLOWED **
 use parameter_module, only : MSGLENGTH, STAT_SUCCESS, STAT_FAILURE, &
                       & INT_ALLOC_ARRAY, DP, ELTYPELENGTH, ZERO,    &
-                      & ONE, SMALLNUM, COH_CRACK_EDGE
+                      & ONE, SMALLNUM, TRANSITION_EDGE
 use fnode_module,          only : fnode, extract
 use global_toolkit_module, only : distance, partition_quad_elem
 
@@ -340,7 +340,7 @@ use global_toolkit_module, only : distance, partition_quad_elem
   ! find the no. of broken edges, and store their local indices in the array
   ! crack_edges
   do j = 1, NEDGE_SURF
-    if (el%top_edge_status(j) >= COH_CRACK_EDGE) then
+    if (el%top_edge_status(j) > TRANSITION_EDGE) then
       n_crackedges = n_crackedges + 1
       crack_edges(n_crackedges) = j
     end if
@@ -489,7 +489,7 @@ end subroutine partition_element
 pure subroutine update_internal_nodes (el, nodes)
 ! Purpose:
 ! - update the components of the internal nodes of this element
-use parameter_module, only : ZERO, ONE, COH_CRACK_EDGE
+use parameter_module, only : ZERO, ONE, TRANSITION_EDGE
 use fnode_module,     only : fnode, operator(+), operator(*)
 
   type(fCoh8Delam_subelem), intent(in) :: el
@@ -510,7 +510,7 @@ use fnode_module,     only : fnode, operator(+), operator(*)
 
   do j = 1, NEDGE_SURF
     ! if this top edge is not cracked, cycle to the next
-    if (el%top_edge_status(j) < COH_CRACK_EDGE) cycle
+    if (el%top_edge_status(j) <= TRANSITION_EDGE) cycle
     ! extract the local index of the cracked top edge
     Icrackedge  = j
     ! find the internal node on the corresponding
@@ -648,7 +648,7 @@ pure subroutine get_Tmatrix (el, Tmatrixfull)
 ! - calculate [Tmatrixfull], s.t. {U} = [Tmatrixfull] . {U_condensed}, where
 ! {U_condensed} is the nodal dof vector without the internal nodal dofs. The
 ! internal nodal dofs are interpolated from the other nodal dofs.
-use parameter_module, only : DP, ZERO, ONE, COH_CRACK_EDGE
+use parameter_module, only : DP, ZERO, ONE, TRANSITION_EDGE
 
   type(fCoh8Delam_subelem), intent(in)  :: el
   real(DP),    allocatable, intent(out) :: Tmatrixfull(:,:)
@@ -683,7 +683,7 @@ use parameter_module, only : DP, ZERO, ONE, COH_CRACK_EDGE
   ! condensation
   do j = 1, NEDGE_SURF
     ! if this top edge is not cracked, cycle to the next
-    if (el%top_edge_status(j) < COH_CRACK_EDGE) cycle
+    if (el%top_edge_status(j) <= TRANSITION_EDGE) cycle
     ! extract the local index of the cracked top edge
     Icrackedge  = j
     ! find the internal node on the corresponding

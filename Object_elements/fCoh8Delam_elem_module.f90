@@ -230,7 +230,7 @@ use fCoh8Delam_subelem_module, only : set
 
   ! check the no. of broken edges; only accepts TWO cracked edges, as this is
   ! the final partition from the ply element
-  n_crackedges = count (ply_edge_status >= COH_CRACK_EDGE)
+  n_crackedges = count (ply_edge_status > TRANSITION_EDGE)
   if (n_crackedges /= 2) then
     istat = STAT_FAILURE
     emsg  = 'no. of cracked edges must be TWO,'//trim(msgloc)
@@ -380,7 +380,6 @@ use global_toolkit_module,     only : assembleKF
 
       ! clean up local alloc. array before successful return
       call clean_up(Ki, Fi)
-
       return
 
   end if
@@ -456,7 +455,7 @@ use global_toolkit_module,     only : assembleKF
 
 
   if (elem%top_subelem_set .and. elem%bot_subelem_set) then
-      ! half the elem's K and F
+      ! half the elem's K and F on real nodes
       K_matrix = HALF * K_matrix
       F_vector = HALF * F_vector
   end if

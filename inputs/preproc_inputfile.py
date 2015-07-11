@@ -261,8 +261,8 @@ for jp in jparts:
                     # append this edge no. in this elem 
                     parts[-1].elems[-1].edges.append(eg)
                     # find the two fl. nodes on this edge
-                    fn1 = parts[-1].edges[abs(eg)].nodes[2]
-                    fn2 = parts[-1].edges[abs(eg)].nodes[3]
+                    fn1 = parts[-1].edges[abs(eg)-1].nodes[2]
+                    fn2 = parts[-1].edges[abs(eg)-1].nodes[3]
                     # append the fl. nodes in this elem
                     # edge is in the same order as saved
                     if eg > 0:
