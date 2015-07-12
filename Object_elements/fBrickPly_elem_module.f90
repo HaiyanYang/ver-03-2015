@@ -65,7 +65,7 @@ module fBrickPly_elem_module
 !    ========  ====================  ========================================
 !    29/06/15  B. Y. Chen            Original code
 !
-use parameter_module,       only : NDIM, DP, ZERO, INT_ALLOC_ARRAY
+use parameter_module,       only : NDIM, DP, ZERO, INT_ALLOC_ARRAY, NST_STANDARD, NST_COHESIVE
 use global_clock_module,    only : program_clock
 use brickPly_elem_module,   only : brickPly_elem
 use abstPly_elem_module,    only : abstPly_elem
@@ -128,10 +128,12 @@ interface extract
     module procedure extract_fBrickPly_elem
 end interface
 
+interface output
+    module procedure output_fBrickPly_elem
+end interface
 
 
-
-public :: set, integrate, extract
+public :: set, integrate, extract, output
 
 
 
@@ -159,6 +161,104 @@ pure subroutine extract_fBrickPly_elem (elem, curr_status, edge_status_lcl)
   if(present(edge_status_lcl)) edge_status_lcl=elem%edge_status_lcl
 
 end subroutine extract_fBrickPly_elem
+
+
+
+pure subroutine output_fBrickPly_elem (elem, bulks_nodes, crack_nodes, &
+& bulks_stress, bulks_strain, bulks_df, crack_tau, crack_delta, crack_dm)
+! used for output of this elem
+use brickPly_elem_module,   only : extract
+use abstPly_elem_module,    only : extract
+use coh8Crack_elem_module,  only : extract
+
+  type(fBrickPly_elem), intent(in)  :: elem
+  
+  type(INT_ALLOC_ARRAY), allocatable, optional, intent(out) :: bulks_nodes(:)
+  type(INT_ALLOC_ARRAY), allocatable, optional, intent(out) :: crack_nodes
+  
+  real(DP),allocatable, optional, intent(out) :: bulks_stress(:,:)
+  real(DP),allocatable, optional, intent(out) :: bulks_strain(:,:)
+  real(DP),allocatable, optional, intent(out) :: bulks_df(:)
+  real(DP),             optional, intent(out) :: crack_tau(NST_COHESIVE)
+  real(DP),             optional, intent(out) :: crack_delta(NST_COHESIVE)
+  real(DP),             optional, intent(out) :: crack_dm
+  
+  integer :: nsub, i
+  
+  if(present(bulks_nodes)) then
+    ! if subBulks are present, then assign their nodes to bulks_nodes array
+    if (allocated(elem%subBulks_nodes)) then
+      bulks_nodes = elem%subBulks_nodes
+    ! if not, allocate and assign intact elem nodes to bulks_nodes array
+    else
+      allocate(bulks_nodes(1))
+      allocate(bulks_nodes(1)%array(8))
+      bulks_nodes(1)%array = INTACT_ELEM_NODES
+    end if
+  end if
+  
+  if(present(crack_nodes)) then
+    crack_nodes = elem%cohCrack_nodes
+  end if
+  
+  if(present(bulks_stress)) then
+    if (allocated(elem%subBulks)) then
+      nsub = size(elem%subBulks)
+      allocate(bulks_stress(NST_STANDARD,nsub))
+      do i = 1, nsub
+        call extract(elem%subBulks(i), stress=bulks_stress(:,i))
+      end do
+    else
+      allocate(bulks_stress(NST_STANDARD,1))
+      call extract(elem%intact_elem, stress=bulks_stress(:,1))
+    end if
+  end if
+  
+  if(present(bulks_strain)) then
+    if (allocated(elem%subBulks)) then
+      nsub = size(elem%subBulks)
+      allocate(bulks_strain(NST_STANDARD,nsub))
+      do i = 1, nsub
+        call extract(elem%subBulks(i), strain=bulks_strain(:,i))
+      end do
+    else
+      allocate(bulks_strain(NST_STANDARD,1))
+      call extract(elem%intact_elem, strain=bulks_strain(:,1))
+    end if
+  end if
+  
+  if(present(bulks_df)) then
+    if (allocated(elem%subBulks)) then
+      nsub = size(elem%subBulks)
+      allocate(bulks_df(nsub))
+      do i = 1, nsub
+        call extract(elem%subBulks(i), df=bulks_df(i))
+      end do
+    else
+      allocate(bulks_df(1))
+      call extract(elem%intact_elem, df=bulks_df(1))
+    end if
+  end if
+  
+  if(present(crack_tau)) then
+    if (allocated(elem%cohCrack)) then
+      call extract(elem%cohCrack, traction=crack_tau)
+    end if
+  end if
+  
+  if(present(crack_delta)) then
+    if (allocated(elem%cohCrack)) then
+      call extract(elem%cohCrack, separation=crack_delta)
+    end if
+  end if
+  
+  if(present(crack_dm)) then
+    if (allocated(elem%cohCrack)) then
+      call extract(elem%cohCrack, dm=crack_dm)
+    end if
+  end if
+
+end subroutine output_fBrickPly_elem
 
 
 

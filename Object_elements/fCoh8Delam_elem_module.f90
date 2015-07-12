@@ -169,8 +169,11 @@ interface extract
     module procedure extract_fCoh8Delam_elem
 end interface
 
+interface output
+    module procedure output_fCoh8Delam_elem
+end interface
 
-public :: set, update, integrate, extract
+public :: set, update, integrate, extract, output
 
 
 
@@ -304,6 +307,15 @@ pure subroutine extract_fCoh8Delam_elem(elem, top_subelem_set, bot_subelem_set)
   if (present(bot_subelem_set)) bot_subelem_set = elem%bot_subelem_set
 
 end subroutine extract_fCoh8Delam_elem
+
+
+
+pure subroutine output_fCoh8Delam_elem(elem, delam_tau, delam_delta, delam_dm)
+
+  type(fCoh8Delam_elem), intent(in)  :: elem
+
+
+end subroutine output_fCoh8Delam_elem
 
 
 

@@ -47,7 +47,7 @@ module fCoh8Delam_subelem_module
 !
 
 ! load the modules and entities used for derived type declaration only
-use parameter_module,       only : NDIM, DP, ZERO, INT_ALLOC_ARRAY
+use parameter_module,       only : NDIM, DP, ZERO, INT_ALLOC_ARRAY, NST_COHESIVE
 use abstDelam_elem_module,  only : abstDelam_elem
 
 implicit none
@@ -105,12 +105,12 @@ interface integrate
     module procedure integrate_fCoh8Delam_subelem
 end interface
 
-interface extract
-    module procedure extract_fCoh8Delam_subelem
+interface output
+    module procedure output_fCoh8Delam_subelem
 end interface
 
 
-public :: set, integrate, extract
+public :: set, integrate, output
 
 
 
@@ -119,16 +119,48 @@ contains
 
 
 
-pure subroutine extract_fCoh8Delam_subelem (elem, subelems_nodes)
+pure subroutine output_fCoh8Delam_subelem (elem, subelems_nodes, &
+& delam_tau, delam_delta, delam_dm)
 ! Purpose:
 ! to extract components of this element, generally used in output
+use abstDelam_elem_module,  only : extract
 
   type(fCoh8Delam_subelem),                     intent(in)  :: elem
   type(INT_ALLOC_ARRAY), allocatable, optional, intent(out) :: subelems_nodes(:)
+  
+  real(DP),allocatable, optional, intent(out) :: delam_tau(:,:)
+  real(DP),allocatable, optional, intent(out) :: delam_delta(:,:)
+  real(DP),allocatable, optional, intent(out) :: delam_dm(:)
+  
+  integer :: nsub, i
 
   if(present(subelems_nodes)) subelems_nodes=elem%subelems_nodes
+  
+  if(present(delam_tau)) then
+    nsub = size(elem%subelems)
+    allocate(delam_tau(NST_COHESIVE,nsub))
+    do i = 1, nsub
+      call extract(elem%subelems(i), traction=delam_tau(:,i))
+    end do
+  end if
+  
+  if(present(delam_delta)) then
+    nsub = size(elem%subelems)
+    allocate(delam_delta(NST_COHESIVE,nsub))
+    do i = 1, nsub
+      call extract(elem%subelems(i), separation=delam_delta(:,i))
+    end do
+  end if
+  
+  if(present(delam_dm)) then
+    nsub = size(elem%subelems)
+    allocate(delam_dm(nsub))
+    do i = 1, nsub
+      call extract(elem%subelems(i), dm=delam_dm(i))
+    end do
+  end if
 
-end subroutine extract_fCoh8Delam_subelem
+end subroutine output_fCoh8Delam_subelem
 
 
 
