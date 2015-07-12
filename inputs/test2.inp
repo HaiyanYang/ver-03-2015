@@ -49,6 +49,8 @@
 BOTTOM, 3, 3
 BOTTOM, 2, 2
 BOTTOM, 1, 1
+TOP, 3, 3
+TOP, 1, 1
 ** ----------------------------------------------------------------
 ** 
 ** STEP: tension
@@ -61,7 +63,7 @@ BOTTOM, 1, 1
 ** 
 ** Name: Vel-BC-1 Type: Velocity/Angular velocity
 *Boundary, type=VELOCITY
-TOP, 1, 1, 1.
+TOP, 2, 2, 1.
 ** 
 ** CONTROLS
 ** 

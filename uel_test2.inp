@@ -5,7 +5,7 @@
 **
 *Part, name=PART-1-MESH-1
 *NODE,INPUT=uel_nodes.inp    
-*USER ELEMENT, TYPE=U308, NODES=56, COORDINATES=3, PROPERTIES=1, VARIABLES=1
+*USER ELEMENT, TYPE=U308, NODES=88, COORDINATES=3, PROPERTIES=1, VARIABLES=1
 1,2,3
 *ELEMENT, TYPE=U308, ELSET=fnm, INPUT=uel_elems.inp 
 *UEL PROPERTY, ELSET=fnm
@@ -18,14 +18,14 @@
 1,2,3,4,5,6,13,14,19,20,15,16,17,18,
 33,34,29,30,31,32
 *Nset, nset=FRONT, instance=PART-1-MESH-1-1
-47,48,49,50,51,52,61,62,67,68,63,64,65,66,
-79,80,75,76,77,78
+87,88,89,90,91,92,101,102,107,108,103,104,105,106,
+119,120,115,116,117,118
 *Nset, nset=TOP, instance=PART-1-MESH-1-1
 5,6,11,12,31,32,37,38,45,46,51,52,71,72,
-77,78
+77,78,85,86,91,92,111,112,117,118
 *Nset, nset=BOTTOM, instance=PART-1-MESH-1-1
 1,2,7,8,13,14,21,22,41,42,47,48,53,54,
-61,62
+61,62,81,82,87,88,93,94,101,102
 *End Assembly
 *Boundary
 BOTTOM, 3, 3
@@ -33,6 +33,10 @@ BOTTOM, 3, 3
 BOTTOM, 2, 2
 *Boundary
 BOTTOM, 1, 1
+*Boundary
+TOP, 3, 3
+*Boundary
+TOP, 1, 1
 ** ----------------------------------------------------------------
 ** 
 ** STEP: tension
@@ -45,7 +49,7 @@ BOTTOM, 1, 1
 ** 
 ** Name: Vel-BC-1 Type: Velocity/Angular velocity
 *Boundary, type=VELOCITY
-TOP, 1, 1, 1.
+TOP, 2, 2, 1.
 ** 
 ** CONTROLS
 ** 

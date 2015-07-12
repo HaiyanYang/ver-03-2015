@@ -277,7 +277,7 @@ use global_toolkit_module,    only : assembleKF
   end do loop_plyblks
   
   if (istat == STAT_FAILURE) then
-    emsg = emsg//trim(msgloc)
+    emsg = trim(emsg)//trim(msgloc)
     call zeroKF(K_matrix, F_vector)
     call clean_up(Ki, Fi)
     return
@@ -343,13 +343,26 @@ use global_toolkit_module,    only : assembleKF
     end do loop_interfs
     
     if (istat == STAT_FAILURE) then
-      emsg = emsg//trim(msgloc)
+      emsg = trim(emsg)//trim(msgloc)
       call zeroKF(K_matrix, F_vector)
       call clean_up(Ki, Fi)
       return
     end if
   
   end if ! ninterf > 0
+
+  !~! zero internal node contributions
+  !~K_matrix(nplyblks*NNODE_PLYBLK*NDIM+1:nnodettl*NDIM,nplyblks*NNODE_PLYBLK*NDIM+1:nnodettl*NDIM) = ZERO
+  !~F_vector(nplyblks*NNODE_PLYBLK*NDIM+1:nnodettl*NDIM) = ZERO
+  
+  do i = nplyblks*NNODE_PLYBLK*NDIM+1, nnodettl*NDIM
+    if (abs(F_vector(i)) > ZERO) then
+      istat = STAT_FAILURE
+      emsg  = 'internal node F is nonzero'//trim(msgloc)
+      return
+    end if
+  end do
+
 
   call clean_up(Ki, Fi)
 

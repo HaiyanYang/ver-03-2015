@@ -401,7 +401,7 @@ use global_toolkit_module, only : distance, partition_quad_elem
   call partition_quad_elem (NODES_ON_TOP_EDGES, crack_edges, &
   & subelems_nodes_top, istat, emsg)
   if (istat == STAT_FAILURE) then
-    emsg = emsg//trim(msgloc)
+    emsg = trim(emsg)//trim(msgloc)
     call clean_up (subelems_nodes_top, subelems_nodes_bot, x1, x2, xc)
     return
   end if
@@ -412,7 +412,7 @@ use global_toolkit_module, only : distance, partition_quad_elem
   call partition_quad_elem (NODES_ON_BOT_EDGES, crack_edges, &
   & subelems_nodes_bot, istat, emsg)
   if (istat == STAT_FAILURE) then
-    emsg = emsg//trim(msgloc)
+    emsg = trim(emsg)//trim(msgloc)
     call clean_up (subelems_nodes_top, subelems_nodes_bot, x1, x2, xc)
     return
   end if
@@ -606,6 +606,13 @@ use global_toolkit_module,    only : assembleKF
 
     ! allocate the condensed K mat and F vec
     n = size(Tmatrixfull(1,:))
+    ! debug
+    if (n /= 16*NDIM) then
+      istat = STAT_FAILURE
+      emsg = 'Tmatrix size incorrect'//trim(msgloc)
+      return
+    end if
+    ! end debug
     allocate( Kmat_r(n,n), Fvec_r(n) )
     Kmat_r = ZERO
     Fvec_r = ZERO
@@ -627,7 +634,7 @@ use global_toolkit_module,    only : assembleKF
 
   ! clean up if above loop exit upon error
   if (istat == STAT_FAILURE) then
-    emsg = emsg//trim(msgloc)
+    emsg = trim(emsg)//trim(msgloc)
     K_matrix = ZERO
     F_vector = ZERO
   end if

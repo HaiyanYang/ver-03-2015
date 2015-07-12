@@ -579,7 +579,7 @@ for jel in range(nelemtt):
     # so the elem's edge connec is used for assignment of intern. nodes
     if nplyblk > 1:
         for jit in range(nplyblk-1):
-            elnds_l.extend( [ x + nnode_p * nplyblk + nedge_p * jit for x in elegs_p ] )
+            elnds_l.extend( [ abs(x) + nnode_p * nplyblk + nedge_p * jit for x in elegs_p ] )
             
     #**** write elem's nodal and edge connec to uel&fnm_elems ****
     

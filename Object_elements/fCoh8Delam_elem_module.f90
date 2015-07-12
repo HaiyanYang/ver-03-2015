@@ -254,7 +254,7 @@ use fCoh8Delam_subelem_module, only : set
         ! this elem's top edges, without any change of order
         call set (elem%top_subelem, ply_edge_status, istat, emsg)
         if (istat == STAT_FAILURE) then
-          emsg = emsg//trim(msgloc)
+          emsg = trim(emsg)//trim(msgloc)
           return
         end if
 
@@ -276,7 +276,7 @@ use fCoh8Delam_subelem_module, only : set
         call set (elem%bot_subelem, top_edge_status=ply_edge_status([3, 2, 1, 4]), &
         & istat=istat, emsg=emsg)
         if (istat == STAT_FAILURE) then
-          emsg = emsg//trim(msgloc)
+          emsg = trim(emsg)//trim(msgloc)
           return
         end if
 
@@ -360,7 +360,7 @@ use global_toolkit_module,     only : assembleKF
       & material=material, theta1=theta1, theta2=theta2,                     &
       & K_matrix=Ki, F_vector=Fi, istat=istat, emsg=emsg, nofailure=nofail)
       if (istat==STAT_FAILURE) then
-        emsg = emsg//trim(msgloc)
+        emsg = trim(emsg)//trim(msgloc)
         call clean_up(Ki, Fi)
         return
       end if
@@ -371,7 +371,7 @@ use global_toolkit_module,     only : assembleKF
       & istat, emsg)
       ! an error is encountered in assembly, zero K and F and exit
       if (istat==STAT_FAILURE) then
-        emsg = emsg//trim(msgloc)
+        emsg = trim(emsg)//trim(msgloc)
         K_matrix = ZERO
         F_vector = ZERO
         call clean_up(Ki, Fi)
@@ -400,7 +400,7 @@ use global_toolkit_module,     only : assembleKF
       & theta1=theta1, theta2=theta2, K_matrix=Ki, F_vector=Fi,             &
       & istat=istat, emsg=emsg, nofailure=nofail)
       if (istat==STAT_FAILURE) then
-        emsg = emsg//trim(msgloc)
+        emsg = trim(emsg)//trim(msgloc)
         call clean_up(Ki, Fi)
         return
       end if
@@ -412,7 +412,7 @@ use global_toolkit_module,     only : assembleKF
       & istat, emsg)
       ! an error is encountered in assembly, zero K and F and exit
       if (istat==STAT_FAILURE) then
-        emsg = emsg//trim(msgloc)
+        emsg = trim(emsg)//trim(msgloc)
         K_matrix = ZERO
         F_vector = ZERO
         call clean_up(Ki, Fi)
@@ -432,7 +432,7 @@ use global_toolkit_module,     only : assembleKF
       & theta1=theta1, theta2=theta2, K_matrix=Ki, F_vector=Fi,             &
       & istat=istat, emsg=emsg, nofailure=nofail)
       if (istat==STAT_FAILURE) then
-        emsg = emsg//trim(msgloc)
+        emsg = trim(emsg)//trim(msgloc)
         call clean_up(Ki, Fi)
         return
       end if
@@ -444,7 +444,7 @@ use global_toolkit_module,     only : assembleKF
       & istat, emsg)
       ! an error is encountered in assembly, zero K and F and exit
       if (istat==STAT_FAILURE) then
-        emsg = emsg//trim(msgloc)
+        emsg = trim(emsg)//trim(msgloc)
         K_matrix = ZERO
         F_vector = ZERO
         call clean_up(Ki, Fi)
