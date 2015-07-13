@@ -85,7 +85,7 @@ use fBrickLam_elem_module, only: extract
   FMATNNODE = 'i10'  ! for node no.
   FMATNELEM = 'i10'  ! for elem no.
   FMATFSTAT = 'i2'   ! for fstat variable format (2 digits would suffice)
-  FMATFLOAT = 'ES12.3' ! scientific notation, repeat=1, min. width=10, digits=3
+  FMATFLOAT = 'ES20.3E9' ! scientific notation, repeat=1, min. width=10, digits=3
 
   ! write the increment number as a character and store in outnum
   write(outnum,'('//trim(FMATKINC)//')') kinc
@@ -197,7 +197,8 @@ use fBrickLam_elem_module, only: extract
   ! -----------------------------------------------------------------!
   write(outunit,'(a, '//trim(FMATNELEM)//')')'CELL_DATA ', nelem
   
-  
+
+
   ! -----------------------------------------------------------------!
   !                     write stress (order matters)
   ! -----------------------------------------------------------------!     
@@ -216,6 +217,27 @@ use fBrickLam_elem_module, only: extract
   ! wflag = 'strain' would allow the wfLam subroutine to write out all
   ! strain tensors of all ply sub elems in the mesh
   call wfLam('strain')
+
+
+  
+  ! -----------------------------------------------------------------!
+  !                     write stress (order matters)
+  ! -----------------------------------------------------------------!     
+  write(outunit,'(a)')'VECTORS traction float'
+  
+  ! wflag = 'traction' would allow the wfLam subroutine to write out all
+  ! traction vectors of all coh elems in the mesh
+  call wfLam('traction')
+
+  
+  ! -----------------------------------------------------------------!
+  !                     write strain (order matters)
+  ! -----------------------------------------------------------------!  
+  write(outunit,'(a)')'VECTORS separation float'
+  
+  ! wflag = 'strain' would allow the wfLam subroutine to write out all
+  ! separation vectors of all coh elems in the mesh
+  call wfLam('separation')
   
 
   ! -----------------------------------------------------------------!
@@ -266,6 +288,8 @@ use fBrickLam_elem_module, only: extract
       integer,  allocatable :: elnodes(:,:)
       real(DP), allocatable :: stress(:,:)
       real(DP), allocatable :: strain(:,:)
+      real(DP), allocatable :: tau(:,:)
+      real(DP), allocatable :: delta(:,:)
       real(DP), allocatable :: df(:)
       real(DP), allocatable :: dm(:)
       real(DP), allocatable :: dd(:)
@@ -276,7 +300,7 @@ use fBrickLam_elem_module, only: extract
     
       do nfl = 1, nfLam
     
-          call extract(elem_list(nfl), elnodes, stress, strain, df, dm, dd)
+          call extract(elem_list(nfl), elnodes, stress, strain, tau, delta, df, dm, dd)
           
           !*** debug check ***
           if (.not.allocated(elnodes)) then
@@ -291,6 +315,16 @@ use fBrickLam_elem_module, only: extract
           
           if (.not.allocated(strain)) then
             write(MSG_FILE,*)'strain is NOT allocated in output'
+            CALL EXIT_FUNCTION
+          end if
+          
+          if (.not.allocated(tau)) then
+            write(MSG_FILE,*)'tau is NOT allocated in output'
+            CALL EXIT_FUNCTION
+          end if
+          
+          if (.not.allocated(delta)) then
+            write(MSG_FILE,*)'delta is NOT allocated in output'
             CALL EXIT_FUNCTION
           end if
           
@@ -339,6 +373,10 @@ use fBrickLam_elem_module, only: extract
                 call wtensor(stress(:,i))
             case('strain')
                 call wtensor(strain(:,i))
+            case('traction')
+                write(outunit,'(3'//trim(FMATFLOAT)//')') tau(1,i),tau(2,i),tau(3,i)
+            case('separation')
+                write(outunit,'(3'//trim(FMATFLOAT)//')') delta(1,i),delta(2,i),delta(3,i)
             case('df')
                 call wscalar(df(i))
             case('dm')

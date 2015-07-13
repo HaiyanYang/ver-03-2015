@@ -183,7 +183,7 @@ use global_toolkit_module,       only : cross_product3d, normalize_vect, &
   ! - midcoords       : coordinates of the mid-plane
   real(DP), allocatable :: xj(:), uj(:)
   real(DP)            :: coords(NDIM,NNODE), u(NDOF)
-  real(DP)            :: midcoords(NDIM,NNODE/2)
+  real(DP)            :: midcoords(NDIM,NNODE/2), midcoordsQ(NDIM,NNODE/2)
 
   !** local coords and rotational matrix
   ! - normal, tangent1/2 : normal and tangent vectors of the interface,
@@ -257,6 +257,7 @@ use global_toolkit_module,       only : cross_product3d, normalize_vect, &
   coords          = ZERO
   u               = ZERO
   midcoords       = ZERO
+  midcoordsQ      = ZERO
   !** normal and tangents
   normal          = ZERO
   tangent1        = ZERO
@@ -364,25 +365,34 @@ use global_toolkit_module,       only : cross_product3d, normalize_vect, &
   ! check if tangent1 is on x-y plane
   if (dot_product(tangent1,normal) > SMALLNUM) then
     istat = STAT_FAILURE
-    emsg  = 'edge 1-2 not on x-y plane, delam6 element module'
+    emsg  = 'edge 1-2 not on x-y plane, coh8Delam_elem_module'
     call clean_up (K_matrix, F_vector, uj, xj)
     return
   end if
   ! check if tangent2 is on x-y plane
   if (dot_product(tangent2,normal) > SMALLNUM) then
     istat = STAT_FAILURE
-    emsg  = 'edge 1-4 not on x-y plane, delam6 element module'
+    emsg  = 'edge 1-4 not on x-y plane, coh8Delam_elem_module'
     call clean_up (K_matrix, F_vector, uj, xj)
     return
   end if
   ! check if tangent3 is on x-y plane
   if (dot_product(tangent3,normal) > SMALLNUM) then
     istat = STAT_FAILURE
-    emsg  = 'edge 1-3 not on x-y plane, delam6 element module'
+    emsg  = 'edge 1-3 not on x-y plane, coh8Delam_elem_module'
     call clean_up (K_matrix, F_vector, uj, xj)
     return
   end if
 
+  ! compute the actual normal of the interface (which may be [0,0,-1])
+  normal = cross_product3d(tangent1,tangent2)
+  call normalize_vect(normal, is_zero_vect, det)
+  if (is_zero_vect) then
+    istat = STAT_FAILURE
+    emsg  = 'element area is ZERO, coh8Delam element module'
+    call clean_up (K_matrix, F_vector, uj, xj)
+    return
+  end if
 
   !** analysis logical control variables:
   ! check if last iteration has converged by checking if the global clock has
@@ -412,14 +422,6 @@ use global_toolkit_module,       only : cross_product3d, normalize_vect, &
 
       ! get shape function matrix
       call init_shape (fn, dn, ig_xi(:,kig))
-
-      ! calculate jacobian of element at this ig point using planar coordinates
-      ! 3rd row of midcoords are planar normal-dir. coords of the elem nodes
-      ! only the planar tangent dir. coords are used to calculate jacobian w.r.t
-      ! the reference rectangle of quadrilateral
-      ! only the shape funcs of the first half of nodes are needed
-      jac = matmul(midcoords(1:2,:),dn(1:NNODE/2,:))
-      det = determinant2d(jac)
 
       ! Nmatrix: ujump (at each ig point) = Nmatrix * u
       do i = 1, NDIM
@@ -454,9 +456,7 @@ use global_toolkit_module,       only : cross_product3d, normalize_vect, &
       if (ig_fstat > INTACT) then
         ctheta1 = cos(ig_angles(kig)/HALFCIRC*PI)
         stheta1 = sin(ig_angles(kig)/HALFCIRC*PI)
-        Qmatrix(1,:)=[    ZERO,    ZERO, ONE ] ! normal
-        Qmatrix(2,:)=[-stheta1, ctheta1, ZERO] ! transverse
-        Qmatrix(3,:)=[ ctheta1, stheta1, ZERO] ! longitudinal
+        tangent1 = [ ctheta1, stheta1, ZERO]        ! longitudinal
       else
         ! find the preferred delam longitudinal direction (theta1 or theta2)
         ctheta1 = cos(theta1/HALFCIRC*PI)
@@ -467,15 +467,32 @@ use global_toolkit_module,       only : cross_product3d, normalize_vect, &
         deltaL2 = dot_product(ujump(1:2),[ctheta2,stheta2])
         if(abs(deltaL1) > abs(deltaL2)) then
           ig_angles(kig) = theta1
-          Qmatrix(1,:)=[    ZERO,    ZERO, ONE ]
-          Qmatrix(2,:)=[-stheta1, ctheta1, ZERO]
-          Qmatrix(3,:)=[ ctheta1, stheta1, ZERO]
+          tangent1 = [ ctheta1, stheta1, ZERO]
         else
           ig_angles(kig) = theta2
-          Qmatrix(1,:)=[    ZERO,    ZERO, ONE ]
-          Qmatrix(2,:)=[-stheta2, ctheta2, ZERO]
-          Qmatrix(3,:)=[ ctheta2, stheta2, ZERO]
+          tangent1 = [ ctheta2, stheta2, ZERO]
         end if
+      end if
+      tangent2 = cross_product3d(normal,tangent1) ! transverse
+      ! - compute Q matrix
+      Qmatrix(1,:) =  normal(:)   ! normal
+      Qmatrix(2,:) = -tangent2(:) ! transverse (note minus sign)
+      Qmatrix(3,:) =  tangent1(:) ! longitudinal
+      
+      ! - rotate midcoords to planar coord sys.
+      midcoordsQ = matmul(Qmatrix,midcoords)
+      
+      ! calculate jacobian of element at this ig point using planar coordinates
+      ! 3rd row of midcoords are planar normal-dir. coords of the elem nodes
+      ! only the planar tangent dir. coords are used to calculate jacobian w.r.t
+      ! the reference rectangle of quadrilateral
+      ! only the shape funcs of the first half of nodes are needed
+      jac = matmul(midcoordsQ(2:3,:),dn(1:NNODE/2,:))
+      det = determinant2d(jac)
+      if (det <= ZERO) then
+        istat = STAT_FAILURE
+        emsg  = 'det of jacob is zero or negative, coh8Delam_elem_module'
+        return
       end if
       
       ! calculate separation delta in local coords: delta = Qmatrix * ujump

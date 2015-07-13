@@ -59,8 +59,8 @@ contains
 
 
 
-pure subroutine extract_fBrickLam_elem (elem, elnodes, stress, strain, df, dm, dd)
-use parameter_module,       only: NST=>NST_STANDARD, DP, ZERO
+pure subroutine extract_fBrickLam_elem (elem, elnodes, stress, strain, tau, delta, df, dm, dd)
+use parameter_module,       only: NST_STANDARD, NST_COHESIVE, DP, ZERO
 use fBrickPly_elem_module,  only: extract
 use fCoh8Delam_elem_module, only: extract
 
@@ -68,6 +68,8 @@ use fCoh8Delam_elem_module, only: extract
   integer,  allocatable, intent(out) :: elnodes(:,:)
   real(DP), allocatable, intent(out) :: stress(:,:)
   real(DP), allocatable, intent(out) :: strain(:,:)
+  real(DP), allocatable, intent(out) :: tau(:,:)
+  real(DP), allocatable, intent(out) :: delta(:,:)
   real(DP), allocatable, intent(out) :: df(:)
   real(DP), allocatable, intent(out) :: dm(:)
   real(DP), allocatable, intent(out) :: dd(:)
@@ -77,6 +79,8 @@ use fCoh8Delam_elem_module, only: extract
   real(DP), allocatable :: bulks_stress(:,:)
   real(DP), allocatable :: bulks_strain(:,:)
   real(DP), allocatable :: bulks_df(:)
+  real(DP)              :: crack_tau(NST_COHESIVE)
+  real(DP)              :: crack_delta(NST_COHESIVE)
   real(DP)              :: crack_dm
   
   integer :: nplyblk, ninterf, nel, i, j, iel, nsub
@@ -99,8 +103,10 @@ use fCoh8Delam_elem_module, only: extract
   
   !---- allocate array with nel ----
   allocate(elnodes(8,nel))
-  allocate(stress(NST,nel))
-  allocate(strain(NST,nel))
+  allocate(stress(NST_STANDARD,nel))
+  allocate(strain(NST_STANDARD,nel))
+  allocate(tau(   NST_COHESIVE,nel))
+  allocate(delta( NST_COHESIVE,nel))
   allocate(df(nel))
   allocate(dm(nel))
   allocate(dd(nel))
@@ -112,7 +118,8 @@ use fCoh8Delam_elem_module, only: extract
   do i = 1, nplyblk
     ! extract nulk elems and coh crack info
     call extract(elem%plyblks(i), bulks_nodes=bulks_nodes, crack_nodes=crack_nodes,&
-    & bulks_stress=bulks_stress, bulks_strain=bulks_strain, bulks_df=bulks_df, crack_dm=crack_dm)
+    & bulks_stress=bulks_stress, bulks_strain=bulks_strain, bulks_df=bulks_df,     &
+    & crack_tau=crack_tau, crack_delta=crack_delta, crack_dm=crack_dm)
     ! copy bulk subelem values to arg. arrays
     nsub = size(bulks_nodes(1,:))
     do j = 1, nsub
@@ -120,6 +127,8 @@ use fCoh8Delam_elem_module, only: extract
     end do
     stress( : , iel+1 : iel+nsub) = bulks_stress(:,:)
     strain( : , iel+1 : iel+nsub) = bulks_strain(:,:)
+    tau(    : , iel+1 : iel+nsub) = ZERO
+    delta(  : , iel+1 : iel+nsub) = ZERO
     df(iel+1 : iel+nsub) = bulks_df(:)
     dm(iel+1 : iel+nsub) = ZERO
     dd(iel+1 : iel+nsub) = ZERO
@@ -130,6 +139,8 @@ use fCoh8Delam_elem_module, only: extract
       elnodes(: , iel+1)  = elem%plyblks_nodes(i)%array( crack_nodes(:) )
       stress( : , iel+1) = ZERO
       strain( : , iel+1) = ZERO
+      tau(    : , iel+1) = crack_tau
+      delta(  : , iel+1) = crack_delta
       df(iel+1) = ZERO
       dm(iel+1) = crack_dm
       dd(iel+1) = ZERO
@@ -146,6 +157,8 @@ use fCoh8Delam_elem_module, only: extract
       elnodes(: , iel+1) = elem%interfs_nodes(i)%array(1:8)
       stress( : , iel+1) = ZERO
       strain( : , iel+1) = ZERO
+      tau(    : , iel+1) = ZERO
+      delta(  : , iel+1) = ZERO
       df(iel+1) = ZERO
       dm(iel+1) = ZERO
       ! update elem index

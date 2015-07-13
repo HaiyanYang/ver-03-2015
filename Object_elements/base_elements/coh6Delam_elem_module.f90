@@ -378,12 +378,18 @@ use global_toolkit_module,       only : cross_product3d, normalize_vect
   ! note that determinant of linear tri elem is constant and is equal to
   ! Atri / Atri_reference = Atri / 0.5 = 2 * Atri
   ! so the length of tangent1 cross tangent2 = determinant of this elem
+  ! also note that this normal may be [0,0,-1]
   normal = cross_product3d(tangent1,tangent2)
   call normalize_vect(normal, is_zero_vect, det)
   if (is_zero_vect) then
     istat = STAT_FAILURE
     emsg  = 'element area is ZERO, delam6 element module'
     call clean_up (K_matrix, F_vector, uj, xj)
+    return
+  end if
+  if (det <= ZERO) then
+    istat = STAT_FAILURE
+    emsg  = 'det of jacob is zero or negative,  delam6 element module'
     return
   end if
 
@@ -449,9 +455,7 @@ use global_toolkit_module,       only : cross_product3d, normalize_vect
       if (ig_fstat > INTACT) then
         ctheta1 = cos(ig_angles(kig)/HALFCIRC*PI)
         stheta1 = sin(ig_angles(kig)/HALFCIRC*PI)
-        Qmatrix(1,:)=[    ZERO,    ZERO, ONE ] ! normal
-        Qmatrix(2,:)=[-stheta1, ctheta1, ZERO] ! transverse
-        Qmatrix(3,:)=[ ctheta1, stheta1, ZERO] ! longitudinal
+        tangent1 = [ ctheta1, stheta1, ZERO]        ! longitudinal
       else
         ! find the preferred delam longitudinal direction (theta1 or theta2)
         ctheta1 = cos(theta1/HALFCIRC*PI)
@@ -462,16 +466,17 @@ use global_toolkit_module,       only : cross_product3d, normalize_vect
         deltaL2 = dot_product(ujump(1:2),[ctheta2,stheta2])
         if(abs(deltaL1) > abs(deltaL2)) then
           ig_angles(kig) = theta1
-          Qmatrix(1,:)=[    ZERO,    ZERO, ONE ]
-          Qmatrix(2,:)=[-stheta1, ctheta1, ZERO]
-          Qmatrix(3,:)=[ ctheta1, stheta1, ZERO]
+          tangent1 = [ ctheta1, stheta1, ZERO]
         else
           ig_angles(kig) = theta2
-          Qmatrix(1,:)=[    ZERO,    ZERO, ONE ]
-          Qmatrix(2,:)=[-stheta2, ctheta2, ZERO]
-          Qmatrix(3,:)=[ ctheta2, stheta2, ZERO]
+          tangent1 = [ ctheta2, stheta2, ZERO]
         end if
       end if
+      tangent2 = cross_product3d(normal,tangent1) ! transverse
+      ! - compute Q matrix
+      Qmatrix(1,:) =  normal(:)   ! normal
+      Qmatrix(2,:) = -tangent2(:) ! transverse (note minus sign)
+      Qmatrix(3,:) =  tangent1(:) ! longitudinal
 
       ! calculate separation delta in local coords: delta = Qmatrix * ujump
       delta = matmul(Qmatrix,ujump)

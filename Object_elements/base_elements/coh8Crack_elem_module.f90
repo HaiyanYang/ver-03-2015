@@ -361,9 +361,9 @@ use global_toolkit_module,       only : cross_product3d, normalize_vect, &
     return
   end if
   ! - compute Q matrix
-  Qmatrix(1,:)=normal(:)   ! normal
-  Qmatrix(2,:)=tangent2(:) ! transverse
-  Qmatrix(3,:)=tangent1(:) ! longitudinal
+  Qmatrix(1,:) =  normal(:)   ! normal
+  Qmatrix(2,:) = -tangent2(:) ! transverse (note minus sign)
+  Qmatrix(3,:) =  tangent1(:) ! longitudinal
   ! - rotate midcoords to planar coord sys.
   midcoords = matmul(Qmatrix,midcoords)
 
@@ -403,6 +403,11 @@ use global_toolkit_module,       only : cross_product3d, normalize_vect, &
       ! only the shape funcs of the first half of nodes are needed
       jac = matmul(midcoords(2:3,:),dn(1:NNODE/2,:))
       det = determinant2d(jac)
+      if (det <= ZERO) then
+        istat = STAT_FAILURE
+        emsg  = 'det of jacob is zero or negative, cohCrack element module'
+        return
+      end if
 
       ! Nmatrix: ujump (at each ig point) = Nmatrix * u
       do i = 1, NDIM
