@@ -169,11 +169,8 @@ interface extract
     module procedure extract_fCoh8Delam_elem
 end interface
 
-interface output
-    module procedure output_fCoh8Delam_elem
-end interface
 
-public :: set, update, integrate, extract, output
+public :: set, update, integrate, extract
 
 
 
@@ -297,25 +294,68 @@ end subroutine update_fCoh8Delam_elem
 
 
 
-pure subroutine extract_fCoh8Delam_elem(elem, top_subelem_set, bot_subelem_set)
+pure subroutine extract_fCoh8Delam_elem(elem, top_subelem_set, bot_subelem_set, &
+& subelems_nodes, delam_tau, delam_delta, delam_dm, delam_dm_avg)
+use parameter_module,          only: DP, ZERO, HALF
+use coh8Delam_elem_module,     only: extract
+use fCoh8Delam_subelem_module, only: extract
 
-  type(fCoh8Delam_elem), intent(in)  :: elem
-  logical,     optional, intent(out) :: top_subelem_set
-  logical,     optional, intent(out) :: bot_subelem_set
-
+  type(fCoh8Delam_elem),           intent(in)  :: elem
+  logical,               optional, intent(out) :: top_subelem_set
+  logical,               optional, intent(out) :: bot_subelem_set
+  integer,  allocatable, optional, intent(out) :: subelems_nodes(:,:)
+  real(DP), allocatable, optional, intent(out) :: delam_tau(:,:)
+  real(DP), allocatable, optional, intent(out) :: delam_delta(:,:)
+  real(DP), allocatable, optional, intent(out) :: delam_dm(:)
+  real(DP),              optional, intent(out) :: delam_dm_avg
+  
+  real(DP), allocatable :: top_dm(:), bot_dm(:)
+  real(DP)              :: top_dm_avg, bot_dm_avg
+  
+  top_dm_avg = ZERO
+  bot_dm_avg = ZERO
+  
   if (present(top_subelem_set)) top_subelem_set = elem%top_subelem_set
   if (present(bot_subelem_set)) bot_subelem_set = elem%bot_subelem_set
+  
+  ! for now, only output intact elem nodes for simplicity.
+  if (present(subelems_nodes)) then
+      allocate(subelems_nodes(8,1))
+      subelems_nodes(:,1) = INTACT_ELEM_NODES
+  end if
+  
+  
+  if (present(delam_dm_avg)) then
+    
+    delam_dm_avg = ZERO
+    
+    if (allocated(elem%intact_elem)) then
+
+      call extract(elem%intact_elem, dm=delam_dm_avg)
+    
+    else
+
+      if (elem%top_subelem_set) then
+         call extract(elem%top_subelem, delam_dm=top_dm)
+         top_dm_avg = sum(top_dm)/size(top_dm)
+         delam_dm_avg = delam_dm_avg + top_dm_avg
+      end if
+      
+      if (elem%bot_subelem_set) then
+         call extract(elem%bot_subelem, delam_dm=bot_dm)
+         bot_dm_avg = sum(bot_dm)/size(bot_dm)
+         delam_dm_avg = delam_dm_avg + bot_dm_avg
+      end if
+      
+      if (elem%top_subelem_set .and. elem%bot_subelem_set) then
+        delam_dm_avg = HALF * delam_dm_avg
+      end if
+      
+    end if
+  
+  end if
 
 end subroutine extract_fCoh8Delam_elem
-
-
-
-pure subroutine output_fCoh8Delam_elem(elem, delam_tau, delam_delta, delam_dm)
-
-  type(fCoh8Delam_elem), intent(in)  :: elem
-
-
-end subroutine output_fCoh8Delam_elem
 
 
 

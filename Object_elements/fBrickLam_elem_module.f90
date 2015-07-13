@@ -59,18 +59,99 @@ contains
 
 
 
-pure subroutine extract_fBrickLam_elem (elem, curr_status, plyblks_nodes, interfs_nodes)
+pure subroutine extract_fBrickLam_elem (elem, elnodes, stress, strain, df, dm, dd)
+use parameter_module,       only: NST=>NST_STANDARD, DP, ZERO
+use fBrickPly_elem_module,  only: extract
+use fCoh8Delam_elem_module, only: extract
 
-  type(fBrickLam_elem),                         intent(in)  :: elem
-  integer,                            optional, intent(out) :: curr_status
-  type(INT_ALLOC_ARRAY), allocatable, optional, intent(out) :: plyblks_nodes(:)
-  type(INT_ALLOC_ARRAY), allocatable, optional, intent(out) :: interfs_nodes(:)
+  type(fBrickLam_elem),  intent(in)  :: elem
+  integer,  allocatable, intent(out) :: elnodes(:,:)
+  real(DP), allocatable, intent(out) :: stress(:,:)
+  real(DP), allocatable, intent(out) :: strain(:,:)
+  real(DP), allocatable, intent(out) :: df(:)
+  real(DP), allocatable, intent(out) :: dm(:)
+  real(DP), allocatable, intent(out) :: dd(:)
 
-  if(present(curr_status))   curr_status   = elem%curr_status
+  integer,  allocatable :: bulks_nodes(:,:)
+  integer,  allocatable :: crack_nodes(:)
+  real(DP), allocatable :: bulks_stress(:,:)
+  real(DP), allocatable :: bulks_strain(:,:)
+  real(DP), allocatable :: bulks_df(:)
+  real(DP)              :: crack_dm
+  
+  integer :: nplyblk, ninterf, nel, i, j, iel, nsub
+  
+  nplyblk = size(elem%plyblks)
+  ninterf = nplyblk - 1
 
-  if(present(plyblks_nodes)) plyblks_nodes = elem%plyblks_nodes
-
-  if(present(interfs_nodes)) interfs_nodes = elem%interfs_nodes
+  !---- calculate no. of elems ------
+  nel = 0
+  do i = 1, nplyblk
+    ! extract nulk elems nodes and coh crack nodes
+    call extract(elem%plyblks(i), bulks_nodes=bulks_nodes, crack_nodes=crack_nodes)
+    ! update elem count with bulk elems of this plyblk
+    nel = nel + size(bulks_nodes(1,:))
+    ! update elem count with cohcrack elem of this plyblk
+    if (allocated(crack_nodes)) nel = nel + 1
+  end do
+  ! update elem count with interf elems
+  nel = nel + ninterf
+  
+  !---- allocate array with nel ----
+  allocate(elnodes(8,nel))
+  allocate(stress(NST,nel))
+  allocate(strain(NST,nel))
+  allocate(df(nel))
+  allocate(dm(nel))
+  allocate(dd(nel))
+  
+  !---- set initial elem index ----
+  iel = 0
+  
+  !---- extract from all subelems of plyblks ----
+  do i = 1, nplyblk
+    ! extract nulk elems and coh crack info
+    call extract(elem%plyblks(i), bulks_nodes=bulks_nodes, crack_nodes=crack_nodes,&
+    & bulks_stress=bulks_stress, bulks_strain=bulks_strain, bulks_df=bulks_df, crack_dm=crack_dm)
+    ! copy bulk subelem values to arg. arrays
+    nsub = size(bulks_nodes(1,:))
+    do j = 1, nsub
+      elnodes(: , iel+j) = elem%plyblks_nodes(i)%array( bulks_nodes(:,j) )
+    end do
+    stress( : , iel+1 : iel+nsub) = bulks_stress(:,:)
+    strain( : , iel+1 : iel+nsub) = bulks_strain(:,:)
+    df(iel+1 : iel+nsub) = bulks_df(:)
+    dm(iel+1 : iel+nsub) = ZERO
+    dd(iel+1 : iel+nsub) = ZERO
+    ! update elem index
+    iel = iel + nsub
+    ! copy coh crack subelem values to arg. arrays
+    if (allocated(crack_nodes)) then
+      elnodes(: , iel+1)  = elem%plyblks_nodes(i)%array( crack_nodes(:) )
+      stress( : , iel+1) = ZERO
+      strain( : , iel+1) = ZERO
+      df(iel+1) = ZERO
+      dm(iel+1) = crack_dm
+      dd(iel+1) = ZERO
+      ! update elem index
+      iel = iel + 1
+    end if
+  end do
+  
+  !---- extract from all interfs ----
+  if (ninterf > 0) then
+    do i = 1, ninterf
+      ! extract interf info
+      call extract(elem%interfs(i),delam_dm_avg=dd(iel+1))
+      elnodes(: , iel+1) = elem%interfs_nodes(i)%array(1:8)
+      stress( : , iel+1) = ZERO
+      strain( : , iel+1) = ZERO
+      df(iel+1) = ZERO
+      dm(iel+1) = ZERO
+      ! update elem index
+      iel = iel + 1
+    end do
+  end if
 
 end subroutine extract_fBrickLam_elem
 

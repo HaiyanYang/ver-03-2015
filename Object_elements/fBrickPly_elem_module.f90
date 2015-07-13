@@ -128,12 +128,8 @@ interface extract
     module procedure extract_fBrickPly_elem
 end interface
 
-interface output
-    module procedure output_fBrickPly_elem
-end interface
 
-
-public :: set, integrate, extract, output
+public :: set, integrate, extract
 
 
 
@@ -150,32 +146,19 @@ end subroutine set_fBrickPly_elem
 
 
 
-pure subroutine extract_fBrickPly_elem (elem, curr_status, edge_status_lcl)
-
-  type(fBrickPly_elem), intent(in)  :: elem
-  integer,    optional, intent(out) :: curr_status
-  integer,    optional, intent(out) :: edge_status_lcl(NEDGE_SURF)
-
-  if(present(curr_status)) curr_status=elem%curr_status
-
-  if(present(edge_status_lcl)) edge_status_lcl=elem%edge_status_lcl
-
-end subroutine extract_fBrickPly_elem
-
-
-
-pure subroutine output_fBrickPly_elem (elem, bulks_nodes, crack_nodes, &
-& bulks_stress, bulks_strain, bulks_df, crack_tau, crack_delta, crack_dm)
+pure subroutine extract_fBrickPly_elem (elem, curr_status, edge_status_lcl, &
+& bulks_nodes, crack_nodes, bulks_stress, bulks_strain, bulks_df, crack_tau, crack_delta, crack_dm)
 ! used for output of this elem
 use brickPly_elem_module,   only : extract
 use abstPly_elem_module,    only : extract
 use coh8Crack_elem_module,  only : extract
 
   type(fBrickPly_elem), intent(in)  :: elem
+  integer,    optional, intent(out) :: curr_status
+  integer,    optional, intent(out) :: edge_status_lcl(NEDGE_SURF)
   
-  type(INT_ALLOC_ARRAY), allocatable, optional, intent(out) :: bulks_nodes(:)
-  type(INT_ALLOC_ARRAY), allocatable, optional, intent(out) :: crack_nodes
-  
+  integer, allocatable, optional, intent(out) :: bulks_nodes(:,:)
+  integer, allocatable, optional, intent(out) :: crack_nodes(:)
   real(DP),allocatable, optional, intent(out) :: bulks_stress(:,:)
   real(DP),allocatable, optional, intent(out) :: bulks_strain(:,:)
   real(DP),allocatable, optional, intent(out) :: bulks_df(:)
@@ -183,22 +166,38 @@ use coh8Crack_elem_module,  only : extract
   real(DP),             optional, intent(out) :: crack_delta(NST_COHESIVE)
   real(DP),             optional, intent(out) :: crack_dm
   
-  integer :: nsub, i
+  integer :: nsub, i, subnnd
+  
+  if(present(curr_status))     curr_status     = elem%curr_status
+
+  if(present(edge_status_lcl)) edge_status_lcl = elem%edge_status_lcl
   
   if(present(bulks_nodes)) then
     ! if subBulks are present, then assign their nodes to bulks_nodes array
-    if (allocated(elem%subBulks_nodes)) then
-      bulks_nodes = elem%subBulks_nodes
+    if (allocated(elem%subBulks)) then
+      nsub = size(elem%subBulks)
+      ! allocate 8 nodes per sub elem
+      allocate(bulks_nodes(8,nsub))
+      do i = 1, nsub
+        subnnd = size(elem%subBulks_nodes(i)%array)
+        ! copy the node no. of subelem to arg. array
+        bulks_nodes(1:subnnd,i) = elem%subBulks_nodes(i)%array(:)
+        ! if less than 8 nodes, then fill the rest nodes with the last node no.
+        if (subnnd < 8) bulks_nodes(subnnd+1:8,i) = bulks_nodes(subnnd,i)
+      end do
     ! if not, allocate and assign intact elem nodes to bulks_nodes array
     else
-      allocate(bulks_nodes(1))
-      allocate(bulks_nodes(1)%array(8))
-      bulks_nodes(1)%array = INTACT_ELEM_NODES
+      ! store the intact elem nodes
+      allocate(bulks_nodes(8,1))
+      bulks_nodes(:,1) = INTACT_ELEM_NODES
     end if
   end if
   
   if(present(crack_nodes)) then
-    crack_nodes = elem%cohCrack_nodes
+    if (allocated(elem%cohCrack_nodes)) then
+      allocate(crack_nodes(8))
+      crack_nodes = elem%cohCrack_nodes%array
+    end if
   end if
   
   if(present(bulks_stress)) then
@@ -258,7 +257,7 @@ use coh8Crack_elem_module,  only : extract
     end if
   end if
 
-end subroutine output_fBrickPly_elem
+end subroutine extract_fBrickPly_elem
 
 
 

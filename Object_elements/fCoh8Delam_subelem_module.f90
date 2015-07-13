@@ -105,12 +105,12 @@ interface integrate
     module procedure integrate_fCoh8Delam_subelem
 end interface
 
-interface output
-    module procedure output_fCoh8Delam_subelem
+interface extract
+    module procedure extract_fCoh8Delam_subelem
 end interface
 
 
-public :: set, integrate, output
+public :: set, integrate, extract
 
 
 
@@ -119,22 +119,29 @@ contains
 
 
 
-pure subroutine output_fCoh8Delam_subelem (elem, subelems_nodes, &
+pure subroutine extract_fCoh8Delam_subelem (elem, subelems_nodes, &
 & delam_tau, delam_delta, delam_dm)
 ! Purpose:
-! to extract components of this element, generally used in output
+! to output components of this element
 use abstDelam_elem_module,  only : extract
 
-  type(fCoh8Delam_subelem),                     intent(in)  :: elem
-  type(INT_ALLOC_ARRAY), allocatable, optional, intent(out) :: subelems_nodes(:)
-  
+  type(fCoh8Delam_subelem),       intent(in)  :: elem
+  integer, allocatable, optional, intent(out) :: subelems_nodes(:,:)
   real(DP),allocatable, optional, intent(out) :: delam_tau(:,:)
   real(DP),allocatable, optional, intent(out) :: delam_delta(:,:)
   real(DP),allocatable, optional, intent(out) :: delam_dm(:)
   
-  integer :: nsub, i
+  integer :: nsub, i, nnd
 
-  if(present(subelems_nodes)) subelems_nodes=elem%subelems_nodes
+  if(present(subelems_nodes)) then
+    nsub = size(elem%subelems)
+    allocate(subelems_nodes(8,nsub))
+    do i = 1, nsub
+      nnd = size(elem%subelems_nodes(i)%array)
+      subelems_nodes(1:nnd,i) = elem%subelems_nodes(i)%array(:)
+      if (nnd < 8) subelems_nodes(nnd+1:8,i) = subelems_nodes(nnd,i) 
+    end do
+  end if
   
   if(present(delam_tau)) then
     nsub = size(elem%subelems)
@@ -160,7 +167,7 @@ use abstDelam_elem_module,  only : extract
     end do
   end if
 
-end subroutine output_fCoh8Delam_subelem
+end subroutine extract_fCoh8Delam_subelem
 
 
 

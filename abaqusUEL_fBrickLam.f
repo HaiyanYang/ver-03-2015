@@ -237,8 +237,8 @@ use output_module
   ! extract nodes and edge status from global node and edge lists
   nodes = node_list(node_cnc)
   
-  ! debug, check the input to elem
-  call output(kstep,jelem*1000+kinc,outdir)
+  !~! debug, check the input to elem
+  !~call output(kstep,jelem*1000+kinc,outdir)
 
   !~! debug
   !~! open a file 

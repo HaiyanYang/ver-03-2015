@@ -54,7 +54,7 @@ TOP, 3, 3
 ** 
 *Step, name=tension, inc=1000
 *Static
-0.02, 0.1, 1e-07, 0.02
+0.0002, 0.1, 1e-07, 0.0002
 ** 
 ** BOUNDARY CONDITIONS
 ** 
