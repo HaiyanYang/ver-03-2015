@@ -333,8 +333,6 @@ use global_clock_module,      only : GLOBAL_CLOCK, clock_in_sync
   &              CRACK_TIP_ELEM, CRACK_WAKE_ELEM) elstatuscase
 
       !***** check edge status variables *****
-      ! save existing elem status for comparison purpose later
-      elstatus = elem%curr_status
       ! update elem status according to edge status values
       ! and update the edge status values
       ! and partition the elem
@@ -375,30 +373,34 @@ use global_clock_module,      only : GLOBAL_CLOCK, clock_in_sync
             call clean_up (K_matrix, F_vector)
             return
           end if
-          !***** check failure criterion *****
-          ! failure criterion partitions elem of any status directly into
-          ! MATRIX_CRACK_ELEM partition if the failure criterion judges
-          ! any subelem reaches MATRIX/FIBRE failure onset
-          call failure_criterion_partition (elem, nodes, ply_angle, istat, emsg)
-          if (istat == STAT_FAILURE) then
-            emsg = trim(emsg)//trim(msgloc)
-            call clean_up (K_matrix, F_vector)
-            return
-          end if
-          ! check to see if the elem partition is updated by failure criterion
-          ! NOTE: any update goes straight to MATRIX_CRACK_ELEM status
-          ! if updated, newpartition becomes TRUE and
-          ! subelems need to be re-integrated with failure suppressed
-          if (elem%newpartition) then
-            ! suppress failure for subelem during new partition increment
-            nofailure = .true.
-            ! re-integrate the subelems and re-assemle their K and F
-            call integrate_assemble_subelems (elem, nodes, ply_angle, lam_mat, coh_mat, &
-            & K_matrix, F_vector, istat, emsg, nofailure)
+          ! if elem status is not yet final after edge status update, go to
+          ! failure criterion partition
+          if (elem%curr_status < MATRIX_CRACK_ELEM) then
+            !***** check failure criterion *****
+            ! failure criterion partitions elem of any status directly into
+            ! MATRIX_CRACK_ELEM partition if the failure criterion judges
+            ! any subelem reaches MATRIX/FIBRE failure onset
+            call failure_criterion_partition (elem, nodes, ply_angle, istat, emsg)
             if (istat == STAT_FAILURE) then
               emsg = trim(emsg)//trim(msgloc)
               call clean_up (K_matrix, F_vector)
               return
+            end if
+            ! check to see if the elem partition is updated by failure criterion
+            ! NOTE: any update goes straight to MATRIX_CRACK_ELEM status
+            ! if updated, newpartition becomes TRUE and
+            ! subelems need to be re-integrated with failure suppressed
+            if (elem%newpartition) then
+              ! suppress failure for subelem during new partition increment
+              nofailure = .true.
+              ! re-integrate the subelems and re-assemle their K and F
+              call integrate_assemble_subelems (elem, nodes, ply_angle, lam_mat, coh_mat, &
+              & K_matrix, F_vector, istat, emsg, nofailure)
+              if (istat == STAT_FAILURE) then
+                emsg = trim(emsg)//trim(msgloc)
+                call clean_up (K_matrix, F_vector)
+                return
+              end if
             end if
           end if
       end select newPartition
@@ -621,11 +623,18 @@ use global_toolkit_module, only : crack_elem_cracktip2d
         emsg = trim(emsg)//trim(msgloc)
         return
       end if
+      
+      if ((jbe2 <= 0) .or. (jbe2 > NEDGE_SURF) .or. (jbe1 == jbe2)) then
+        istat = STAT_FAILURE
+        emsg  = 'wrong broken edge from cracktip'//trim(msgloc)
+        return
+      end if
+      
       ! in the future, consider adding here the algorithm to find the top surf
       ! jbe2 crackpoint according to the fracture plane
 
   case (REFINEMENT_ELEM, CRACK_TIP_ELEM, &
-  &     CRACK_WAKE_ELEM, MATRIX_CRACK_ELEM) jbe1jbe2
+  &     CRACK_WAKE_ELEM) jbe1jbe2
       ! once partitioned, only check the status of stored failed edges;
       ! other failed edges are ignored
       do i = 1, NEDGE_SURF
@@ -657,12 +666,16 @@ use global_toolkit_module, only : crack_elem_cracktip2d
 
   ! extract the edge status of jbe1 and jbe2
   ! from passed in edge_status array and update to eledgestatus_lcl
-  eledgestatus_lcl(jbe1) = edge_status(jbe1)
-  eledgestatus_lcl(jbe2) = edge_status(jbe2)
+  ! note that edge status lcl does not decrease!
+  eledgestatus_lcl(jbe1) = max(edge_status(jbe1),eledgestatus_lcl(jbe1))
+  eledgestatus_lcl(jbe2) = max(edge_status(jbe2),eledgestatus_lcl(jbe2))
 
   ! update edge status and elem status, based on jbe1 and jbe2 status
-  call update_edge_elem_status (eledgestatus_lcl, elstatus, jbe1, jbe2)
-
+  call update_edge_elem_status (eledgestatus_lcl, elstatus, jbe1, jbe2, istat, emsg)
+  if (istat == STAT_FAILURE) then
+    emsg = trim(emsg)//trim(msgloc)
+    return
+  end if
   !**** END MAIN CALCULATIONS ****
 
   !:::::::::::::::::::::::::::::::::!
@@ -740,14 +753,19 @@ use global_toolkit_module, only : crack_elem_cracktip2d
 
 
   pure subroutine update_edge_elem_status (eledgestatus_lcl, elstatus, &
-  & ibe1, ibe2)
+  & ibe1, ibe2, istat, emsg)
   ! update the edge status of the two broken edges and elem status
     integer, intent(inout) :: eledgestatus_lcl(NEDGE_SURF), elstatus
     integer, intent(in)    :: ibe1, ibe2
-
+    integer,                  intent(out)   :: istat
+    character(len=MSGLENGTH), intent(out)   :: emsg
+  
     integer :: jbe1, jbe2
     jbe1 = 0
     jbe2 = 0
+    
+    istat = STAT_SUCCESS
+    emsg  = ''
 
     ! store the more critical edge of the two in jbe1
     if (eledgestatus_lcl(ibe2) > eledgestatus_lcl(ibe1)) then
@@ -806,6 +824,10 @@ use global_toolkit_module, only : crack_elem_cracktip2d
           eledgestatus_lcl(jbe2) = CRACK_TIP_EDGE
           elstatus = CRACK_WAKE_ELEM
         end if
+    case default
+      istat = STAT_FAILURE
+      emsg  = 'unexpected jbe1 edge status in update_edge_elem_status'
+      return
     end select
 
   end subroutine update_edge_elem_status
@@ -957,8 +979,15 @@ use global_toolkit_module,  only : crack_elem_centroid2d, crack_elem_cracktip2d
           emsg = trim(emsg)//trim(msgloc)
           return
         end if
+        
         jbe1 = crackedges(1)
         jbe2 = crackedges(2)
+        if (any(crackedges <= 0) .or. (jbe1 == jbe2)) then
+          istat = STAT_FAILURE
+          emsg  = 'wrong broken edges from centroid'//trim(msgloc)
+          return
+        end if
+        
         ! in the future, considering extracting also the matrix crack angle
         ! w.r.t the shell plane, and partition both the top and the bot surfs
       end if
@@ -1021,6 +1050,13 @@ use global_toolkit_module,  only : crack_elem_centroid2d, crack_elem_cracktip2d
           emsg = trim(emsg)//trim(msgloc)
           return
         end if
+        
+        if ((jbe2 <= 0) .or. (jbe1 == jbe2)) then
+          istat = STAT_FAILURE
+          emsg  = 'wrong broken edge from cracktip'//trim(msgloc)
+          return
+        end if
+        
         ! in the future, consider adding here the algorithm to find the top surf
         ! jbe2 crackpoint according to the fracture plane
       end if
@@ -1666,7 +1702,6 @@ use global_toolkit_module,    only : assembleKF
     call integrate(elem%intact_elem, nodes(INTACT_ELEM_NODES), ply_angle, lam_mat, &
     & Ki, Fi, istat, emsg, nofail)
     if (istat == STAT_FAILURE) then
-      call clean_up (Ki, Fi)
       return
     end if
 
@@ -1674,11 +1709,9 @@ use global_toolkit_module,    only : assembleKF
     call assembleKF(K_matrix, F_vector, Ki, Fi, INTACT_ELEM_NODES, NDIM, &
     & istat, emsg)
     if (istat == STAT_FAILURE) then
-      call clean_up (Ki, Fi)
       return
     end if
 
-    call clean_up (Ki, Fi)
   end subroutine integrate_assemble_intact_elem
 
 
@@ -1703,7 +1736,6 @@ use global_toolkit_module,    only : assembleKF
         call integrate (elem%subBulks(isub), nodes(elem%subBulks_nodes(isub)%array), &
         & ply_angle, lam_mat, Ki, Fi, istat, emsg, nofail)
         if (istat == STAT_FAILURE) then
-          call clean_up (Ki, Fi)
           return
         end if
 
@@ -1711,13 +1743,11 @@ use global_toolkit_module,    only : assembleKF
         call assembleKF(K_matrix, F_vector, Ki, Fi, &
         & elem%subBulks_nodes(isub)%array, NDIM, istat, emsg)
         if (istat == STAT_FAILURE) then
-          call clean_up (Ki, Fi)
           return
         end if
 
     end do
 
-    call clean_up (Ki, Fi)
   end subroutine integrate_assemble_subBulks
 
 
@@ -1726,8 +1756,8 @@ use global_toolkit_module,    only : assembleKF
     type(fBrickPly_elem),     intent(inout) :: elem
     type(fnode),              intent(in)    :: nodes(NNODE)
     type(cohesive_material),  intent(in)    :: coh_mat
-    real(DP),                 intent(out)   :: K_matrix(NDOF,NDOF)
-    real(DP),                 intent(out)   :: F_vector(NDOF)
+    real(DP),                 intent(inout) :: K_matrix(NDOF,NDOF)
+    real(DP),                 intent(inout) :: F_vector(NDOF)
     integer,                  intent(out)   :: istat
     character(len=MSGLENGTH), intent(out)   :: emsg
     logical,                  intent(in)    :: nofail
@@ -1738,7 +1768,6 @@ use global_toolkit_module,    only : assembleKF
     call integrate (elem%cohCrack, nodes(elem%cohCrack_nodes%array), &
     & coh_mat, Ki, Fi, istat, emsg, nofail)
     if (istat == STAT_FAILURE) then
-      call clean_up (Ki, Fi)
       return
     end if
 
@@ -1746,11 +1775,9 @@ use global_toolkit_module,    only : assembleKF
     call assembleKF(K_matrix, F_vector, Ki, Fi, elem%cohCrack_nodes%array, &
     & NDIM, istat, emsg)
     if (istat == STAT_FAILURE) then
-      call clean_up (Ki, Fi)
       return
     end if
 
-    call clean_up (Ki, Fi)
   end subroutine integrate_assemble_cohCrack
 
 

@@ -81,7 +81,7 @@ use fBrickLam_elem_module, only: extract
   i=0
 
   ! format parameters
-  FMATKINC  = 'i5.5' ! for increment no.
+  FMATKINC  = 'i10.10' ! for increment no.
   FMATNNODE = 'i10'  ! for node no.
   FMATNELEM = 'i10'  ! for elem no.
   FMATFSTAT = 'i2'   ! for fstat variable format (2 digits would suffice)

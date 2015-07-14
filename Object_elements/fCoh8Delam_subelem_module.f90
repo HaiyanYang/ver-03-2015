@@ -47,7 +47,7 @@ module fCoh8Delam_subelem_module
 !
 
 ! load the modules and entities used for derived type declaration only
-use parameter_module,       only : NDIM, DP, ZERO, INT_ALLOC_ARRAY, NST_COHESIVE
+use parameter_module,       only : NDIM, DP, ZERO, INT_ALLOC_ARRAY, NST_COHESIVE, INTACT
 use abstDelam_elem_module,  only : abstDelam_elem
 
 implicit none
@@ -209,7 +209,7 @@ use parameter_module, only : MSGLENGTH, STAT_FAILURE, STAT_SUCCESS,&
   end if
   
   ! check the no. of broken edges; only accepts TWO cracked edges
-  n_crackedges = count (top_edge_status > TRANSITION_EDGE)
+  n_crackedges = count (top_edge_status > INTACT)
   if (n_crackedges /= 2) then
     istat = STAT_FAILURE
     emsg  = 'no. of cracked edges must be TWO,'//trim(msgloc)
@@ -379,7 +379,7 @@ use global_toolkit_module, only : distance, partition_quad_elem
   ! find the no. of broken edges, and store their local indices in the array
   ! crack_edges
   do j = 1, NEDGE_SURF
-    if (el%top_edge_status(j) > TRANSITION_EDGE) then
+    if (el%top_edge_status(j) > INTACT) then
       n_crackedges = n_crackedges + 1
       crack_edges(n_crackedges) = j
     end if
@@ -549,7 +549,7 @@ use fnode_module,     only : fnode, operator(+), operator(*)
 
   do j = 1, NEDGE_SURF
     ! if this top edge is not cracked, cycle to the next
-    if (el%top_edge_status(j) <= TRANSITION_EDGE) cycle
+    if (el%top_edge_status(j) == INTACT) cycle
     ! extract the local index of the cracked top edge
     Icrackedge  = j
     ! find the internal node on the corresponding
@@ -729,7 +729,7 @@ use parameter_module, only : DP, ZERO, ONE, TRANSITION_EDGE
   ! condensation
   do j = 1, NEDGE_SURF
     ! if this top edge is not cracked, cycle to the next
-    if (el%top_edge_status(j) <= TRANSITION_EDGE) cycle
+    if (el%top_edge_status(j) == INTACT) cycle
     ! extract the local index of the cracked top edge
     Icrackedge  = j
     ! find the internal node on the corresponding

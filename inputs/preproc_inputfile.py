@@ -271,9 +271,9 @@ for jp in jparts:
                     else:
                         parts[-1].elems[-1].nodes.extend([fn2,fn1])
     
-    #check elem correctness
-    for el in parts[-1].elems:
-        print(str(el.index)+','+str(el.nodes)+','+str(el.edges))
+    ##check elem correctness
+    #for el in parts[-1].elems:
+    #    print(str(el.index)+','+str(el.nodes)+','+str(el.edges))
     ##check NtN
     #print(str(parts[-1].NtN))
 
@@ -383,13 +383,13 @@ for ja in jassemblies:
     
     # read elsets in this assembly (NOT YET SUPPORTED)
 
-    # check assembly correctness
-    print(assemblies[-1].name)
-    print(assemblies[-1].instances[-1].name)
-    for m in assemblies[-1].nsets:
-        print(m.name)
-        print(str(m.rnodes))
-        print(str(m.edges))
+    ## check assembly correctness
+    #print(assemblies[-1].name)
+    #print(assemblies[-1].instances[-1].name)
+    #for m in assemblies[-1].nsets:
+    #    print(m.name)
+    #    print(str(m.rnodes))
+    #    print(str(m.edges))
 
 
 #==================================================
@@ -413,7 +413,7 @@ for jb in jbcds:
         bcds.append(bline)
         # find the nsets involved in this bline (future)
         # find the edges involved in this bline (future)
-print(bcds)
+#print(bcds)
 
 
 #==================================================
@@ -422,7 +422,7 @@ print(bcds)
 #==================================================
 step = []
 step.extend(All_lines[jdash:])
-print(step)
+#print(step)
 
 
 

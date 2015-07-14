@@ -230,7 +230,7 @@ use fCoh8Delam_subelem_module, only : set
 
   ! check the no. of broken edges; only accepts TWO cracked edges, as this is
   ! the final partition from the ply element
-  n_crackedges = count (ply_edge_status > TRANSITION_EDGE)
+  n_crackedges = count (ply_edge_status > INTACT)
   if (n_crackedges /= 2) then
     istat = STAT_FAILURE
     emsg  = 'no. of cracked edges must be TWO,'//trim(msgloc)

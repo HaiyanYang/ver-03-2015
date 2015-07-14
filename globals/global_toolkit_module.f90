@@ -695,6 +695,8 @@ contains
     real(DP) :: theta, crack_unit_vect(2)
     real(DP) :: coords_crack(2,2), coords_edge(2,2), cross_point(2)
     integer  :: n_crack_edge, cross_stat, crack_edge_IDs(2)
+    real(DP) :: projection, maxprojection, minprojection, test_line(2)
+    logical  :: is_zero_vect
 
     integer :: i, j
 
@@ -710,9 +712,14 @@ contains
     coords_crack = ZERO
     coords_edge  = ZERO
     cross_point  = ZERO
+    projection   = ZERO
+    maxprojection= ZERO
+    minprojection= ZERO
+    test_line    = ZERO
     cross_stat     = 0
     n_crack_edge   = 0
     crack_edge_IDs = 0
+    is_zero_vect   = .false.
     i=0; j=0
 
     ! check validity of inputs: nedge, crack_angle, coords, nodes_on_edges
@@ -775,14 +782,96 @@ contains
 
     ! check if indeed two cracked edges have been found; if not, then the elem
     ! is likely to be poorly shaped, flag an error, clean up and return
-    if (n_crack_edge /= 2) then
+    !~if (n_crack_edge /= 2) then
+    !~  istat = STAT_FAILURE
+    !~  emsg  = 'two cracked edges cannot be found, element is likely to be &
+    !~  &poorly shaped, crack_elem_centroid2d, global_toolkit_module'
+    !~  ! clean up intent out variable before error exit
+    !~  edge_crack_points = ZERO
+    !~  return
+    !~end if
+
+    select case(n_crack_edge)
+    ! if two edges are found, then continue to return
+    case (2)
+      continue
+    ! if only one edge is found, then use an edge midpoint to estimate the other
+    case (1)
+      ! initialize projection
+      projection = ZERO
+      ! 1st crack point already found
+      coords_crack(:,1) = edge_crack_points(:,1)
+      do i = 1, nedge
+        ! if it is the cracked edge, go to the next edge
+        if (i == crack_edge_IDs(1)) cycle
+        ! the two end nodes' coords of edge i
+        coords_edge(:, 1) = coords(:, nodes_on_edges(1,i))
+        coords_edge(:, 2) = coords(:, nodes_on_edges(2,i))
+        ! set the temp. 2nd crack point to be the midpoint of this edge
+        coords_crack(:,2) = HALF * ( coords_edge(:, 1) + coords_edge(:, 2) )
+        test_line(:)      = coords_crack(:,2) - coords_crack(:,1)
+        ! normalize the test_line vector
+        call normalize_vect (test_line, is_zero_vect)
+        ! if it is too short, then go to the next edge
+        if (is_zero_vect) cycle
+        ! update projection and 2nd crack_edge_ID & edge crack point
+        if (abs(dot_product(test_line,crack_unit_vect)) > projection) then
+          projection             = abs(dot_product(test_line,crack_unit_vect))
+          crack_edge_IDs(2)      = i
+          edge_crack_points(:,2) = coords_crack(:,2)
+          n_crack_edge           = 2
+        end if
+      end do
+      ! if still cannot find the second crack edge, then this elem is wrongly shaped
+      if (n_crack_edge == 1) then
+        istat = STAT_FAILURE
+        emsg  = 'midpoint of 2nd cracked edge cannot be found, element is likely to be &
+        & very poorly shaped, crack_elem_centroid2d, global_toolkit_module'
+        return
+      end if
+    ! if none is found, then use two edge midpoints to estimate two crack points
+    case (0)
+      ! initialize projections
+      maxprojection = ZERO
+      minprojection = ZERO
+      ! start point of test line at centroid
+      coords_crack(:,1) = centroid(:)
+      do i = 1, nedge
+        ! the two end nodes' coords of edge i
+        coords_edge(:, 1) = coords(:, nodes_on_edges(1,i))
+        coords_edge(:, 2) = coords(:, nodes_on_edges(2,i))
+        ! set the temp. 2nd crack point to be the midpoint of this edge
+        coords_crack(:,2) = HALF * ( coords_edge(:, 1) + coords_edge(:, 2) )
+        test_line(:)      = coords_crack(:,2) - coords_crack(:,1)
+        ! normalize the test_line vector
+        call normalize_vect (test_line, is_zero_vect)
+        ! if it is too short, then go to the next edge
+        if (is_zero_vect) cycle
+        ! update projections, crack_edge_IDs & edge crack points
+        if (dot_product(test_line,crack_unit_vect) > maxprojection) then
+          maxprojection          = dot_product(test_line,crack_unit_vect)
+          crack_edge_IDs(1)      = i
+          edge_crack_points(:,1) = coords_crack(:,2)
+        else if (dot_product(test_line,crack_unit_vect) < minprojection) then
+          minprojection          = dot_product(test_line,crack_unit_vect)
+          crack_edge_IDs(2)      = i
+          edge_crack_points(:,2) = coords_crack(:,2)
+        end if
+      end do
+      ! if still cannot find the second crack edge, then this elem is wrongly shaped
+      if (count(crack_edge_IDs>0) /= 2) then
+        istat = STAT_FAILURE
+        emsg  = '2 midpoints of cracked edge cannot be found, element is likely to be &
+        & very poorly shaped, crack_elem_centroid2d, global_toolkit_module'
+        return
+      end if
+    ! error
+    case default
       istat = STAT_FAILURE
-      emsg  = 'two cracked edges cannot be found, element is likely to be &
-      &poorly shaped, crack_elem_centroid2d, global_toolkit_module'
-      ! clean up intent out variable before error exit
-      edge_crack_points = ZERO
+      emsg  = 'unexpected n_crack_edge no. in crack_elem_centroid2d, global_toolkit_module'
       return
-    end if
+    end select
+
 
     ! update optional intent out dummy arg only before successful return
     if (present(crack_edge_indices)) crack_edge_indices = crack_edge_IDs
@@ -835,6 +924,8 @@ contains
     real(DP) :: coords_crack(2,2), coords_edge(2,2), cross_point(2)
     integer  :: n_crack_edge, cross_stat, crack_edge_ID
     character(len=MSGLENGTH) :: msgloc
+    real(DP) :: projection, test_line(2)
+    logical  :: is_zero_vect
 
     integer :: i, j
 
@@ -853,6 +944,9 @@ contains
     n_crack_edge   = 0
     crack_edge_ID  = 0
     msgloc = ' crack_elem_cracktip2d, global_toolkit_module.'
+    projection = ZERO
+    test_line  = ZERO
+    is_zero_vect = .false.
     i=0; j=0
 
     ! check validity of inputs: nedge, crack_angle, coords, nodes_on_edges
@@ -915,16 +1009,61 @@ contains
 
     !**** END MAIN CALCULATIONS ****
 
-    ! check if indeed ONE cracked edge has been found; if not, then the elem
-    ! is likely to be poorly shaped, flag an error, clean up and return
-    if (n_crack_edge /= 1) then
+    !~! check if indeed ONE cracked edge has been found; if not, then the elem
+    !~! is likely to be poorly shaped, flag an error, clean up and return
+    !~if (n_crack_edge /= 1) then
+    !~  istat = STAT_FAILURE
+    !~  emsg  = 'Another cracked edge cannot be found, element is likely to be &
+    !~  &poorly shaped,'//trim(msgloc)
+    !~  ! clean up intent out variable before error exit
+    !~  edge_crack_point = ZERO
+    !~  return
+    !~end if
+    
+    select case(n_crack_edge)
+    ! if the other edge is found, then continue to return
+    case (1)
+      continue
+    ! if the other edge cannot be found, then use an edge midpoint to estimate the other
+    case (0)
+      ! initialize projection
+      projection = ZERO
+      ! 1st crack point already found
+      coords_crack(:,1) = cracktip_point(:)
+      do i = 1, nedge
+        ! if it is the cracked edge, go to the next edge
+        if (i == cracktip_edge_index) cycle
+        ! the two end nodes' coords of edge i
+        coords_edge(:, 1) = coords(:, nodes_on_edges(1,i))
+        coords_edge(:, 2) = coords(:, nodes_on_edges(2,i))
+        ! set the temp. 2nd crack point to be the midpoint of this edge
+        coords_crack(:,2) = HALF * ( coords_edge(:, 1) + coords_edge(:, 2) )
+        test_line(:)      = coords_crack(:,2) - coords_crack(:,1)
+        ! normalize the test_line vector
+        call normalize_vect (test_line, is_zero_vect)
+        ! if it is too short, then go to the next edge
+        if (is_zero_vect) cycle
+        ! update projection and 2nd crack_edge_ID & edge crack point
+        if (abs(dot_product(test_line,crack_unit_vect)) > projection) then
+          projection          = abs(dot_product(test_line,crack_unit_vect))
+          crack_edge_ID       = i
+          edge_crack_point(:) = coords_crack(:,2)
+          n_crack_edge        = 1
+        end if
+      end do
+      ! if still cannot find the second crack edge, then this elem is wrongly shaped
+      if (n_crack_edge == 0) then
+        istat = STAT_FAILURE
+        emsg  = 'midpoint of 2nd cracked edge cannot be found, element is likely to be &
+        & very poorly shaped,'//trim(msgloc)
+        return
+      end if
+    ! error
+    case default
       istat = STAT_FAILURE
-      emsg  = 'Another cracked edge cannot be found, element is likely to be &
-      &poorly shaped,'//trim(msgloc)
-      ! clean up intent out variable before error exit
-      edge_crack_point = ZERO
+      emsg  = 'unexpected n_crack_edge no.,'//trim(msgloc)
       return
-    end if
+    end select
 
     ! update optional intent out dummy arg only before successful return
     if (present(crack_edge_index)) crack_edge_index = crack_edge_ID
@@ -1046,7 +1185,7 @@ contains
               case (1)
                   e1=1; e2=2; e3=3; e4=4
               case (2)
-                  e1=2; e3=3; e3=4; e4=1
+                  e1=2; e2=3; e3=4; e4=1
               case (3)
                   e1=3; e2=4; e3=1; e4=2
               case (4)

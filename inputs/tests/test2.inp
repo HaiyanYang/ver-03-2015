@@ -7,18 +7,18 @@
 **
 *Part, name=PART-1-MESH-1
 *Node
-1, -1.0, -1.0, -0.25
-2, 1.0, -1.0, -0.25
-3, -1.0, 0.0, -0.25
-4, 1.0, 0.0, -0.25
-5, -1.0, 1.0, -0.25
-6, 1.0, 1.0, -0.25
-7, -1.0, -1.0, 0.25
-8, 1.0, -1.0, 0.25
-9, -1.0, 0.0, 0.25
-10, 1.0, 0.0, 0.25
-11, -1.0, 1.0, 0.25
-12, 1.0, 1.0, 0.25
+1, -1.0, -1.0, -0.125
+2, 1.0, -1.0, -0.125
+3, -1.0, 0.0, -0.125
+4, 1.0, 0.0, -0.125
+5, -1.0, 1.0, -0.125
+6, 1.0, 1.0, -0.125
+7, -1.0, -1.0, 0.125
+8, 1.0, -1.0, 0.125
+9, -1.0, 0.0, 0.125
+10, 1.0, 0.0, 0.125
+11, -1.0, 1.0, 0.125
+12, 1.0, 1.0, 0.125
 *Element, type=C3D8
 1, 1, 2, 4, 3, 7, 8, 10, 9
 2, 3, 4, 6, 5, 9, 10, 12, 11
@@ -36,26 +36,34 @@
  1, 2, 3, 4, 5, 6
 *Nset, nset=FRONT, instance=PART-1-MESH-1-1
  7, 8, 9, 10, 11, 12
+*Nset, nset=TOP, instance=PART-1-MESH-1-1
+ 5, 6, 11, 12
+*Nset, nset=BOTTOM, instance=PART-1-MESH-1-1
+ 1, 2, 7, 8
 *End Assembly
 ** 
 ** BOUNDARY CONDITIONS
 ** 
 ** Name: Disp-BC-2 Type: Displacement/Rotation
 *Boundary
-BACK, 3, 3
+BOTTOM, 3, 3
+BOTTOM, 2, 2
+BOTTOM, 1, 1
+TOP, 3, 3
+TOP, 1, 1
 ** ----------------------------------------------------------------
 ** 
 ** STEP: tension
 ** 
 *Step, name=tension
 *Static
-0.001, 0.02, 1e-07, 0.001
+0.01, 0.2, 1e-07, 0.01
 ** 
 ** BOUNDARY CONDITIONS
 ** 
 ** Name: Vel-BC-1 Type: Velocity/Angular velocity
 *Boundary, type=VELOCITY
-FRONT, 3, 3, 1.
+TOP, 2, 2, 1.
 ** 
 ** CONTROLS
 ** 

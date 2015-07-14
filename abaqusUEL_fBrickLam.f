@@ -240,11 +240,11 @@ use output_module
   !~! debug, check the input to elem
   !~call output(kstep,jelem*1000+kinc,outdir)
 
-  !~! debug
-  !~! open a file 
-  !~open(110, file=trim(outdir)//'record.dat', status="replace", action="write")
-  !~write(110,'(1X, a)')'reach mark 2'
-  !~close(110)
+  ! debug
+  ! open a file 
+  open(110, file=trim(outdir)//'record.dat', status="replace", action="write")
+  write(110,'(1X, a)')'reach mark 2'
+  close(110)
 
   ! integrate this element. elem_list(jelem)
   call integrate (elem_list(jelem), nodes, layup, UDSinglePly_material, &
@@ -269,10 +269,10 @@ use output_module
   ! update to global lists
   node_list(node_cnc) = nodes
   
-  !~! open a file 
-  !~open(110, file=trim(outdir)//'record.dat', status="replace", action="write")
-  !~write(110,'(1X, a)')'reach mark 4'
-  !~close(110)
+  ! open a file 
+  open(110, file=trim(outdir)//'record.dat', status="replace", action="write")
+  write(110,'(1X, a)')'reach mark 4'
+  close(110)
 
   ! in the end, pass Kmat and Fvec to Abaqus UEL amatrx and rhs
   amatrx   =  Kmat
