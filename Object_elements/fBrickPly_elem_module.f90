@@ -178,12 +178,12 @@ use coh8Crack_elem_module,  only : extract
       nsub = size(elem%subBulks)
       ! allocate 8 nodes per sub elem
       allocate(bulks_nodes(8,nsub))
+      ! initialize bulks_nodes
+      bulks_nodes = 0
       do i = 1, nsub
         subnnd = size(elem%subBulks_nodes(i)%array)
         ! copy the node no. of subelem to arg. array
         bulks_nodes(1:subnnd,i) = elem%subBulks_nodes(i)%array(:)
-        ! if less than 8 nodes, then fill the rest nodes with the last node no.
-        if (subnnd < 8) bulks_nodes(subnnd+1:8,i) = bulks_nodes(subnnd,i)
       end do
     ! if not, allocate and assign intact elem nodes to bulks_nodes array
     else

@@ -354,17 +354,21 @@ use fBrickLam_elem_module, only: extract
           do i = 1, nsub
             select case(trim(adjustl(wflag)))
             case('nelem')
-                if (size(elnodes(:,i)) == 8) then
+                if (count(elnodes(:,i)>0) == 8) then
                   nbrick = nbrick + 1
+                else if (count(elnodes(:,i)>0) == 6) then
+                  nwedge = nwedge + 1
                 else
                   write(MSG_FILE,*) 'unexpected no. of nodes in output!'
                   call EXIT_FUNCTION
                 end if
             case('connec')
-                call wconnec( elem_node_connec( elnodes(:,i) , nfl) )
+                call wconnec( elem_node_connec( pack(elnodes(:,i),elnodes(:,i)>0) , nfl) )
             case('eltype')
-                if (size(elnodes(:,i)) == 8) then
+                if (count(elnodes(:,i)>0) == 8) then
                   write(outunit,'(i2)') 12 ! 12 for brick
+                else if (count(elnodes(:,i)>0) == 6) then
+                  write(outunit,'(i2)') 13 ! 13 for wedge
                 else
                   write(MSG_FILE,*) 'unexpected no. of nodes in output!'
                   call EXIT_FUNCTION
@@ -397,8 +401,8 @@ use fBrickLam_elem_module, only: extract
       integer, intent(in) :: connec(:)
       integer :: j
       ! print connec in vtk; note that in vtk node no. starts from 0
-      write(outunit,'('//FMATNNODE//')',advance="no") size(connec)
-      do j = 1, size(connec)
+      write(outunit,'('//FMATNNODE//')',advance="no") count(connec>0)
+      do j = 1, count(connec>0)
           write(outunit,'('//FMATNNODE//')',advance="no") connec(j)-1
       end do
       write(outunit,'(a)')''

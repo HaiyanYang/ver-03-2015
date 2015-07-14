@@ -110,6 +110,14 @@ use fCoh8Delam_elem_module, only: extract
   allocate(df(nel))
   allocate(dm(nel))
   allocate(dd(nel))
+  elnodes = 0
+  stress  = ZERO
+  strain  = ZERO
+  tau     = ZERO
+  delta   = ZERO
+  df      = ZERO
+  dm      = ZERO
+  dd      = ZERO
   
   !---- set initial elem index ----
   iel = 0

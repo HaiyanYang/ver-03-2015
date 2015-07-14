@@ -136,10 +136,10 @@ use abstDelam_elem_module,  only : extract
   if(present(subelems_nodes)) then
     nsub = size(elem%subelems)
     allocate(subelems_nodes(8,nsub))
+    subelems_nodes = 0
     do i = 1, nsub
       nnd = size(elem%subelems_nodes(i)%array)
       subelems_nodes(1:nnd,i) = elem%subelems_nodes(i)%array(:)
-      if (nnd < 8) subelems_nodes(nnd+1:8,i) = subelems_nodes(nnd,i) 
     end do
   end if
   
